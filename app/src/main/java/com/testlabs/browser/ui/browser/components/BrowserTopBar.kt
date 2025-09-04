@@ -49,7 +49,7 @@ fun BrowserTopBar(
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(shouldFocusUrlInput) {
+    LaunchedEffect(key1 = shouldFocusUrlInput) {
         if (shouldFocusUrlInput) focusRequester.requestFocus()
     }
 
@@ -57,7 +57,7 @@ fun BrowserTopBar(
         onSubmit()
         focusManager.clearFocus()
     }
-    val handleClear = {
+    val handleClear: () -> Unit = {
         onUrlChanged("")
         focusRequester.requestFocus()
     }
@@ -65,11 +65,16 @@ fun BrowserTopBar(
     TopAppBar(
         title = {
             OutlinedTextField(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = dimensionResource(id = R.dimen.browser_topbar_horizontal_padding))
+                    .padding(vertical = dimensionResource(id = R.dimen.browser_topbar_vertical_padding))
+                    .focusRequester(focusRequester),
                 value = url,
                 onValueChange = onUrlChanged,
                 placeholder = {
                     androidx.compose.material3.Text(
-                        text = stringResource(R.string.browser_url_placeholder),
+                        text = stringResource(id = R.string.browser_url_placeholder),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -79,29 +84,25 @@ fun BrowserTopBar(
                         CompositionLocalProvider(value = LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                             IconButton(
                                 onClick = handleClear,
-                                modifier = Modifier.size(dimensionResource(R.dimen.browser_clear_icon_size))
+                                modifier = Modifier.size(size =dimensionResource(id  =R.dimen.browser_clear_icon_size))
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Clear,
-                                    contentDescription = stringResource(R.string.browser_clear_search),
+                                    contentDescription = stringResource(id = R.string.browser_clear_search),
                                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                 )
                             }
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = dimensionResource(R.dimen.browser_topbar_vertical_padding))
-                    .focusRequester(focusRequester),
                 textStyle = MaterialTheme.typography.bodyMedium,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Go
+                    imeAction = ImeAction.Go,
                 ),
                 keyboardActions = KeyboardActions(onGo = { handleSubmit() }),
-                shape = RoundedCornerShape(dimensionResource(R.dimen.browser_pill_radius)),
+                shape = RoundedCornerShape(size = dimensionResource(id = R.dimen.browser_pill_radius)),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -114,11 +115,11 @@ fun BrowserTopBar(
             CompositionLocalProvider(value = LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                 IconButton(
                     onClick = onMenuClick,
-                    modifier = Modifier.size(dimensionResource(R.dimen.browser_menu_icon_size)),
+                    modifier = Modifier.size(size = dimensionResource(id = R.dimen.browser_menu_icon_size)),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.MoreVert,
-                        contentDescription = stringResource(R.string.browser_menu),
+                        contentDescription = stringResource(id = R.string.browser_menu),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
