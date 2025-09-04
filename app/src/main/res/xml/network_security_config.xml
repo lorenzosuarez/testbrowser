@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<network-security-config>
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
     <!-- Allow cleartext traffic for local development -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">localhost</domain>
@@ -15,7 +15,8 @@
             <!-- Trust system certificates -->
             <certificates src="system"/>
             <!-- Trust user-added certificates for debugging -->
-            <certificates src="user"/>
+            <certificates src="user"
+                tools:ignore="AcceptsUserCertificates" />
         </trust-anchors>
     </base-config>
 

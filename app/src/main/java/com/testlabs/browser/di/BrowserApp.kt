@@ -1,5 +1,6 @@
 package com.testlabs.browser.di
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.os.StrictMode
 import org.koin.android.ext.koin.androidContext
@@ -33,11 +34,12 @@ public class BrowserApp : Application() {
         }
     }
 
+    @SuppressLint("SetJavaScriptEnabled")
     private fun initializeWebView() {
         try {
             // Initialize WebView on main thread to prevent variations seed errors
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                val processName = android.app.Application.getProcessName()
+                val processName = getProcessName()
                 if (packageName != processName) {
                     android.webkit.WebView.setDataDirectorySuffix(processName)
                 }
