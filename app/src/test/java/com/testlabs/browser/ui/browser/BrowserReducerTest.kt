@@ -1,6 +1,10 @@
 package com.testlabs.browser.ui.browser
 
 import com.testlabs.browser.core.ValidatedUrl
+import com.testlabs.browser.presentation.browser.BrowserEffect
+import com.testlabs.browser.presentation.browser.BrowserIntent
+import com.testlabs.browser.presentation.browser.BrowserReducer
+import com.testlabs.browser.presentation.browser.BrowserState
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -24,7 +28,7 @@ class BrowserReducerTest {
         assertEquals(url.value, newState.inputUrl)
         assertNull(newState.errorMessage)
         assertTrue(effect is BrowserEffect.LoadUrl)
-        assertEquals(url, (effect as BrowserEffect.LoadUrl).url)
+        assertEquals(url, effect.url)
     }
 
     @Test
@@ -108,6 +112,6 @@ class BrowserReducerTest {
         assertEquals(errorMessage, newState.errorMessage)
         assertEquals(false, newState.isLoading)
         assertTrue(effect is BrowserEffect.ShowMessage)
-        assertEquals(errorMessage, (effect as BrowserEffect.ShowMessage).message)
+        assertEquals(errorMessage, effect.message)
     }
 }

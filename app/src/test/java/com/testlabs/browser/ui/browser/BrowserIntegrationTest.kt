@@ -1,5 +1,7 @@
 package com.testlabs.browser.ui.browser
 
+import com.testlabs.browser.presentation.browser.BrowserIntent
+import com.testlabs.browser.presentation.browser.BrowserViewModel
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -17,7 +19,8 @@ class BrowserIntegrationTest {
     @Test
     fun `complete navigation flow updates state correctly`() = runTest {
         // Start page loading
-        viewModel.handleIntent(BrowserIntent.PageStarted(
+        viewModel.handleIntent(
+            BrowserIntent.PageStarted(
             com.testlabs.browser.core.ValidatedUrl.fromInput("example.com")
         ))
 

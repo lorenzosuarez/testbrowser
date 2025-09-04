@@ -8,11 +8,12 @@ plugins {
 
 android {
     namespace = "com.testlabs.browser"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.testlabs.browser"
         minSdk = 26
+        //noinspection OldTargetApi
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -73,50 +74,50 @@ android {
 
 dependencies {
     // AndroidX Core
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+    implementation(libs.androidx.core.ktx.v1170)
+    implementation(libs.androidx.lifecycle.runtime.ktx.v293)
+    implementation(libs.androidx.lifecycle.viewmodel.compose.v293)
 
     // Compose
-    implementation(platform("androidx.compose:compose-bom:2024.09.03"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.activity:activity-compose:1.9.2")
-    implementation("androidx.navigation:navigation-compose:2.8.2")
-    implementation("androidx.compose.animation:animation")
-    implementation("androidx.compose.material:material")
-    implementation("com.google.accompanist:accompanist-swiperefresh:0.36.0")
-    implementation("androidx.compose:compose-bom:2024.10.00")
+    implementation(platform(libs.compose.bom.v20250801))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.activity.compose.v1101)
+    implementation(libs.androidx.navigation.compose.v293)
+    implementation(libs.androidx.animation)
+    implementation(libs.androidx.material)
+    implementation(libs.accompanist.swiperefresh)
+    implementation(platform(libs.compose.bom.v20250801))
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation(libs.kotlinx.coroutines.android.v1102)
 
     // Dependency Injection - Use stable Koin version
-    implementation("io.insert-koin:koin-android:3.5.6")
-    implementation("io.insert-koin:koin-androidx-compose:3.5.6")
+    implementation(libs.koin.android.v356)
+    implementation(libs.koin.androidx.compose.v356)
 
     // Image Loading
-    implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation(libs.coil.compose)
 
 
     // Debug
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
 
     // Testing
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
-    testImplementation("app.cash.turbine:turbine:1.1.0")
-    testImplementation("io.mockk:mockk:1.13.12")
-    testImplementation("io.insert-koin:koin-test:3.5.6")
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test.v1102)
+    testImplementation(libs.turbine.v121)
+    testImplementation(libs.mockk.v1145)
+    testImplementation(libs.koin.test.v356)
 
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    androidTestImplementation("androidx.test:core:1.6.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.09.03"))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation(libs.androidx.junit.v130)
+    androidTestImplementation(libs.androidx.espresso.core.v370)
+    androidTestImplementation(libs.androidx.core.v170)
+    androidTestImplementation(platform(libs.compose.bom.v20250801))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
 }
 
 detekt {

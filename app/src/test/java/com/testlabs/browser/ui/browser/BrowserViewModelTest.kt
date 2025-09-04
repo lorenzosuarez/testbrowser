@@ -2,6 +2,9 @@ package com.testlabs.browser.ui.browser
 
 import app.cash.turbine.test
 import com.testlabs.browser.core.ValidatedUrl
+import com.testlabs.browser.presentation.browser.BrowserEffect
+import com.testlabs.browser.presentation.browser.BrowserIntent
+import com.testlabs.browser.presentation.browser.BrowserViewModel
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -35,7 +38,7 @@ class BrowserViewModelTest {
 
             val effect = awaitItem()
             assertTrue(effect is BrowserEffect.LoadUrl)
-            assertEquals("https://example.com", (effect as BrowserEffect.LoadUrl).url.value)
+            assertEquals("https://example.com", effect.url.value)
         }
     }
 
