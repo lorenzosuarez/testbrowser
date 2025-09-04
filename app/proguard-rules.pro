@@ -19,3 +19,29 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep WebView related classes
+-keep class android.webkit.** { *; }
+-keep class com.android.webview.** { *; }
+
+# Keep Koin related classes
+-keep class org.koin.** { *; }
+-keep interface org.koin.** { *; }
+
+# Keep Coil related classes for image loading
+-keep class coil.** { *; }
+-dontwarn coil.**
+
+# Keep model classes and value classes
+-keep class com.testlabs.browser.core.** { *; }
+-keep class com.testlabs.browser.ui.browser.BrowserState { *; }
+-keep class com.testlabs.browser.ui.browser.BrowserIntent* { *; }
+-keep class com.testlabs.browser.ui.browser.BrowserEffect* { *; }
+
+# Keep compose runtime classes
+-keep class androidx.compose.** { *; }
+-dontwarn androidx.compose.**
+
+# Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
