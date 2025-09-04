@@ -44,6 +44,7 @@ public fun WebViewHost(
     onTitleChanged: (String) -> Unit,
     onNavigationStateChanged: (Boolean, Boolean) -> Unit,
     onError: (String) -> Unit,
+    onUrlChanged: (String) -> Unit, // Nuevo callback para cambios de URL
     filePickerLauncher: ActivityResultLauncher<Intent>,
     uaProvider: UAProvider,
     config: WebViewConfig,
@@ -61,6 +62,7 @@ public fun WebViewHost(
             onTitleChanged = onTitleChanged,
             onNavigationStateChanged = onNavigationStateChanged,
             onError = onError,
+            onUrlChanged = onUrlChanged, // Pasar el nuevo callback
             filePickerLauncher = filePickerLauncher,
             uaProvider = uaProvider,
             config = config,
@@ -108,6 +110,7 @@ private fun createWebView(
     onTitleChanged: (String) -> Unit,
     onNavigationStateChanged: (Boolean, Boolean) -> Unit,
     onError: (String) -> Unit,
+    onUrlChanged: (String) -> Unit,
     filePickerLauncher: ActivityResultLauncher<Intent>,
     uaProvider: UAProvider,
     config: WebViewConfig,
@@ -115,7 +118,7 @@ private fun createWebView(
 ): WebView {
     return ObservableWebView(context, onScrollDelta).apply {
         configureSettings(uaProvider, config)
-        setupWebViewClient(onPageStarted, onPageFinished, onNavigationStateChanged, onError)
+        setupWebViewClient(onPageStarted, onPageFinished, onNavigationStateChanged, onError, onUrlChanged)
         setupWebChromeClient(onProgressChanged, onTitleChanged, filePickerLauncher)
         setupDownloadManager(context)
     }
@@ -174,7 +177,8 @@ private fun WebView.setupWebViewClient(
     onPageStarted: (String) -> Unit,
     onPageFinished: (String) -> Unit,
     onNavigationStateChanged: (Boolean, Boolean) -> Unit,
-    onError: (String) -> Unit
+    onError: (String) -> Unit,
+    onUrlChanged: (String) -> Unit
 ) {
     webViewClient = object : WebViewClient() {
         override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
@@ -186,6 +190,15 @@ private fun WebView.setupWebViewClient(
             super.onPageFinished(view, url)
             url?.let { onPageFinished(it) }
             view?.let { onNavigationStateChanged(it.canGoBack(), it.canGoForward()) }
+        }
+
+        override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+            super.doUpdateVisitedHistory(view, url, isReload)
+            // Capturar cambios de URL durante navegación (redirecciones, etc.)
+            url?.let {
+                onUrlChanged(it)
+                view?.let { v -> onNavigationStateChanged(v.canGoBack(), v.canGoForward()) }
+            }
         }
 
         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {

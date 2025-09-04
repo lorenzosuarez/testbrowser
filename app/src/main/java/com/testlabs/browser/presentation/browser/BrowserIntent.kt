@@ -97,4 +97,9 @@ public sealed interface BrowserIntent {
      * User confirmed the edited settings.
      */
     public data object ApplySettings : BrowserIntent
+
+    /**
+     * WebView URL changed during navigation (redirects, etc.)
+     */
+    public data class UrlChanged(val url: ValidatedUrl) : BrowserIntent
 }

@@ -68,6 +68,7 @@ public object BrowserReducer {
             is BrowserIntent.PageStarted -> {
                 state.copy(
                     url = intent.url,
+                    inputUrl = intent.url.value, // Sincronizar URL del WebView con el TextField
                     isLoading = true,
                     progress = 0f,
                     errorMessage = null
@@ -76,6 +77,8 @@ public object BrowserReducer {
 
             is BrowserIntent.PageFinished -> {
                 state.copy(
+                    url = intent.url,
+                    inputUrl = intent.url.value, // Mantener sincronización en PageFinished también
                     isLoading = false,
                     isPullToRefresh = false,
                     progress = 1f
@@ -143,6 +146,13 @@ public object BrowserReducer {
                 state.copy(
                     settingsCurrent = state.settingsDraft,
                     isSettingsDialogVisible = false,
+                ) to null
+            }
+
+            is BrowserIntent.UrlChanged -> {
+                state.copy(
+                    url = intent.url,
+                    inputUrl = intent.url.value
                 ) to null
             }
         }

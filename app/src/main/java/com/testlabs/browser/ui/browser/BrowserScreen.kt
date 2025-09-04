@@ -1,6 +1,7 @@
 package com.testlabs.browser.ui.browser
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -62,6 +63,11 @@ public fun BrowserScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var webController by remember { mutableStateOf<WebViewController?>(value = null) }
 
+    // Back handler del sistema para historial web
+    BackHandler(enabled = state.canGoBack) {
+        viewModel.handleIntent(BrowserIntent.GoBack)
+    }
+
     LaunchedEffect(state.shouldFocusUrlInput) {
         if (state.shouldFocusUrlInput) {
             topScroll.state.heightOffset = 0f
@@ -88,12 +94,13 @@ public fun BrowserScreen(
             val onTitleChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.TitleChanged(it)) }
             val onNavigationStateChanged: (Boolean, Boolean) -> Unit = { b, f -> viewModel.handleIntent(BrowserIntent.NavigationStateChanged(b, f)) }
             val onError: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.NavigationError(it)) }
+            val onUrlChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.UrlChanged(ValidatedUrl.fromValidUrl(it))) } // Para sincronización reactiva de URL
             val onControllerReady: (WebViewController) -> Unit = { webController = it }
             val onBack: () -> Unit = { viewModel.handleIntent(BrowserIntent.GoBack) }
             val onForward: () -> Unit = { viewModel.handleIntent(BrowserIntent.GoForward) }
             val onReload: () -> Unit = { viewModel.handleIntent(BrowserIntent.Reload) }
             val onNewTab: () -> Unit = { viewModel.handleIntent(BrowserIntent.NewTab) }
-            val onUrlChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.UpdateInputUrl(it)) }
+            val onUrlInputChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.UpdateInputUrl(it)) } // Para edición manual del TextField
             val onUrlSubmit: () -> Unit = { viewModel.submitUrl(state.inputUrl) }
         }
     }
@@ -106,7 +113,7 @@ public fun BrowserScreen(
             Column {
                 BrowserTopBar(
                     url = state.inputUrl,
-                    onUrlChanged = callbacks.onUrlChanged,
+                    onUrlChanged = callbacks.onUrlInputChanged, // Usar el callback correcto para edición manual
                     onSubmit = callbacks.onUrlSubmit,
                     onMenuClick = { viewModel.handleIntent(BrowserIntent.OpenSettings) },
                     scrollBehavior = topScroll,
@@ -137,6 +144,7 @@ public fun BrowserScreen(
             onTitleChanged = callbacks.onTitleChanged,
             onNavigationStateChanged = callbacks.onNavigationStateChanged,
             onError = callbacks.onError,
+            onUrlChanged = callbacks.onUrlChanged, // Agregar el callback para sincronización reactiva
             filePickerLauncher = filePickerLauncher,
             uaProvider = uaProvider,
             config = state.settingsCurrent,
