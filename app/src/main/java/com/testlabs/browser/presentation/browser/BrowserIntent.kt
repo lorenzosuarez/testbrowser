@@ -1,6 +1,7 @@
 package com.testlabs.browser.presentation.browser
 
 import com.testlabs.browser.core.ValidatedUrl
+import com.testlabs.browser.domain.settings.WebViewConfig
 
 /**
  * Sealed interface representing all possible user intents in the browser.
@@ -76,4 +77,24 @@ sealed interface BrowserIntent {
      * User wants to open a new tab (clear current page and focus URL input).
      */
     data object NewTab : BrowserIntent
+
+    /**
+     * User opened the settings dialog.
+     */
+    data object OpenSettings : BrowserIntent
+
+    /**
+     * User dismissed the settings dialog without applying changes.
+     */
+    data object CloseSettings : BrowserIntent
+
+    /**
+     * User modified the settings draft.
+     */
+    data class SettingsUpdated(val config: WebViewConfig) : BrowserIntent
+
+    /**
+     * User confirmed the edited settings.
+     */
+    data object ApplySettings : BrowserIntent
 }

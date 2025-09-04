@@ -19,11 +19,13 @@ import android.webkit.WebViewClient
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import com.testlabs.browser.domain.settings.WebViewConfig
 
 interface WebViewController {
     fun loadUrl(url: String)
@@ -44,6 +46,7 @@ fun WebViewHost(
     onError: (String) -> Unit,
     filePickerLauncher: ActivityResultLauncher<Intent>,
     uaProvider: UAProvider,
+    config: WebViewConfig,
     onControllerReady: (WebViewController) -> Unit,
     onScrollDelta: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -60,6 +63,7 @@ fun WebViewHost(
             onError = onError,
             filePickerLauncher = filePickerLauncher,
             uaProvider = uaProvider,
+            config = config,
             onScrollDelta = onScrollDelta
         )
     }
@@ -78,6 +82,10 @@ fun WebViewHost(
     }
 
     AndroidView(factory = { webView }, modifier = modifier)
+
+    LaunchedEffect(config) {
+        webView.applyConfig(config, uaProvider)
+    }
 }
 
 private class ObservableWebView(
@@ -101,19 +109,20 @@ private fun createWebView(
     onError: (String) -> Unit,
     filePickerLauncher: ActivityResultLauncher<Intent>,
     uaProvider: UAProvider,
+    config: WebViewConfig,
     onScrollDelta: (Int) -> Unit
 ): WebView {
     return ObservableWebView(context, onScrollDelta).apply {
-        configureSettings(uaProvider)
+        configureSettings(uaProvider, config)
         setupWebViewClient(onPageStarted, onPageFinished, onNavigationStateChanged, onError)
         setupWebChromeClient(onProgressChanged, onTitleChanged, filePickerLauncher)
         setupDownloadManager(context)
     }
 }
 
-private fun WebView.configureSettings(uaProvider: UAProvider) {
+private fun WebView.applyConfig(config: WebViewConfig, uaProvider: UAProvider) {
     settings.apply {
-        javaScriptEnabled = true
+        javaScriptEnabled = config.javascriptEnabled
         domStorageEnabled = true
         databaseEnabled = true
         allowFileAccess = true
@@ -127,13 +136,17 @@ private fun WebView.configureSettings(uaProvider: UAProvider) {
         setSupportZoom(true)
         builtInZoomControls = true
         displayZoomControls = false
-        userAgentString = uaProvider.getCurrentUserAgent()
+        userAgentString = uaProvider.userAgent(config.desktopMode)
         loadsImagesAutomatically = true
         blockNetworkImage = false
         blockNetworkLoads = false
         cacheMode = WebSettings.LOAD_DEFAULT
     }
     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+}
+
+private fun WebView.configureSettings(uaProvider: UAProvider, config: WebViewConfig) {
+    applyConfig(config, uaProvider)
 }
 
 private fun WebView.setupWebViewClient(

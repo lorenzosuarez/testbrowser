@@ -3,6 +3,7 @@ package com.testlabs.browser.presentation.browser
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.testlabs.browser.core.ValidatedUrl
+import com.testlabs.browser.domain.settings.BrowserSettingsRepository
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +15,12 @@ import kotlinx.coroutines.launch
  * ViewModel that orchestrates browser state management using MVI pattern.
  * Handles user intents, produces immutable states, and emits side effects.
  */
-class BrowserViewModel : ViewModel() {
+/**
+ * ViewModel orchestrating state and persistent configuration.
+ */
+class BrowserViewModel(
+    private val settingsRepository: BrowserSettingsRepository,
+) : ViewModel() {
 
     private val _state = MutableStateFlow(BrowserState())
 
@@ -40,6 +46,10 @@ class BrowserViewModel : ViewModel() {
 
             _state.value = newState
 
+            if (intent is BrowserIntent.ApplySettings) {
+                settingsRepository.save(newState.settingsCurrent)
+            }
+
             effect?.let { _effects.send(it) }
         }
     }
@@ -50,6 +60,17 @@ class BrowserViewModel : ViewModel() {
     fun submitUrl(inputUrl: String) {
         val validatedUrl = ValidatedUrl.fromInput(inputUrl)
         handleIntent(BrowserIntent.NavigateToUrl(validatedUrl))
+    }
+
+    init {
+        viewModelScope.launch {
+            settingsRepository.config.collect { config ->
+                _state.value = _state.value.copy(
+                    settingsCurrent = config,
+                    settingsDraft = config,
+                )
+            }
+        }
     }
 
     override fun onCleared() {

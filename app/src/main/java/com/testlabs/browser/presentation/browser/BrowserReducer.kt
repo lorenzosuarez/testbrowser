@@ -123,6 +123,28 @@ object BrowserReducer {
                     shouldFocusUrlInput = true
                 ) to BrowserEffect.LoadUrl(ValidatedUrl.fromInput("about:blank"))
             }
+
+            BrowserIntent.OpenSettings -> {
+                state.copy(
+                    isSettingsDialogVisible = true,
+                    settingsDraft = state.settingsCurrent,
+                ) to null
+            }
+
+            BrowserIntent.CloseSettings -> {
+                state.copy(isSettingsDialogVisible = false) to null
+            }
+
+            is BrowserIntent.SettingsUpdated -> {
+                state.copy(settingsDraft = intent.config) to null
+            }
+
+            BrowserIntent.ApplySettings -> {
+                state.copy(
+                    settingsCurrent = state.settingsDraft,
+                    isSettingsDialogVisible = false,
+                ) to null
+            }
         }
     }
 }

@@ -4,16 +4,16 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     namespace = "com.testlabs.browser"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.testlabs.browser"
         minSdk = 26
-        //noinspection OldTargetApi
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -46,7 +46,8 @@ android {
         freeCompilerArgs += listOf(
             "-opt-in=kotlin.RequiresOptIn",
             "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-Xjsr305=strict",
         )
     }
 
@@ -72,6 +73,10 @@ android {
     }
 }
 
+kotlin {
+    explicitApi()
+}
+
 dependencies {
     // AndroidX Core
     implementation(libs.androidx.core.ktx.v1170)
@@ -93,6 +98,10 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android.v1102)
+
+    // DataStore and serialization
+    implementation(libs.datastore)
+    implementation(libs.kotlinx.serialization.json)
 
     // Dependency Injection - Use stable Koin version
     implementation(libs.koin.android.v356)
