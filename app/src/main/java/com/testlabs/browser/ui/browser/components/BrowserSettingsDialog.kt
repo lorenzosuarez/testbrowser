@@ -23,7 +23,7 @@ import com.testlabs.browser.R
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserSettingsDialog(
+public fun BrowserSettingsDialog(
     config: WebViewConfig,
     onConfigChange: (WebViewConfig) -> Unit,
     onDismiss: () -> Unit,

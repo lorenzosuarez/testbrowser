@@ -5,14 +5,14 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Repository providing access to persistent browser configuration.
  */
-interface BrowserSettingsRepository {
+public interface BrowserSettingsRepository {
     /**
      * Observable stream of current configuration.
      */
-    val config: Flow<WebViewConfig>
+    public val config: Flow<WebViewConfig>
 
     /**
      * Persists the supplied configuration.
      */
-    suspend fun save(config: WebViewConfig)
+    public suspend fun save(config: WebViewConfig)
 }

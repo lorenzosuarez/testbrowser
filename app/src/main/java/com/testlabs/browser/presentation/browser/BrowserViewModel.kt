@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.testlabs.browser.core.ValidatedUrl
 import com.testlabs.browser.domain.settings.BrowserSettingsRepository
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +19,7 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel orchestrating state and persistent configuration.
  */
-class BrowserViewModel(
+public class BrowserViewModel(
     private val settingsRepository: BrowserSettingsRepository,
 ) : ViewModel() {
 
@@ -27,19 +28,19 @@ class BrowserViewModel(
     /**
      * Current browser state as immutable StateFlow.
      */
-    val state: StateFlow<BrowserState> = _state.asStateFlow()
+    public val state: StateFlow<BrowserState> = _state.asStateFlow()
 
     private val _effects = Channel<BrowserEffect>(Channel.UNLIMITED)
 
     /**
      * Side effects flow for handling WebView operations and UI events.
      */
-    val effects = _effects.receiveAsFlow()
+    public val effects: Flow<BrowserEffect> = _effects.receiveAsFlow()
 
     /**
      * Processes user intents and updates state accordingly.
      */
-    fun handleIntent(intent: BrowserIntent) {
+    public fun handleIntent(intent: BrowserIntent) {
         viewModelScope.launch {
             val currentState = _state.value
             val (newState, effect) = BrowserReducer.reduce(currentState, intent)
@@ -57,7 +58,7 @@ class BrowserViewModel(
     /**
      * Handles URL submission from the address bar.
      */
-    fun submitUrl(inputUrl: String) {
+    public fun submitUrl(inputUrl: String) {
         val validatedUrl = ValidatedUrl.fromInput(inputUrl)
         handleIntent(BrowserIntent.NavigateToUrl(validatedUrl))
     }

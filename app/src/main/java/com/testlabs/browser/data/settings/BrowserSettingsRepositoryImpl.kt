@@ -11,7 +11,7 @@ import java.io.IOException
 /**
  * [BrowserSettingsRepository] implementation backed by DataStore.
  */
-class BrowserSettingsRepositoryImpl(
+public class BrowserSettingsRepositoryImpl(
     private val dataStore: DataStore<WebViewConfig>,
 ) : BrowserSettingsRepository {
     override val config: Flow<WebViewConfig> = dataStore.data

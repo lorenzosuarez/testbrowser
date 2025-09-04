@@ -67,7 +67,7 @@ private val LightColorScheme = lightColorScheme(
  * @param content The content to be themed
  */
 @Composable
-fun TestBrowserTheme(
+public fun TestBrowserTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {

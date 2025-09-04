@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
  */
 @Immutable
 @Serializable
-data class WebViewConfig(
+public data class WebViewConfig(
     val desktopMode: Boolean = false,
     val javascriptEnabled: Boolean = true,
 )

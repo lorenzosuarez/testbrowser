@@ -10,7 +10,7 @@ import org.koin.core.logger.Level
 /**
  * Main application class that initializes Koin dependency injection.
  */
-class BrowserApp : Application() {
+public class BrowserApp : Application() {
 
     override fun onCreate() {
         super.onCreate()

@@ -8,6 +8,7 @@ import com.testlabs.browser.data.settings.BrowserSettingsSerializer
 import com.testlabs.browser.domain.settings.BrowserSettingsRepository
 import com.testlabs.browser.domain.settings.WebViewConfig
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.module.Module
 import org.koin.dsl.module
 
 private val Context.browserSettingsDataStore: DataStore<WebViewConfig> by dataStore(
@@ -18,7 +19,7 @@ private val Context.browserSettingsDataStore: DataStore<WebViewConfig> by dataSt
 /**
  * Module providing persistence for browser configuration.
  */
-val settingsModule = module {
+public val settingsModule: Module = module {
     single<DataStore<WebViewConfig>> { androidContext().browserSettingsDataStore }
     single<BrowserSettingsRepository> { BrowserSettingsRepositoryImpl(get()) }
 }

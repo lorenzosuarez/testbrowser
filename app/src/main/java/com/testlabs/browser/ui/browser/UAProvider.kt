@@ -3,17 +3,17 @@ package com.testlabs.browser.ui.browser
 /**
  * Provides user agent strings matching Chrome for both mobile and desktop modes.
  */
-interface UAProvider {
+public interface UAProvider {
     /**
      * Returns a user agent string for the requested mode.
      */
-    fun userAgent(desktop: Boolean): String
+    public fun userAgent(desktop: Boolean): String
 }
 
 /**
  * Default implementation supplying Chrome user agents.
  */
-class DefaultUAProvider : UAProvider {
+public class DefaultUAProvider : UAProvider {
     override fun userAgent(desktop: Boolean): String = if (desktop) DESKTOP_UA else MOBILE_UA
 
     private companion object {

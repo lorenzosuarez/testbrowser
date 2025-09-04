@@ -9,12 +9,12 @@ import kotlinx.serialization.json.Json
 /**
  * DataStore serializer using JSON for [WebViewConfig].
  */
-object BrowserSettingsSerializer : Serializer<WebViewConfig> {
+public object BrowserSettingsSerializer : Serializer<WebViewConfig> {
     override val defaultValue: WebViewConfig = WebViewConfig()
 
-    override suspend fun readFrom(input: InputStream): WebViewConfig =
+    public override suspend fun readFrom(input: InputStream): WebViewConfig =
         Json.decodeFromString(WebViewConfig.serializer(), input.readBytes().decodeToString())
 
-    override suspend fun writeTo(t: WebViewConfig, output: OutputStream) =
+    override suspend fun writeTo(t: WebViewConfig, output: OutputStream): Unit =
         output.write(Json.encodeToString(WebViewConfig.serializer(), t).encodeToByteArray())
 }

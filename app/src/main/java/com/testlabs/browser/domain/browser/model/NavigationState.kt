@@ -7,7 +7,7 @@ package com.testlabs.browser.domain.browser.model
  * @param canGoBack Whether backward navigation is available
  * @param canGoForward Whether forward navigation is available
  */
-data class NavigationState(
+public data class NavigationState(
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false
 )

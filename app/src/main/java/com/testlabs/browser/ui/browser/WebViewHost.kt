@@ -27,17 +27,17 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import com.testlabs.browser.domain.settings.WebViewConfig
 
-interface WebViewController {
-    fun loadUrl(url: String)
-    fun reload()
-    fun goBack()
-    fun goForward()
-    fun canGoBack(): Boolean
-    fun canGoForward(): Boolean
+public interface WebViewController {
+    public fun loadUrl(url: String)
+    public fun reload()
+    public fun goBack()
+    public fun goForward()
+    public fun canGoBack(): Boolean
+    public fun canGoForward(): Boolean
 }
 
 @Composable
-fun WebViewHost(
+public fun WebViewHost(
     onProgressChanged: (Float) -> Unit,
     onPageStarted: (String) -> Unit,
     onPageFinished: (String) -> Unit,

@@ -19,7 +19,7 @@ import org.koin.android.ext.android.inject
  * Single activity hosting the browser interface with proper system UI handling.
  * Enables edge-to-edge display and ensures proper theme support.
  */
-class MainActivity : ComponentActivity() {
+public class MainActivity : ComponentActivity() {
 
     private val uaProvider: UAProvider by inject()
 

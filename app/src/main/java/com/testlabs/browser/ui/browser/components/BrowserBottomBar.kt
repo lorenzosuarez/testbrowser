@@ -20,7 +20,7 @@ import com.testlabs.browser.R
  * Implements Material 3 BottomAppBar with integrated FloatingActionButton.
  */
 @Composable
-fun BrowserBottomBar(
+public fun BrowserBottomBar(
     canGoBack: Boolean,
     canGoForward: Boolean,
     onBackClick: () -> Unit,

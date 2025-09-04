@@ -6,12 +6,12 @@ import com.testlabs.browser.core.ValidatedUrl
  * Pure reducer function that handles state transitions for browser intents.
  * This function is side-effect free and deterministic.
  */
-object BrowserReducer {
+public object BrowserReducer {
 
     /**
      * Reduces the current state with a browser intent to produce a new state and optional effect.
      */
-    fun reduce(state: BrowserState, intent: BrowserIntent): Pair<BrowserState, BrowserEffect?> {
+    public fun reduce(state: BrowserState, intent: BrowserIntent): Pair<BrowserState, BrowserEffect?> {
         return when (intent) {
             is BrowserIntent.NavigateToUrl -> {
                 state.copy(

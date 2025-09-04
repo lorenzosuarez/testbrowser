@@ -37,7 +37,7 @@ import com.testlabs.browser.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserTopBar(
+public fun BrowserTopBar(
     modifier: Modifier = Modifier,
     url: String,
     onUrlChanged: (String) -> Unit,

@@ -52,7 +52,7 @@ import org.koin.androidx.compose.koinViewModel
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserScreen(
+public fun BrowserScreen(
     filePickerLauncher: ActivityResultLauncher<Intent>,
     uaProvider: UAProvider,
     viewModel: BrowserViewModel = koinViewModel()
@@ -168,14 +168,14 @@ fun BrowserScreen(
 
 @Preview(showBackground = true)
 @Composable
-fun BrowserScreenPreview(@PreviewParameter(BrowserStateProvider::class) state: BrowserState) {
+public fun BrowserScreenPreview(@PreviewParameter(BrowserStateProvider::class) state: BrowserState) {
     MaterialTheme {
         BrowserScreenPreviewContent(state)
     }
 }
 
 @Composable
-fun BrowserScreenPreviewContent(state: BrowserState) {
+public fun BrowserScreenPreviewContent(state: BrowserState) {
     val mockViewModel = remember {
         object {
             fun handleIntent() {}
@@ -233,8 +233,8 @@ fun BrowserScreenPreviewContent(state: BrowserState) {
     }
 }
 
-class BrowserStateProvider : PreviewParameterProvider<BrowserState> {
-    override val values = sequenceOf(
+public class BrowserStateProvider : PreviewParameterProvider<BrowserState> {
+    override val values: Sequence<BrowserState> = sequenceOf(
         BrowserState(
             inputUrl = "https://www.example.com",
             title = "Example Website",

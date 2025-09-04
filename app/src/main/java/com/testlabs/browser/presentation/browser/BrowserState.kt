@@ -8,7 +8,7 @@ import com.testlabs.browser.domain.settings.WebViewConfig
  * Immutable state representing the complete browser UI state.
  */
 @Immutable
-data class BrowserState(
+public data class BrowserState(
     val url: ValidatedUrl = ValidatedUrl.fromInput(""),
     val title: String = "",
     val progress: Float = 0f,
