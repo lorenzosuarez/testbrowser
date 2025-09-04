@@ -1,27 +1,20 @@
+<?xml version="1.0"?>
 <resources>
-    <string name="app_name">Test Browser</string>
-
-    <!-- Browser UI strings -->
-    <string name="browser_url_placeholder">www.example.com</string>
-    <string name="browser_search_icon">Search</string>
-    <string name="browser_clear_search">Clear</string>
-    <string name="browser_menu">Menu</string>
-    <string name="browser_back">Back</string>
-    <string name="browser_forward">Forward</string>
-    <string name="browser_reload">Reload</string>
-    <string name="browser_refresh">Refresh</string>
-    <string name="browser_new_tab">New tab</string>
-
-    <!-- Navigation strings -->
-    <string name="navigation_error">Navigation error</string>
-    <string name="page_load_error">Failed to load page</string>
-
-    <!-- Progress strings -->
-    <string name="loading">Loading…</string>
-    <string name="page_loaded">Page loaded</string>
-
-    <!-- Settings dialog -->
-    <string name="settings_title">Advanced settings</string>
-    <string name="settings_desktop_mode">Desktop mode</string>
-    <string name="settings_js_enabled">Enable JavaScript</string>
+  <string name="app_name">Test Browser</string>
+  <string name="browser_url_placeholder">www.example.com</string>
+  <string name="browser_search_icon">Search</string>
+  <string name="browser_clear_search">Clear</string>
+  <string name="browser_menu">Menu</string>
+  <string name="browser_back">Back</string>
+  <string name="browser_forward">Forward</string>
+  <string name="browser_reload">Reload</string>
+  <string name="browser_refresh">Refresh</string>
+  <string name="browser_new_tab">New tab</string>
+  <string name="navigation_error">Navigation error</string>
+  <string name="page_load_error">Failed to load page</string>
+  <string name="loading">Loading&#x2026;</string>
+  <string name="page_loaded">Page loaded</string>
+  <string name="settings_title">Advanced settings</string>
+  <string name="settings_desktop_mode">Desktop mode</string>
+  <string name="settings_js_enabled">Enable JavaScript</string>
 </resources>
