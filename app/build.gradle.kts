@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.testlabs.browser"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.testlabs.browser"
@@ -84,7 +84,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose.v293)
 
     // WebView and WebKit
-    implementation("androidx.webkit:webkit:1.11.0")
+    implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.startup:startup-runtime:1.1.1")
 
     // Compose

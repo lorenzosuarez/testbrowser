@@ -10,9 +10,4 @@ import org.koin.dsl.module
 public val appModule: org.koin.core.module.Module = module {
     // Browser
     viewModelOf(constructor = ::BrowserViewModel)
-
-    // Core services
-    single<com.testlabs.browser.ui.browser.UAProvider> {
-        com.testlabs.browser.ui.browser.DefaultUAProvider()
-    }
 }

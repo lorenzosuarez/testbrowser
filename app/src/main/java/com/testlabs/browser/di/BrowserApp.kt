@@ -28,7 +28,8 @@ public class BrowserApp : Application() {
             androidContext(this@BrowserApp)
             modules(
                 appModule,
-                settingsModule
+                settingsModule,
+                coreModule,
             )
         }
     }

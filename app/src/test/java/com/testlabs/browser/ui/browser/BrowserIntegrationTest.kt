@@ -14,7 +14,6 @@ import kotlin.test.assertTrue
 class BrowserIntegrationTest {
 
     private val viewModel = BrowserViewModel()
-    private val uaProvider = DefaultUAProvider()
 
     @Test
     fun `complete navigation flow updates state correctly`() = runTest {
@@ -45,24 +44,5 @@ class BrowserIntegrationTest {
         state = viewModel.state.value
         assertFalse(state.isLoading)
         assertEquals(1f, state.progress)
-    }
-
-    @Test
-    fun `user agent provider switches correctly between mobile and desktop`() {
-        // Initial state is mobile
-        assertFalse(uaProvider.isDesktopMode())
-        assertTrue(uaProvider.getCurrentUserAgent().contains("Mobile"))
-        assertTrue(uaProvider.getCurrentUserAgent().contains("Android"))
-
-        // Switch to desktop
-        uaProvider.switchToDesktop()
-        assertTrue(uaProvider.isDesktopMode())
-        assertTrue(uaProvider.getCurrentUserAgent().contains("Windows"))
-        assertFalse(uaProvider.getCurrentUserAgent().contains("Mobile"))
-
-        // Switch back to mobile
-        uaProvider.switchToMobile()
-        assertFalse(uaProvider.isDesktopMode())
-        assertTrue(uaProvider.getCurrentUserAgent().contains("Mobile"))
     }
 }
