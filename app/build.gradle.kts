@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.testlabs.browser"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.testlabs.browser"
@@ -84,8 +84,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose.v293)
 
     // WebView and WebKit
-    implementation("androidx.webkit:webkit:1.14.0")
-    implementation("androidx.startup:startup-runtime:1.1.1")
+    implementation(libs.androidx.webkit)
+    implementation(libs.androidx.startup.runtime)
 
     // Compose
     implementation(platform(libs.compose.bom.v20250801))
@@ -113,7 +113,6 @@ dependencies {
 
     // Image Loading
     implementation(libs.coil.compose)
-
 
     // Debug
     debugImplementation(libs.androidx.ui.tooling)

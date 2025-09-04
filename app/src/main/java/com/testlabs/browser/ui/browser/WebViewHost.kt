@@ -23,8 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.testlabs.browser.domain.settings.WebViewConfig
-import androidx.webkit.WebSettingsCompat
-import androidx.webkit.WebViewFeature
 import java.util.Locale
 
 private const val TAG = "WebViewHost"
@@ -192,15 +190,6 @@ private fun WebView.applyConfig(config: WebViewConfig, uaProvider: UAProvider) {
         // Enhanced JavaScript execution environment
         setJavaScriptEnabled(true) // Ensure JavaScript is fully enabled
         setDomStorageEnabled(true) // Enhanced DOM storage
-    }
-
-    if (config.disableXRequestedWithHeader &&
-        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)
-    ) {
-        WebSettingsCompat.setRequestedWithHeaderMode(
-            settings,
-            WebSettingsCompat.REQUESTED_WITH_HEADER_MODE_NO_HEADER
-        )
     }
 
     // Cookie configuration for enhanced compatibility
