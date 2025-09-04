@@ -15,6 +15,9 @@ public class BrowserApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Initialize WebView early to avoid variations seed issues
+        initializeWebView()
+
         if (com.testlabs.browser.BuildConfig.DEBUG) {
             enableStrictMode()
         }
@@ -27,6 +30,27 @@ public class BrowserApp : Application() {
                 settingsModule,
                 browserModule,
             )
+        }
+    }
+
+    private fun initializeWebView() {
+        try {
+            // Initialize WebView on main thread to prevent variations seed errors
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                val processName = android.app.Application.getProcessName()
+                if (packageName != processName) {
+                    android.webkit.WebView.setDataDirectorySuffix(processName)
+                }
+            }
+
+            // Pre-warm WebView to initialize Chromium engine
+            android.webkit.WebView(this).apply {
+                settings.javaScriptEnabled = true
+                destroy()
+            }
+        } catch (e: Exception) {
+            // Log but don't crash if WebView initialization fails
+            android.util.Log.e("BrowserApp", "WebView initialization failed", e)
         }
     }
 

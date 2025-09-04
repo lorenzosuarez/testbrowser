@@ -88,6 +88,7 @@ public fun WebViewHost(
     }
 }
 
+@SuppressLint("ViewConstructor")
 private class ObservableWebView(
     context: Context,
     private val onScrollDelta: (Int) -> Unit
@@ -141,8 +142,28 @@ private fun WebView.applyConfig(config: WebViewConfig, uaProvider: UAProvider) {
         blockNetworkImage = false
         blockNetworkLoads = false
         cacheMode = WebSettings.LOAD_DEFAULT
+
+        // Media and SSL improvements
+        mediaPlaybackRequiresUserGesture = false
+        allowUniversalAccessFromFileURLs = false
+        allowFileAccessFromFileURLs = false
+        javaScriptCanOpenWindowsAutomatically = false
+
+        // Performance improvements
+        setRenderPriority(WebSettings.RenderPriority.HIGH)
+        cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+
+        // Security improvements
+        setSavePassword(false)
+        setSaveFormData(false)
+        setGeolocationEnabled(true)
     }
-    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+
+    // Cookie configuration
+    CookieManager.getInstance().apply {
+        setAcceptCookie(true)
+        setAcceptThirdPartyCookies(this@applyConfig, true)
+    }
 }
 
 private fun WebView.configureSettings(uaProvider: UAProvider, config: WebViewConfig) {
@@ -160,18 +181,71 @@ private fun WebView.setupWebViewClient(
             super.onPageStarted(view, url, favicon)
             url?.let { onPageStarted(it) }
         }
+
         override fun onPageFinished(view: WebView?, url: String?) {
             super.onPageFinished(view, url)
             url?.let { onPageFinished(it) }
             view?.let { onNavigationStateChanged(it.canGoBack(), it.canGoForward()) }
         }
+
         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
             super.onReceivedError(view, request, error)
-            error?.let { onError("Error loading page: ${it.description}") }
+            error?.let {
+                // Only report main frame errors to avoid spam from resource loading errors
+                if (request?.isForMainFrame == true) {
+                    onError("Error loading page: ${it.description}")
+                }
+            }
         }
+
         override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: android.net.http.SslError?) {
+            // In production, always cancel SSL errors for security
+            // In debug builds, you might want to proceed for testing
             handler?.cancel()
-            error?.let { onError("SSL Error: ${it.primaryError}") }
+
+            error?.let { sslError ->
+                val errorMessage = when (sslError.primaryError) {
+                    android.net.http.SslError.SSL_UNTRUSTED -> "Certificate not trusted"
+                    android.net.http.SslError.SSL_EXPIRED -> "Certificate expired"
+                    android.net.http.SslError.SSL_IDMISMATCH -> "Certificate hostname mismatch"
+                    android.net.http.SslError.SSL_NOTYETVALID -> "Certificate not yet valid"
+                    android.net.http.SslError.SSL_DATE_INVALID -> "Certificate date invalid"
+                    android.net.http.SslError.SSL_INVALID -> "Certificate invalid"
+                    else -> "SSL certificate error"
+                }
+                onError("SSL Error: $errorMessage")
+            }
+        }
+
+        override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: android.webkit.WebResourceResponse?) {
+            super.onReceivedHttpError(view, request, errorResponse)
+            // Only report main frame HTTP errors
+            if (request?.isForMainFrame == true) {
+                errorResponse?.let { response ->
+                    onError("HTTP Error: ${response.statusCode} ${response.reasonPhrase}")
+                }
+            }
+        }
+
+        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+            // Handle special URL schemes if needed
+            request?.url?.let { uri ->
+                when (uri.scheme) {
+                    "mailto", "tel", "sms" -> {
+                        // Let the system handle these
+                        return false
+                    }
+                    "http", "https" -> {
+                        // Let WebView handle these
+                        return false
+                    }
+                    else -> {
+                        // For other schemes, you might want to open in external app
+                        return false
+                    }
+                }
+            }
+            return false
         }
     }
 }

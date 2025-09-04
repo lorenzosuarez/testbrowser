@@ -22,7 +22,10 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -48,9 +51,17 @@ public fun BrowserTopBar(
 ) {
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
+    var shouldRequestFocus by remember { mutableStateOf(false) }
 
     LaunchedEffect(key1 = shouldFocusUrlInput) {
         if (shouldFocusUrlInput) focusRequester.requestFocus()
+    }
+
+    LaunchedEffect(key1 = shouldRequestFocus) {
+        if (shouldRequestFocus) {
+            focusRequester.requestFocus()
+            shouldRequestFocus = false
+        }
     }
 
     val handleSubmit = {
@@ -59,7 +70,7 @@ public fun BrowserTopBar(
     }
     val handleClear: () -> Unit = {
         onUrlChanged("")
-        focusRequester.requestFocus()
+        shouldRequestFocus = true
     }
 
     TopAppBar(

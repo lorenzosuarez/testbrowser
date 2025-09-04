@@ -83,6 +83,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx.v293)
     implementation(libs.androidx.lifecycle.viewmodel.compose.v293)
 
+    // WebView and WebKit
+    implementation("androidx.webkit:webkit:1.11.0")
+    implementation("androidx.startup:startup-runtime:1.1.1")
+
     // Compose
     implementation(platform(libs.compose.bom.v20250801))
     implementation(libs.androidx.ui)
