@@ -22,12 +22,18 @@ import org.koin.android.ext.android.inject
 public class MainActivity : ComponentActivity() {
 
     private val uaProvider: UAProvider by inject()
+    private var fileUploadHandler: com.testlabs.browser.ui.browser.FileUploadHandler? = null
 
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        // File picker result is handled by WebView's FileChooserParams callback
-        // This launcher is just to trigger the system file picker
+        // Handle file picker result through our advanced upload handler
+        fileUploadHandler?.handleActivityResult(result.data)
+    }
+
+    // Function to set the file upload handler from BrowserScreen
+    public fun setFileUploadHandler(handler: com.testlabs.browser.ui.browser.FileUploadHandler) {
+        fileUploadHandler = handler
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

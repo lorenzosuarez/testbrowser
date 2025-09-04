@@ -1,14 +1,12 @@
 package com.testlabs.browser.ui.browser
 
 import android.annotation.SuppressLint
-import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Environment
+import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.SslErrorHandler
-import android.webkit.URLUtil
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -24,8 +22,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.net.toUri
 import com.testlabs.browser.domain.settings.WebViewConfig
+
+private const val TAG = "WebViewHost"
+private const val MIME_TYPE_GUESS = "application/octet-stream"
 
 public interface WebViewController {
     public fun loadUrl(url: String)
@@ -44,7 +44,7 @@ public fun WebViewHost(
     onTitleChanged: (String) -> Unit,
     onNavigationStateChanged: (Boolean, Boolean) -> Unit,
     onError: (String) -> Unit,
-    onUrlChanged: (String) -> Unit, // Nuevo callback para cambios de URL
+    onUrlChanged: (String) -> Unit,
     filePickerLauncher: ActivityResultLauncher<Intent>,
     uaProvider: UAProvider,
     config: WebViewConfig,
@@ -53,6 +53,20 @@ public fun WebViewHost(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val downloadHandler = remember { DownloadHandler(context) }
+    val fileUploadHandler = remember { FileUploadHandler(context) }
+
+    // Only initialize file upload handler when needed (for website file uploads)
+    LaunchedEffect(filePickerLauncher) {
+        fileUploadHandler.initialize(filePickerLauncher)
+    }
+
+    // Only set file upload handler in MainActivity for website file uploads
+    LaunchedEffect(fileUploadHandler) {
+        val act = context as? com.testlabs.browser.MainActivity
+        act?.setFileUploadHandler(fileUploadHandler)
+    }
+
     val webView = remember {
         createWebView(
             context = context,
@@ -62,8 +76,9 @@ public fun WebViewHost(
             onTitleChanged = onTitleChanged,
             onNavigationStateChanged = onNavigationStateChanged,
             onError = onError,
-            onUrlChanged = onUrlChanged, // Pasar el nuevo callback
-            filePickerLauncher = filePickerLauncher,
+            onUrlChanged = onUrlChanged,
+            downloadHandler = downloadHandler,
+            fileUploadHandler = fileUploadHandler,
             uaProvider = uaProvider,
             config = config,
             onScrollDelta = onScrollDelta
@@ -111,28 +126,34 @@ private fun createWebView(
     onNavigationStateChanged: (Boolean, Boolean) -> Unit,
     onError: (String) -> Unit,
     onUrlChanged: (String) -> Unit,
-    filePickerLauncher: ActivityResultLauncher<Intent>,
+    downloadHandler: DownloadHandler,
+    fileUploadHandler: FileUploadHandler,
     uaProvider: UAProvider,
     config: WebViewConfig,
     onScrollDelta: (Int) -> Unit
 ): WebView {
     return ObservableWebView(context, onScrollDelta).apply {
         configureSettings(uaProvider, config)
-        setupWebViewClient(onPageStarted, onPageFinished, onNavigationStateChanged, onError, onUrlChanged)
-        setupWebChromeClient(onProgressChanged, onTitleChanged, filePickerLauncher)
-        setupDownloadManager(context)
+        setupWebViewClient(onPageStarted, onPageFinished, onNavigationStateChanged, onError, onUrlChanged, downloadHandler)
+        setupWebChromeClient(onProgressChanged, onTitleChanged, fileUploadHandler)
+        setupDownloadManager(downloadHandler)
     }
 }
 
 private fun WebView.applyConfig(config: WebViewConfig, uaProvider: UAProvider) {
     settings.apply {
+        // Core JavaScript and DOM settings
         javaScriptEnabled = config.javascriptEnabled
         domStorageEnabled = true
         databaseEnabled = true
+
+        // File access settings optimized for blob handling
         allowFileAccess = true
         allowContentAccess = true
-        allowFileAccessFromFileURLs = false
-        allowUniversalAccessFromFileURLs = false
+        allowFileAccessFromFileURLs = true
+        allowUniversalAccessFromFileURLs = true
+
+        // Modern web standards support
         mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         useWideViewPort = true
         loadWithOverviewMode = true
@@ -140,33 +161,39 @@ private fun WebView.applyConfig(config: WebViewConfig, uaProvider: UAProvider) {
         setSupportZoom(true)
         builtInZoomControls = true
         displayZoomControls = false
+
+        // User agent and content loading
         userAgentString = uaProvider.userAgent(config.desktopMode)
         loadsImagesAutomatically = true
         blockNetworkImage = false
         blockNetworkLoads = false
+
+        // Cache and performance optimization
         cacheMode = WebSettings.LOAD_DEFAULT
-
-        // Media and SSL improvements
-        mediaPlaybackRequiresUserGesture = false
-        allowUniversalAccessFromFileURLs = false
-        allowFileAccessFromFileURLs = false
-        javaScriptCanOpenWindowsAutomatically = false
-
-        // Performance improvements
         setRenderPriority(WebSettings.RenderPriority.HIGH)
-        cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
 
-        // Security improvements
+        // Media and performance enhancements
+        mediaPlaybackRequiresUserGesture = false
+        javaScriptCanOpenWindowsAutomatically = true // Enable for blob downloads
+
+        // Security settings (balanced for functionality)
         setSavePassword(false)
         setSaveFormData(false)
         setGeolocationEnabled(true)
+
+        // Enhanced JavaScript execution environment
+        setJavaScriptEnabled(true) // Ensure JavaScript is fully enabled
+        setDomStorageEnabled(true) // Enhanced DOM storage
     }
 
-    // Cookie configuration
+    // Cookie configuration for enhanced compatibility
     CookieManager.getInstance().apply {
         setAcceptCookie(true)
         setAcceptThirdPartyCookies(this@applyConfig, true)
     }
+
+    // Enable hardware acceleration for better performance
+    setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 }
 
 private fun WebView.configureSettings(uaProvider: UAProvider, config: WebViewConfig) {
@@ -178,7 +205,8 @@ private fun WebView.setupWebViewClient(
     onPageFinished: (String) -> Unit,
     onNavigationStateChanged: (Boolean, Boolean) -> Unit,
     onError: (String) -> Unit,
-    onUrlChanged: (String) -> Unit
+    onUrlChanged: (String) -> Unit,
+    downloadHandler: DownloadHandler
 ) {
     webViewClient = object : WebViewClient() {
         override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
@@ -241,19 +269,29 @@ private fun WebView.setupWebViewClient(
         }
 
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+            val u = request?.url?.toString() ?: return false
+            Log.d(TAG, "shouldOverrideUrlLoading: $u")
+            if (u.startsWith("blob:")) {
+                Log.d(TAG, "Detected blob URL, triggering download")
+                downloadHandler.handleDownload(u, settings.userAgentString ?: "", "", MIME_TYPE_GUESS, this@setupWebViewClient) { err ->
+                    Log.e(TAG, "Blob download error: $err")
+                    onError(err)
+                }
+                return true
+            }
             // Handle special URL schemes if needed
-            request?.url?.let { uri ->
+            request.url?.let { uri ->
                 when (uri.scheme) {
                     "mailto", "tel", "sms" -> {
-                        // Let the system handle these
+                        Log.d(TAG, "Letting system handle scheme: ${uri.scheme}")
                         return false
                     }
                     "http", "https" -> {
-                        // Let WebView handle these
+                        Log.d(TAG, "Letting WebView handle HTTP(S) URL")
                         return false
                     }
                     else -> {
-                        // For other schemes, you might want to open in external app
+                        Log.d(TAG, "Unknown scheme: ${uri.scheme}")
                         return false
                     }
                 }
@@ -266,53 +304,60 @@ private fun WebView.setupWebViewClient(
 private fun WebView.setupWebChromeClient(
     onProgressChanged: (Float) -> Unit,
     onTitleChanged: (String) -> Unit,
-    filePickerLauncher: ActivityResultLauncher<Intent>
+    fileUploadHandler: FileUploadHandler
 ) {
-    var fileUploadCallback: ValueCallback<Array<Uri>>? = null
     webChromeClient = object : WebChromeClient() {
         override fun onProgressChanged(view: WebView?, newProgress: Int) {
             super.onProgressChanged(view, newProgress)
             onProgressChanged(newProgress / 100f)
         }
+
         override fun onReceivedTitle(view: WebView?, title: String?) {
             super.onReceivedTitle(view, title)
             title?.let { onTitleChanged(it) }
         }
+
         override fun onShowFileChooser(
             webView: WebView?,
             filePathCallback: ValueCallback<Array<Uri>>?,
             fileChooserParams: FileChooserParams?
         ): Boolean {
-            fileUploadCallback?.onReceiveValue(null)
-            fileUploadCallback = filePathCallback
-            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE)
-                type = "*/*"
-                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, fileChooserParams?.mode == FileChooserParams.MODE_OPEN_MULTIPLE)
+            return fileUploadHandler.handleFileChooser(filePathCallback, fileChooserParams)
+        }
+
+        override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+            consoleMessage?.let { msg ->
+                Log.d("WebViewConsole", "[${msg.messageLevel()}] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})")
             }
-            filePickerLauncher.launch(Intent.createChooser(intent, "Select File"))
             return true
         }
     }
 }
 
-private fun WebView.setupDownloadManager(context: Context) {
-    setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-        url?.let { downloadUrl ->
-            val request = DownloadManager.Request(downloadUrl.toUri()).apply {
-                setMimeType(mimeType)
-                addRequestHeader("User-Agent", userAgent)
-                setDescription("Downloading file...")
-                setTitle(URLUtil.guessFileName(downloadUrl, contentDisposition, mimeType))
-                allowScanningByMediaScanner()
-                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                setDestinationInExternalPublicDir(
-                    Environment.DIRECTORY_DOWNLOADS,
-                    URLUtil.guessFileName(downloadUrl, contentDisposition, mimeType)
-                )
+private fun WebView.setupDownloadManager(downloadHandler: DownloadHandler) {
+    Log.d(TAG, "Setting up download listener")
+    setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
+        Log.d(TAG, "Download listener triggered!")
+        Log.d(TAG, "URL: $url")
+        Log.d(TAG, "User Agent: $userAgent")
+        Log.d(TAG, "Content Disposition: $contentDisposition")
+        Log.d(TAG, "MIME Type: $mimeType")
+        Log.d(TAG, "Content Length: $contentLength")
+
+        downloadHandler.handleDownload(
+            url = url,
+            userAgent = userAgent,
+            contentDisposition = contentDisposition,
+            mimeType = mimeType,
+            webView = this,
+            onError = { error ->
+                Log.e(TAG, "Download failed: $error")
+                // Post error to main thread to show user feedback
+                post {
+                    Log.e(TAG, "Posting download error to main thread: $error")
+                    // You could also show a toast or snackbar here
+                }
             }
-            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            dm.enqueue(request)
-        }
+        )
     }
 }

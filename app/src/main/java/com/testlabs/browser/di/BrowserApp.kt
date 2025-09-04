@@ -27,9 +27,8 @@ public class BrowserApp : Application() {
             androidLogger(Level.ERROR)
             androidContext(this@BrowserApp)
             modules(
-                coreModule,
-                settingsModule,
-                browserModule,
+                appModule,
+                settingsModule
             )
         }
     }
@@ -48,11 +47,13 @@ public class BrowserApp : Application() {
             // Pre-warm WebView to initialize Chromium engine
             android.webkit.WebView(this).apply {
                 settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                loadUrl("about:blank")
                 destroy()
             }
         } catch (e: Exception) {
-            // Log but don't crash if WebView initialization fails
-            android.util.Log.e("BrowserApp", "WebView initialization failed", e)
+            // WebView initialization failed - continue anyway
+            android.util.Log.w("BrowserApp", "WebView initialization failed", e)
         }
     }
 
@@ -63,7 +64,6 @@ public class BrowserApp : Application() {
                 .penaltyLog()
                 .build()
         )
-
         StrictMode.setVmPolicy(
             StrictMode.VmPolicy.Builder()
                 .detectAll()
