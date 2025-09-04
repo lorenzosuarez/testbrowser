@@ -1,0 +1,20 @@
+package com.testlabs.browser.data.settings
+
+import androidx.datastore.core.Serializer
+import com.testlabs.browser.domain.settings.WebViewConfig
+import java.io.InputStream
+import java.io.OutputStream
+import kotlinx.serialization.json.Json
+
+/**
+ * DataStore serializer using JSON for [WebViewConfig].
+ */
+object BrowserSettingsSerializer : Serializer<WebViewConfig> {
+    override val defaultValue: WebViewConfig = WebViewConfig()
+
+    override suspend fun readFrom(input: InputStream): WebViewConfig =
+        Json.decodeFromString(WebViewConfig.serializer(), input.readBytes().decodeToString())
+
+    override suspend fun writeTo(t: WebViewConfig, output: OutputStream) =
+        output.write(Json.encodeToString(WebViewConfig.serializer(), t).encodeToByteArray())
+}

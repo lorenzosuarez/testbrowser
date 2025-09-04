@@ -39,6 +39,7 @@ import com.testlabs.browser.presentation.browser.BrowserViewModel
 import com.testlabs.browser.ui.browser.components.BrowserBottomBar
 import com.testlabs.browser.ui.browser.components.BrowserProgressIndicator
 import com.testlabs.browser.ui.browser.components.BrowserTopBar
+import com.testlabs.browser.ui.browser.components.BrowserSettingsDialog
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -107,7 +108,7 @@ fun BrowserScreen(
                     url = state.inputUrl,
                     onUrlChanged = callbacks.onUrlChanged,
                     onSubmit = callbacks.onUrlSubmit,
-                    onMenuClick = { /* TODO: Implement menu */ },
+                    onMenuClick = { viewModel.handleIntent(BrowserIntent.OpenSettings) },
                     scrollBehavior = topScroll,
                     shouldFocusUrlInput = state.shouldFocusUrlInput
                 )
@@ -138,6 +139,7 @@ fun BrowserScreen(
             onError = callbacks.onError,
             filePickerLauncher = filePickerLauncher,
             uaProvider = uaProvider,
+            config = state.settingsCurrent,
             onControllerReady = callbacks.onControllerReady,
             onScrollDelta = { dyPx ->
                 val available = Offset(x = 0f, y = -dyPx.toFloat())
@@ -153,6 +155,14 @@ fun BrowserScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         )
+        if (state.isSettingsDialogVisible) {
+            BrowserSettingsDialog(
+                config = state.settingsDraft,
+                onConfigChange = { viewModel.handleIntent(BrowserIntent.SettingsUpdated(it)) },
+                onDismiss = { viewModel.handleIntent(BrowserIntent.CloseSettings) },
+                onConfirm = { viewModel.handleIntent(BrowserIntent.ApplySettings) },
+            )
+        }
     }
 }
 

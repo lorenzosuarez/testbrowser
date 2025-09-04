@@ -19,4 +19,9 @@
     <!-- Progress strings -->
     <string name="loading">Loading…</string>
     <string name="page_loaded">Page loaded</string>
+
+    <!-- Settings dialog -->
+    <string name="settings_title">Advanced settings</string>
+    <string name="settings_desktop_mode">Desktop mode</string>
+    <string name="settings_js_enabled">Enable JavaScript</string>
 </resources>
