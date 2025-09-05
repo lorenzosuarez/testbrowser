@@ -7,11 +7,12 @@ import com.testlabs.browser.domain.settings.WebViewConfig
  * Sealed interface representing all possible user intents in the browser.
  */
 public sealed interface BrowserIntent {
-
     /**
      * User wants to navigate to a specific URL.
      */
-    public data class NavigateToUrl(val url: ValidatedUrl) : BrowserIntent
+    public data class NavigateToUrl(
+        val url: ValidatedUrl,
+    ) : BrowserIntent
 
     /**
      * User wants to reload the current page.
@@ -36,37 +37,52 @@ public sealed interface BrowserIntent {
     /**
      * User changed the URL input field.
      */
-    public data class UpdateInputUrl(val inputUrl: String) : BrowserIntent
+    public data class UpdateInputUrl(
+        val inputUrl: String,
+    ) : BrowserIntent
 
     /**
      * WebView page started loading.
      */
-    public data class PageStarted(val url: ValidatedUrl) : BrowserIntent
+    public data class PageStarted(
+        val url: ValidatedUrl,
+    ) : BrowserIntent
 
     /**
      * WebView page finished loading.
      */
-    public data class PageFinished(val url: ValidatedUrl) : BrowserIntent
+    public data class PageFinished(
+        val url: ValidatedUrl,
+    ) : BrowserIntent
 
     /**
      * WebView loading progress changed.
      */
-    public data class ProgressChanged(val progress: Float) : BrowserIntent
+    public data class ProgressChanged(
+        val progress: Float,
+    ) : BrowserIntent
 
     /**
      * WebView page title changed.
      */
-    public data class TitleChanged(val title: String) : BrowserIntent
+    public data class TitleChanged(
+        val title: String,
+    ) : BrowserIntent
 
     /**
      * Navigation capability changed.
      */
-    public data class NavigationStateChanged(val canGoBack: Boolean, val canGoForward: Boolean) : BrowserIntent
+    public data class NavigationStateChanged(
+        val canGoBack: Boolean,
+        val canGoForward: Boolean,
+    ) : BrowserIntent
 
     /**
      * An error occurred during navigation.
      */
-    public data class NavigationError(val message: String) : BrowserIntent
+    public data class NavigationError(
+        val message: String,
+    ) : BrowserIntent
 
     /**
      * Clear any displayed error message.
@@ -91,7 +107,9 @@ public sealed interface BrowserIntent {
     /**
      * User modified the settings draft.
      */
-    public data class SettingsUpdated(val config: WebViewConfig) : BrowserIntent
+    public data class SettingsUpdated(
+        val config: WebViewConfig,
+    ) : BrowserIntent
 
     /**
      * User confirmed the edited settings.
@@ -101,5 +119,7 @@ public sealed interface BrowserIntent {
     /**
      * WebView URL changed during navigation (redirects, etc.)
      */
-    public data class UrlChanged(val url: ValidatedUrl) : BrowserIntent
+    public data class UrlChanged(
+        val url: ValidatedUrl,
+    ) : BrowserIntent
 }

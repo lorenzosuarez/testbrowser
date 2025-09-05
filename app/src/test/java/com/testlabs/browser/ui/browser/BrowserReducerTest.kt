@@ -14,7 +14,6 @@ import kotlin.test.assertTrue
  * Unit tests for BrowserReducer pure functions.
  */
 class BrowserReducerTest {
-
     private val initialState = BrowserState()
 
     @Test

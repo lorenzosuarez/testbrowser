@@ -22,7 +22,9 @@ import java.util.UUID
 /**
  * Revolutionary download handler that intercepts blob creation instead of trying to fetch expired URLs.
  */
-public class DownloadHandler(private val context: Context) {
+public class DownloadHandler(
+    private val context: Context,
+) {
     private companion object {
         private const val TAG = "DownloadHandler"
         private const val ID_LEN = 8
@@ -31,17 +33,18 @@ public class DownloadHandler(private val context: Context) {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
-    private val extensionMap = mapOf(
-        "image/png" to "png",
-        "image/jpeg" to "jpg",
-        "image/gif" to "gif",
-        "image/svg+xml" to "svg",
-        "text/plain" to "txt",
-        "text/html" to "html",
-        "application/pdf" to "pdf",
-        "application/json" to "json",
-        "application/xml" to "xml"
-    )
+    private val extensionMap =
+        mapOf(
+            "image/png" to "png",
+            "image/jpeg" to "jpg",
+            "image/gif" to "gif",
+            "image/svg+xml" to "svg",
+            "text/plain" to "txt",
+            "text/html" to "html",
+            "application/pdf" to "pdf",
+            "application/json" to "json",
+            "application/xml" to "xml",
+        )
 
     public fun handleDownload(
         url: String,
@@ -49,7 +52,7 @@ public class DownloadHandler(private val context: Context) {
         contentDisposition: String,
         mimeType: String,
         webView: WebView,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
     ) {
         Log.d(TAG, "🚀 Starting download for: $url")
         Log.d(TAG, "MIME: $mimeType, Disposition: $contentDisposition")
@@ -70,64 +73,75 @@ public class DownloadHandler(private val context: Context) {
         }
     }
 
-    private fun handleHttpDownload(url: String, userAgent: String, contentDisposition: String, mimeType: String) {
+    private fun handleHttpDownload(
+        url: String,
+        userAgent: String,
+        contentDisposition: String,
+        mimeType: String,
+    ) {
         try {
             val filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
             Log.d(TAG, "📂 Download filename: $filename")
 
-            val request = DownloadManager.Request(url.toUri()).apply {
-                addRequestHeader("User-Agent", userAgent)
-                setTitle(filename)
-                setDescription(DESC)
-                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
-                setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
-            }
+            val request =
+                DownloadManager.Request(url.toUri()).apply {
+                    addRequestHeader("User-Agent", userAgent)
+                    setTitle(filename)
+                    setDescription(DESC)
+                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
+                    setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
+                }
 
             val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val downloadId = downloadManager.enqueue(request)
             Log.d(TAG, "✅ HTTP download started with ID: $downloadId")
-
         } catch (e: Exception) {
             Log.e(TAG, "❌ HTTP download failed", e)
         }
     }
 
-    private fun handleBlobWithInterception(url: String, mimeType: String, webView: WebView, onError: (String) -> Unit) {
+    private fun handleBlobWithInterception(
+        url: String,
+        mimeType: String,
+        webView: WebView,
+        onError: (String) -> Unit,
+    ) {
         Log.d(TAG, "🔄 Implementing blob interception strategy")
 
-        // Instead of trying to fetch the expired blob URL, we'll inject a download interceptor
-        // that captures blob creation and automatically downloads the content
         val interceptorName = "DownloadInterceptor_${System.currentTimeMillis()}"
 
-        val jsInterface = object {
-            @android.webkit.JavascriptInterface
-            fun downloadBlob(data: String, filename: String, mimeType: String) {
-                Log.d(TAG, "✅ Blob intercepted: $filename ($mimeType)")
-                processDataUrlAsync(data, mimeType)
-            }
+        val jsInterface =
+            object {
+                @android.webkit.JavascriptInterface
+                fun downloadBlob(
+                    data: String,
+                    filename: String,
+                    mimeType: String,
+                ) {
+                    Log.d(TAG, "✅ Blob intercepted: $filename ($mimeType)")
+                    processDataUrlAsync(data, mimeType)
+                }
 
-            @android.webkit.JavascriptInterface
-            fun log(message: String) {
-                Log.d(TAG, "JS: $message")
+                @android.webkit.JavascriptInterface
+                fun log(message: String) {
+                    Log.d(TAG, "JS: $message")
+                }
             }
-        }
 
         webView.addJavascriptInterface(jsInterface, interceptorName)
 
-        // Inject blob interception script into the page
-        val script = """
+        val script =
+            """
             (function() {
                 console.log('Installing blob download interceptor...');
                 window['$interceptorName'].log('Interceptor installed');
                 
-                // Override URL.createObjectURL to capture blob creation
                 const originalCreateObjectURL = URL.createObjectURL;
                 URL.createObjectURL = function(blob) {
                     const url = originalCreateObjectURL.call(this, blob);
                     console.log('Blob URL created:', url);
                     
-                    // If this matches our target blob, process it immediately
                     if (url === '$url') {
                         console.log('Target blob detected, processing...');
                         const reader = new FileReader();
@@ -146,15 +160,13 @@ public class DownloadHandler(private val context: Context) {
                 
                 console.log('Blob interceptor ready');
             })();
-        """.trimIndent()
+            """.trimIndent()
 
         webView.evaluateJavascript(script) { result ->
             Log.d(TAG, "📡 Blob interceptor installed: $result")
 
-            // Try to trigger blob recreation by refreshing the page context
             webView.evaluateJavascript("console.log('Interceptor active');") { _ ->
 
-                // If the interceptor doesn't capture anything, fall back to manual approach
                 webView.postDelayed({
                     Log.d(TAG, "🔄 Falling back to manual blob handling")
                     handleBlobManually(url, mimeType, webView, onError, interceptorName)
@@ -163,22 +175,25 @@ public class DownloadHandler(private val context: Context) {
         }
     }
 
-    private fun handleBlobManually(url: String, mimeType: String, webView: WebView, onError: (String) -> Unit, interceptorName: String) {
-        // Last resort: try to get the blob content by examining the page's blob store
-        val script = """
+    private fun handleBlobManually(
+        url: String,
+        mimeType: String,
+        webView: WebView,
+        onError: (String) -> Unit,
+        interceptorName: String,
+    ) {
+        val script =
+            """
             (function() {
                 try {
-                    // Try to find any existing blob data in the page
                     const blobUrl = '$url';
                     window['$interceptorName'].log('Attempting manual blob recovery for: ' + blobUrl);
                     
-                    // Look for any stored blob data in the page context
                     if (window.lastBlobData) {
                         window['$interceptorName'].downloadBlob(window.lastBlobData, 'manual_download.${extensionMap[mimeType] ?: "bin"}', '$mimeType');
                         return 'SUCCESS';
                     }
                     
-                    // Try to recreate the blob from available data
                     const pageText = document.documentElement.outerHTML;
                     if (pageText.includes('data:')) {
                         const dataUrlMatch = pageText.match(/data:[^"']*/);
@@ -194,7 +209,7 @@ public class DownloadHandler(private val context: Context) {
                     return 'ERROR:' + e.message;
                 }
             })();
-        """.trimIndent()
+            """.trimIndent()
 
         webView.evaluateJavascript(script) { result ->
             Log.d(TAG, "📋 Manual blob recovery result: $result")
@@ -206,12 +221,14 @@ public class DownloadHandler(private val context: Context) {
                 onError("Unable to download blob content - URL may have expired")
             }
 
-            // Cleanup
             webView.removeJavascriptInterface(interceptorName)
         }
     }
 
-    private fun processDataUrlAsync(dataUrl: String, mimeType: String) {
+    private fun processDataUrlAsync(
+        dataUrl: String,
+        mimeType: String,
+    ) {
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 Log.d(TAG, "🔄 Processing intercepted data URL (${dataUrl.length} chars)...")
@@ -228,11 +245,12 @@ public class DownloadHandler(private val context: Context) {
 
                 Log.d(TAG, "📊 Data URL - Base64: $isBase64, Data size: ${data.length}")
 
-                val bytes = if (isBase64) {
-                    android.util.Base64.decode(data, android.util.Base64.DEFAULT)
-                } else {
-                    data.toByteArray()
-                }
+                val bytes =
+                    if (isBase64) {
+                        android.util.Base64.decode(data, android.util.Base64.DEFAULT)
+                    } else {
+                        data.toByteArray()
+                    }
 
                 val filename = generateFilename(mimeType)
                 Log.d(TAG, "💾 Saving as: $filename (${bytes.size} bytes)")
@@ -241,14 +259,17 @@ public class DownloadHandler(private val context: Context) {
                 withContext(Dispatchers.Main) {
                     Log.d(TAG, "✅ File saved successfully!")
                 }
-
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Failed to process intercepted data URL", e)
             }
         }
     }
 
-    private suspend fun saveFile(filename: String, data: ByteArray, mimeType: String) {
+    private suspend fun saveFile(
+        filename: String,
+        data: ByteArray,
+        mimeType: String,
+    ) {
         withContext(Dispatchers.IO) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 saveToMediaStore(filename, data, mimeType)
@@ -259,16 +280,22 @@ public class DownloadHandler(private val context: Context) {
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    private fun saveToMediaStore(filename: String, data: ByteArray, mimeType: String) {
-        val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-        }
+    private fun saveToMediaStore(
+        filename: String,
+        data: ByteArray,
+        mimeType: String,
+    ) {
+        val values =
+            ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            }
 
         val resolver = context.contentResolver
-        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            ?: throw Exception("Failed to create media store entry")
+        val uri =
+            resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: throw Exception("Failed to create media store entry")
 
         resolver.openOutputStream(uri)?.use { outputStream ->
             outputStream.write(data)
@@ -276,7 +303,10 @@ public class DownloadHandler(private val context: Context) {
     }
 
     @Suppress("DEPRECATION")
-    private fun saveToLegacyStorage(filename: String, data: ByteArray) {
+    private fun saveToLegacyStorage(
+        filename: String,
+        data: ByteArray,
+    ) {
         val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         if (!downloadsDir.exists()) {
             downloadsDir.mkdirs()
@@ -289,7 +319,7 @@ public class DownloadHandler(private val context: Context) {
             context,
             arrayOf(file.absolutePath),
             null,
-            null
+            null,
         )
     }
 

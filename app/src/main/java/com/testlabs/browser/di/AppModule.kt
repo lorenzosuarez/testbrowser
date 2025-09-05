@@ -7,7 +7,7 @@ import org.koin.dsl.module
 /**
  * Application module providing core dependencies.
  */
-public val appModule: org.koin.core.module.Module = module {
-    // Browser
-    viewModelOf(constructor = ::BrowserViewModel)
-}
+public val appModule: org.koin.core.module.Module =
+    module {
+        viewModelOf(constructor = ::BrowserViewModel)
+    }

@@ -19,7 +19,8 @@ private val Context.browserSettingsDataStore: DataStore<WebViewConfig> by dataSt
 /**
  * Module providing persistence for browser configuration.
  */
-public val settingsModule: Module = module {
-    single<DataStore<WebViewConfig>> { androidContext().browserSettingsDataStore }
-    single<BrowserSettingsRepository> { BrowserSettingsRepositoryImpl(get()) }
-}
+public val settingsModule: Module =
+    module {
+        single<DataStore<WebViewConfig>> { androidContext().browserSettingsDataStore }
+        single<BrowserSettingsRepository> { BrowserSettingsRepositoryImpl(get()) }
+    }

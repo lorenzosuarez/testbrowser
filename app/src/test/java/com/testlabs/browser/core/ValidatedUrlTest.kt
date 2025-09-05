@@ -7,7 +7,6 @@ import kotlin.test.assertEquals
  * Unit tests for ValidatedUrl value class.
  */
 class ValidatedUrlTest {
-
     @Test
     fun `fromInput adds https prefix to plain domain`() {
         val result = ValidatedUrl.fromInput("example.com")

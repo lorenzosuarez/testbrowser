@@ -12,8 +12,9 @@ import androidx.activity.result.ActivityResultLauncher
 /**
  * WebView file upload orchestration with MIME filtering and safe callback dispatch.
  */
-public class FileUploadHandler(private val context: Context) {
-
+public class FileUploadHandler(
+    private val context: Context,
+) {
     private companion object {
         private const val TITLE = "Select File"
         private const val ALL = "*/*"
@@ -33,12 +34,20 @@ public class FileUploadHandler(private val context: Context) {
     /**
      * Handle file chooser request from WebView.
      */
-    public fun handleFileChooser(cb: ValueCallback<Array<Uri>>?, params: WebChromeClient.FileChooserParams?): Boolean {
+    public fun handleFileChooser(
+        cb: ValueCallback<Array<Uri>>?,
+        params: WebChromeClient.FileChooserParams?,
+    ): Boolean {
         cancel()
         callback = cb
         val l = launcher ?: return false.also { cancel() }
-        return runCatching { l.launch(buildChooserIntent(params)); true }
-            .getOrElse { cancel(); false }
+        return runCatching {
+            l.launch(buildChooserIntent(params))
+            true
+        }.getOrElse {
+            cancel()
+            false
+        }
     }
 
     /**
@@ -64,14 +73,15 @@ public class FileUploadHandler(private val context: Context) {
     public val hasPending: Boolean get() = callback != null
 
     private fun buildChooserIntent(params: WebChromeClient.FileChooserParams?): Intent {
-        val base = Intent(Intent.ACTION_GET_CONTENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = ALL
-            if (params?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
-                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        val base =
+            Intent(Intent.ACTION_GET_CONTENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = ALL
+                if (params?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                }
+                configureMimeTypes(params)
             }
-            configureMimeTypes(params)
-        }
         return Intent.createChooser(base, TITLE).apply { maybeAddCamera(params) }
     }
 

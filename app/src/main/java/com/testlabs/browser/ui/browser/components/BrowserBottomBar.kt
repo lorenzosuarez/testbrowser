@@ -9,11 +9,11 @@ import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.testlabs.browser.R
+import com.testlabs.browser.ui.theme.BrowserThemeTokens
 
 /**
  * Browser bottom navigation bar with navigation controls and floating action button for new tab.
@@ -27,40 +27,47 @@ public fun BrowserBottomBar(
     onForwardClick: () -> Unit,
     onReloadClick: () -> Unit,
     onNewTabClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
+    val barColors = BrowserThemeTokens.barColors()
     BottomAppBar(
+        containerColor = barColors.container,
+        contentColor = barColors.content,
         actions = {
             IconButton(
                 onClick = onBackClick,
-                enabled = canGoBack
+                enabled = canGoBack,
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = stringResource(R.string.browser_back),
-                    tint = if (canGoBack)
-                        MaterialTheme.colorScheme.onSurface
-                    else
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    tint =
+                        if (canGoBack) {
+                            barColors.content
+                        } else {
+                            barColors.content.copy(alpha = 0.38f)
+                        },
                 )
             }
             IconButton(
                 onClick = onForwardClick,
-                enabled = canGoForward
+                enabled = canGoForward,
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = stringResource(R.string.browser_forward),
-                    tint = if (canGoForward)
-                        MaterialTheme.colorScheme.onSurface
-                    else
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    tint =
+                        if (canGoForward) {
+                            barColors.content
+                        } else {
+                            barColors.content.copy(alpha = 0.38f)
+                        },
                 )
             }
             IconButton(onClick = onReloadClick) {
                 Icon(
                     Icons.Filled.Refresh,
-                    contentDescription = stringResource(R.string.browser_reload)
+                    contentDescription = stringResource(R.string.browser_reload),
                 )
             }
         },
@@ -68,10 +75,10 @@ public fun BrowserBottomBar(
             FloatingActionButton(onClick = onNewTabClick) {
                 Icon(
                     Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.browser_new_tab)
+                    contentDescription = stringResource(R.string.browser_new_tab),
                 )
             }
         },
-        modifier = modifier
+        modifier = modifier,
     )
 }

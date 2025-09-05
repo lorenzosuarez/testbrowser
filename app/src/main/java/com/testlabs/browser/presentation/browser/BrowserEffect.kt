@@ -6,11 +6,12 @@ import com.testlabs.browser.core.ValidatedUrl
  * Sealed interface representing side effects that should be handled outside the reducer.
  */
 public sealed interface BrowserEffect {
-
     /**
      * Effect to load a URL in the WebView.
      */
-    public data class LoadUrl(val url: ValidatedUrl) : BrowserEffect
+    public data class LoadUrl(
+        val url: ValidatedUrl,
+    ) : BrowserEffect
 
     /**
      * Effect to reload the current page in the WebView.
@@ -30,5 +31,7 @@ public sealed interface BrowserEffect {
     /**
      * Effect to show a toast or snackbar message.
      */
-    public data class ShowMessage(val message: String) : BrowserEffect
+    public data class ShowMessage(
+        val message: String,
+    ) : BrowserEffect
 }
