@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.testlabs.browser"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.testlabs.browser"
@@ -31,7 +31,7 @@ android {
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -43,12 +43,14 @@ android {
 
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs += listOf(
-            "-opt-in=kotlin.RequiresOptIn",
-            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-Xjsr305=strict",
-        )
+        freeCompilerArgs +=
+            listOf(
+                "-opt-in=kotlin.RequiresOptIn",
+                "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+                "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+                "-Xjsr305=strict",
+                "-Xjvm-default=all",
+            )
     }
 
     buildFeatures {
@@ -78,16 +80,11 @@ kotlin {
 }
 
 dependencies {
-    // AndroidX Core
     implementation(libs.androidx.core.ktx.v1170)
     implementation(libs.androidx.lifecycle.runtime.ktx.v293)
     implementation(libs.androidx.lifecycle.viewmodel.compose.v293)
-
-    // WebView and WebKit
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.startup.runtime)
-
-    // Compose
     implementation(platform(libs.compose.bom.v20250801))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
@@ -98,33 +95,19 @@ dependencies {
     implementation(libs.androidx.animation)
     implementation(libs.androidx.material)
     implementation(libs.accompanist.swiperefresh)
-    implementation(platform(libs.compose.bom.v20250801))
-
-    // Coroutines
     implementation(libs.kotlinx.coroutines.android.v1102)
-
-    // DataStore and serialization
     implementation(libs.datastore)
     implementation(libs.kotlinx.serialization.json)
-
-    // Dependency Injection - Use stable Koin version
     implementation(libs.koin.android.v356)
     implementation(libs.koin.androidx.compose.v356)
-
-    // Image Loading
     implementation(libs.coil.compose)
-
-    // Debug
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-
-    // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test.v1102)
     testImplementation(libs.turbine.v121)
     testImplementation(libs.mockk.v1145)
     testImplementation(libs.koin.test.v356)
-
     androidTestImplementation(libs.androidx.junit.v130)
     androidTestImplementation(libs.androidx.espresso.core.v370)
     androidTestImplementation(libs.androidx.core.v170)

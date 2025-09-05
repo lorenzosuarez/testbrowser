@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import com.testlabs.browser.R
+import com.testlabs.browser.ui.theme.BrowserThemeTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +53,7 @@ public fun BrowserTopBar(
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
     var shouldRequestFocus by remember { mutableStateOf(false) }
+    val barColors = BrowserThemeTokens.barColors()
 
     LaunchedEffect(key1 = shouldFocusUrlInput) {
         if (shouldFocusUrlInput) focusRequester.requestFocus()
@@ -76,18 +78,19 @@ public fun BrowserTopBar(
     TopAppBar(
         title = {
             OutlinedTextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = dimensionResource(id = R.dimen.browser_topbar_horizontal_padding))
-                    .padding(vertical = dimensionResource(id = R.dimen.browser_topbar_vertical_padding))
-                    .focusRequester(focusRequester),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(end = dimensionResource(id = R.dimen.browser_topbar_horizontal_padding))
+                        .padding(vertical = dimensionResource(id = R.dimen.browser_topbar_vertical_padding))
+                        .focusRequester(focusRequester),
                 value = url,
                 onValueChange = onUrlChanged,
                 placeholder = {
                     androidx.compose.material3.Text(
                         text = stringResource(id = R.string.browser_url_placeholder),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
                 },
                 trailingIcon = {
@@ -95,12 +98,12 @@ public fun BrowserTopBar(
                         CompositionLocalProvider(value = LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                             IconButton(
                                 onClick = handleClear,
-                                modifier = Modifier.size(size =dimensionResource(id  =R.dimen.browser_clear_icon_size))
+                                modifier = Modifier.size(size = dimensionResource(id = R.dimen.browser_clear_icon_size)),
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Clear,
                                     contentDescription = stringResource(id = R.string.browser_clear_search),
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 )
                             }
                         }
@@ -108,18 +111,20 @@ public fun BrowserTopBar(
                 },
                 textStyle = MaterialTheme.typography.bodyMedium,
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Go,
-                ),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Go,
+                    ),
                 keyboardActions = KeyboardActions(onGo = { handleSubmit() }),
                 shape = RoundedCornerShape(size = dimensionResource(id = R.dimen.browser_pill_radius)),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent
-                )
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                    ),
             )
         },
         navigationIcon = {
@@ -131,16 +136,20 @@ public fun BrowserTopBar(
                     Icon(
                         imageVector = Icons.Filled.MoreVert,
                         contentDescription = stringResource(id = R.string.browser_menu),
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
         },
         modifier = modifier,
         scrollBehavior = scrollBehavior,
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            scrolledContainerColor = MaterialTheme.colorScheme.surface
-        )
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = barColors.container,
+                scrolledContainerColor = barColors.container,
+                navigationIconContentColor = barColors.content,
+                titleContentColor = barColors.content,
+                actionIconContentColor = barColors.content,
+            ),
     )
 }

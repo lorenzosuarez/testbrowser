@@ -39,8 +39,8 @@ import com.testlabs.browser.presentation.browser.BrowserState
 import com.testlabs.browser.presentation.browser.BrowserViewModel
 import com.testlabs.browser.ui.browser.components.BrowserBottomBar
 import com.testlabs.browser.ui.browser.components.BrowserProgressIndicator
-import com.testlabs.browser.ui.browser.components.BrowserTopBar
 import com.testlabs.browser.ui.browser.components.BrowserSettingsDialog
+import com.testlabs.browser.ui.browser.components.BrowserTopBar
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -56,14 +56,13 @@ import org.koin.androidx.compose.koinViewModel
 public fun BrowserScreen(
     filePickerLauncher: ActivityResultLauncher<Intent>,
     uaProvider: UAProvider,
-    viewModel: BrowserViewModel = koinViewModel()
+    viewModel: BrowserViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val topScroll = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     val snackbarHostState = remember { SnackbarHostState() }
     var webController by remember { mutableStateOf<WebViewController?>(value = null) }
 
-    // Back handler del sistema para historial web
     BackHandler(enabled = state.canGoBack) {
         viewModel.handleIntent(BrowserIntent.GoBack)
     }
@@ -86,42 +85,47 @@ public fun BrowserScreen(
         }
     }
 
-    val callbacks = remember(viewModel) {
-        object {
-            val onProgressChanged: (Float) -> Unit = { viewModel.handleIntent(BrowserIntent.ProgressChanged(it)) }
-            val onPageStarted: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.PageStarted(ValidatedUrl.fromValidUrl(it))) }
-            val onPageFinished: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.PageFinished(ValidatedUrl.fromValidUrl(it))) }
-            val onTitleChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.TitleChanged(it)) }
-            val onNavigationStateChanged: (Boolean, Boolean) -> Unit = { b, f -> viewModel.handleIntent(BrowserIntent.NavigationStateChanged(b, f)) }
-            val onError: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.NavigationError(it)) }
-            val onUrlChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.UrlChanged(ValidatedUrl.fromValidUrl(it))) } // Para sincronización reactiva de URL
-            val onControllerReady: (WebViewController) -> Unit = { webController = it }
-            val onBack: () -> Unit = { viewModel.handleIntent(BrowserIntent.GoBack) }
-            val onForward: () -> Unit = { viewModel.handleIntent(BrowserIntent.GoForward) }
-            val onReload: () -> Unit = { viewModel.handleIntent(BrowserIntent.Reload) }
-            val onNewTab: () -> Unit = { viewModel.handleIntent(BrowserIntent.NewTab) }
-            val onUrlInputChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.UpdateInputUrl(it)) } // Para edición manual del TextField
-            val onUrlSubmit: () -> Unit = { viewModel.submitUrl(state.inputUrl) }
+    val callbacks =
+        remember(viewModel) {
+            object {
+                val onProgressChanged: (Float) -> Unit = { viewModel.handleIntent(BrowserIntent.ProgressChanged(it)) }
+                val onPageStarted: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.PageStarted(ValidatedUrl.fromValidUrl(it))) }
+                val onPageFinished: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.PageFinished(ValidatedUrl.fromValidUrl(it))) }
+                val onTitleChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.TitleChanged(it)) }
+                val onNavigationStateChanged: (
+                    Boolean,
+                    Boolean,
+                ) -> Unit = { b, f -> viewModel.handleIntent(BrowserIntent.NavigationStateChanged(b, f)) }
+                val onError: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.NavigationError(it)) }
+                val onUrlChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.UrlChanged(ValidatedUrl.fromValidUrl(it))) }
+                val onControllerReady: (WebViewController) -> Unit = { webController = it }
+                val onBack: () -> Unit = { viewModel.handleIntent(BrowserIntent.GoBack) }
+                val onForward: () -> Unit = { viewModel.handleIntent(BrowserIntent.GoForward) }
+                val onReload: () -> Unit = { viewModel.handleIntent(BrowserIntent.Reload) }
+                val onNewTab: () -> Unit = { viewModel.handleIntent(BrowserIntent.NewTab) }
+                val onUrlInputChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.UpdateInputUrl(it)) }
+                val onUrlSubmit: () -> Unit = { viewModel.submitUrl(state.inputUrl) }
+            }
         }
-    }
 
     Scaffold(
-        modifier = Modifier
-            .nestedScroll(topScroll.nestedScrollConnection)
-            .fillMaxSize(),
+        modifier =
+            Modifier
+                .nestedScroll(topScroll.nestedScrollConnection)
+                .fillMaxSize(),
         topBar = {
             Column {
                 BrowserTopBar(
                     url = state.inputUrl,
-                    onUrlChanged = callbacks.onUrlInputChanged, // Usar el callback correcto para edición manual
+                    onUrlChanged = callbacks.onUrlInputChanged,
                     onSubmit = callbacks.onUrlSubmit,
                     onMenuClick = { viewModel.handleIntent(BrowserIntent.OpenSettings) },
                     scrollBehavior = topScroll,
-                    shouldFocusUrlInput = state.shouldFocusUrlInput
+                    shouldFocusUrlInput = state.shouldFocusUrlInput,
                 )
                 BrowserProgressIndicator(
                     progress = state.progress,
-                    isVisible = state.isLoading
+                    isVisible = state.isLoading,
                 )
             }
         },
@@ -132,10 +136,10 @@ public fun BrowserScreen(
                 onBackClick = callbacks.onBack,
                 onForwardClick = callbacks.onForward,
                 onReloadClick = callbacks.onReload,
-                onNewTabClick = callbacks.onNewTab
+                onNewTabClick = callbacks.onNewTab,
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         WebViewHost(
             onProgressChanged = callbacks.onProgressChanged,
@@ -144,24 +148,29 @@ public fun BrowserScreen(
             onTitleChanged = callbacks.onTitleChanged,
             onNavigationStateChanged = callbacks.onNavigationStateChanged,
             onError = callbacks.onError,
-            onUrlChanged = callbacks.onUrlChanged, // Agregar el callback para sincronización reactiva
+            onUrlChanged = callbacks.onUrlChanged,
             filePickerLauncher = filePickerLauncher,
             uaProvider = uaProvider,
             config = state.settingsCurrent,
             onControllerReady = callbacks.onControllerReady,
             onScrollDelta = { dyPx ->
                 val available = Offset(x = 0f, y = -dyPx.toFloat())
-                val pre = topScroll.nestedScrollConnection.onPreScroll(available,
-                    NestedScrollSource.UserInput
-                )
+                val pre =
+                    topScroll.nestedScrollConnection.onPreScroll(
+                        available,
+                        NestedScrollSource.UserInput,
+                    )
                 val remaining = available - pre
-                topScroll.nestedScrollConnection.onPostScroll(Offset.Zero, remaining,
-                    NestedScrollSource.UserInput
+                topScroll.nestedScrollConnection.onPostScroll(
+                    Offset.Zero,
+                    remaining,
+                    NestedScrollSource.UserInput,
                 )
             },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
         )
         if (state.isSettingsDialogVisible) {
             BrowserSettingsDialog(
@@ -176,7 +185,9 @@ public fun BrowserScreen(
 
 @Preview(showBackground = true)
 @Composable
-public fun BrowserScreenPreview(@PreviewParameter(BrowserStateProvider::class) state: BrowserState) {
+public fun BrowserScreenPreview(
+    @PreviewParameter(BrowserStateProvider::class) state: BrowserState,
+) {
     MaterialTheme {
         BrowserScreenPreviewContent(state)
     }
@@ -184,32 +195,35 @@ public fun BrowserScreenPreview(@PreviewParameter(BrowserStateProvider::class) s
 
 @Composable
 public fun BrowserScreenPreviewContent(state: BrowserState) {
-    val mockViewModel = remember {
-        object {
-            fun handleIntent() {}
-            fun submitUrl() {}
+    val mockViewModel =
+        remember {
+            object {
+                fun handleIntent() {}
+
+                fun submitUrl() {}
+            }
         }
-    }
     val topScroll = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
-        modifier = Modifier
-            .nestedScroll(topScroll.nestedScrollConnection)
-            .fillMaxSize(),
+        modifier =
+            Modifier
+                .nestedScroll(topScroll.nestedScrollConnection)
+                .fillMaxSize(),
         topBar = {
             Column {
                 BrowserTopBar(
                     url = state.inputUrl,
                     onUrlChanged = { mockViewModel.handleIntent() },
                     onSubmit = { mockViewModel.submitUrl() },
-                    onMenuClick = { /* Preview - no action */ },
+                    onMenuClick = {},
                     scrollBehavior = topScroll,
-                    shouldFocusUrlInput = state.shouldFocusUrlInput
+                    shouldFocusUrlInput = state.shouldFocusUrlInput,
                 )
                 BrowserProgressIndicator(
                     progress = state.progress,
-                    isVisible = state.isLoading
+                    isVisible = state.isLoading,
                 )
             }
         },
@@ -220,37 +234,39 @@ public fun BrowserScreenPreviewContent(state: BrowserState) {
                 onBackClick = { mockViewModel.handleIntent() },
                 onForwardClick = { mockViewModel.handleIntent() },
                 onReloadClick = { mockViewModel.handleIntent() },
-                onNewTabClick = { mockViewModel.handleIntent() }
+                onNewTabClick = { mockViewModel.handleIntent() },
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.surface),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .background(MaterialTheme.colorScheme.surface),
+            contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = "WebView Preview\n${state.inputUrl}",
                 style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
         }
     }
 }
 
 public class BrowserStateProvider : PreviewParameterProvider<BrowserState> {
-    override val values: Sequence<BrowserState> = sequenceOf(
-        BrowserState(
-            inputUrl = "https://www.example.com",
-            title = "Example Website",
-            canGoBack = true,
-            canGoForward = false,
-            shouldFocusUrlInput = false,
-            isLoading = false,
-            progress = 0.75f
-        ),
-    )
+    override val values: Sequence<BrowserState> =
+        sequenceOf(
+            BrowserState(
+                inputUrl = "https://www.example.com",
+                title = "Example Website",
+                canGoBack = true,
+                canGoForward = false,
+                shouldFocusUrlInput = false,
+                isLoading = false,
+                progress = 0.75f,
+            ),
+        )
 }

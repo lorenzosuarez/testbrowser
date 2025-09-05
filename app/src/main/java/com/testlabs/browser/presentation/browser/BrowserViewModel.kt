@@ -16,13 +16,13 @@ import kotlinx.coroutines.launch
  * ViewModel that orchestrates browser state management using MVI pattern.
  * Handles user intents, produces immutable states, and emits side effects.
  */
+
 /**
  * ViewModel orchestrating state and persistent configuration.
  */
 public class BrowserViewModel(
     private val settingsRepository: BrowserSettingsRepository,
 ) : ViewModel() {
-
     private val _state = MutableStateFlow(BrowserState())
 
     /**
@@ -66,10 +66,11 @@ public class BrowserViewModel(
     init {
         viewModelScope.launch {
             settingsRepository.config.collect { config ->
-                _state.value = _state.value.copy(
-                    settingsCurrent = config,
-                    settingsDraft = config,
-                )
+                _state.value =
+                    _state.value.copy(
+                        settingsCurrent = config,
+                        settingsDraft = config,
+                    )
             }
         }
     }

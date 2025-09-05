@@ -9,6 +9,7 @@ import org.koin.dsl.module
 /**
  * Core module providing shared primitives and utilities.
  */
-public val coreModule: Module = module {
-    single<UAProvider> { DefaultUAProvider(androidContext()) }
-}
+public val coreModule: Module =
+    module {
+        single<UAProvider> { DefaultUAProvider(androidContext()) }
+    }

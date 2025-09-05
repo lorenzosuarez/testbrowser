@@ -4,8 +4,9 @@ package com.testlabs.browser.core
  * A validated URL value class that ensures proper URL formatting with HTTPS prefix.
  */
 @JvmInline
-public value class ValidatedUrl private constructor(public val value: String) {
-
+public value class ValidatedUrl private constructor(
+    public val value: String,
+) {
     public companion object {
         private const val HTTPS_PREFIX = "https://"
         private const val HTTP_PREFIX = "http://"

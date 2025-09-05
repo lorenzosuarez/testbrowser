@@ -6,57 +6,59 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
-private val DarkColorScheme = darkColorScheme(
-    primary = BrowserPrimaryDark,
-    onPrimary = BrowserOnPrimaryDark,
-    primaryContainer = BrowserPrimaryContainerDark,
-    onPrimaryContainer = BrowserOnPrimaryContainerDark,
-    secondary = BrowserSecondaryDark,
-    onSecondary = BrowserOnSecondaryDark,
-    secondaryContainer = BrowserSecondaryContainerDark,
-    onSecondaryContainer = BrowserOnSecondaryContainerDark,
-    tertiary = BrowserTertiaryDark,
-    onTertiary = BrowserOnTertiaryDark,
-    tertiaryContainer = BrowserTertiaryContainerDark,
-    onTertiaryContainer = BrowserOnTertiaryContainerDark,
-    error = BrowserErrorDark,
-    errorContainer = BrowserErrorContainerDark,
-    onError = BrowserOnErrorDark,
-    onErrorContainer = BrowserOnErrorContainerDark,
-    background = BrowserBackgroundDark,
-    onBackground = BrowserOnBackgroundDark,
-    surface = BrowserSurfaceDark,
-    onSurface = BrowserOnSurfaceDark,
-    surfaceVariant = BrowserSurfaceVariantDark,
-    onSurfaceVariant = BrowserOnSurfaceVariantDark,
-    outline = BrowserOutlineDark
-)
+private val DarkColorScheme =
+    darkColorScheme(
+        primary = BrowserPrimaryDark,
+        onPrimary = BrowserOnPrimaryDark,
+        primaryContainer = BrowserPrimaryContainerDark,
+        onPrimaryContainer = BrowserOnPrimaryContainerDark,
+        secondary = BrowserSecondaryDark,
+        onSecondary = BrowserOnSecondaryDark,
+        secondaryContainer = BrowserSecondaryContainerDark,
+        onSecondaryContainer = BrowserOnSecondaryContainerDark,
+        tertiary = BrowserTertiaryDark,
+        onTertiary = BrowserOnTertiaryDark,
+        tertiaryContainer = BrowserTertiaryContainerDark,
+        onTertiaryContainer = BrowserOnTertiaryContainerDark,
+        error = BrowserErrorDark,
+        errorContainer = BrowserErrorContainerDark,
+        onError = BrowserOnErrorDark,
+        onErrorContainer = BrowserOnErrorContainerDark,
+        background = BrowserBackgroundDark,
+        onBackground = BrowserOnBackgroundDark,
+        surface = BrowserSurfaceDark,
+        onSurface = BrowserOnSurfaceDark,
+        surfaceVariant = BrowserSurfaceVariantDark,
+        onSurfaceVariant = BrowserOnSurfaceVariantDark,
+        outline = BrowserOutlineDark,
+    )
 
-private val LightColorScheme = lightColorScheme(
-    primary = BrowserPrimary,
-    onPrimary = BrowserOnPrimary,
-    primaryContainer = BrowserPrimaryContainer,
-    onPrimaryContainer = BrowserOnPrimaryContainer,
-    secondary = BrowserSecondary,
-    onSecondary = BrowserOnSecondary,
-    secondaryContainer = BrowserSecondaryContainer,
-    onSecondaryContainer = BrowserOnSecondaryContainer,
-    tertiary = BrowserTertiary,
-    onTertiary = BrowserOnTertiary,
-    tertiaryContainer = BrowserTertiaryContainer,
-    onTertiaryContainer = BrowserOnTertiaryContainer,
-    error = BrowserError,
-    errorContainer = BrowserErrorContainer,
-    onError = BrowserOnError,
-    onErrorContainer = BrowserOnErrorContainer,
-    background = BrowserBackground,
-    onBackground = BrowserOnBackground,
-    surface = BrowserSurface,
-    onSurface = BrowserOnSurface,
-    surfaceVariant = BrowserSurfaceVariant,
-    onSurfaceVariant = BrowserOnSurfaceVariant,
-    outline = BrowserOutline
-)
+private val LightColorScheme =
+    lightColorScheme(
+        primary = BrowserPrimary,
+        onPrimary = BrowserOnPrimary,
+        primaryContainer = BrowserPrimaryContainer,
+        onPrimaryContainer = BrowserOnPrimaryContainer,
+        secondary = BrowserSecondary,
+        onSecondary = BrowserOnSecondary,
+        secondaryContainer = BrowserSecondaryContainer,
+        onSecondaryContainer = BrowserOnSecondaryContainer,
+        tertiary = BrowserTertiary,
+        onTertiary = BrowserOnTertiary,
+        tertiaryContainer = BrowserTertiaryContainer,
+        onTertiaryContainer = BrowserOnTertiaryContainer,
+        error = BrowserError,
+        errorContainer = BrowserErrorContainer,
+        onError = BrowserOnError,
+        onErrorContainer = BrowserOnErrorContainer,
+        background = BrowserBackground,
+        onBackground = BrowserOnBackground,
+        surface = BrowserSurface,
+        onSurface = BrowserOnSurface,
+        surfaceVariant = BrowserSurfaceVariant,
+        onSurfaceVariant = BrowserOnSurfaceVariant,
+        outline = BrowserOutline,
+    )
 
 /**
  * Material 3 theme for TestBrowser application.
@@ -69,16 +71,17 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 public fun TestBrowserTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme =
+        when {
+            darkTheme -> DarkColorScheme
+            else -> LightColorScheme
+        }
 
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
-        content = content
+        content = content,
     )
 }
