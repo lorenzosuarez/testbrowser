@@ -49,6 +49,7 @@ public fun BrowserSettingsDialog(
     headerMode: String,
     jsCompatEnabled: Boolean,
     onCopyDiagnostics: () -> Unit,
+    proxyStack: String,
 ) {
     var tempConfig by remember { mutableStateOf(config) }
     val hasChanges = tempConfig != config
@@ -166,7 +167,7 @@ public fun BrowserSettingsDialog(
 
                         Column {
                             SettingRow(
-                                label = "Route traffic via proxy",
+                                label = stringResource(id = R.string.settings_proxy_toggle),
                                 checked = tempConfig.proxyEnabled,
                                 onCheckedChange = { tempConfig = tempConfig.copy(proxyEnabled = it) }
                             )
@@ -231,11 +232,11 @@ public fun BrowserSettingsDialog(
                             }
                         }
 
-                        DiagnosticItem("User Agent", userAgent)
-                        DiagnosticItem("Accept-Language", acceptLanguages)
-                        DiagnosticItem("X-Requested-With Mode", headerMode)
-                        DiagnosticItem("JS Compatibility", if (jsCompatEnabled) "Enabled" else "Disabled")
-                        DiagnosticItem("Proxy Status", if (tempConfig.proxyEnabled) "Active" else "Disabled")
+                        DiagnosticItem(stringResource(id = R.string.settings_user_agent_label), userAgent)
+                        DiagnosticItem(stringResource(id = R.string.settings_accept_language_label), acceptLanguages)
+                        DiagnosticItem(stringResource(id = R.string.settings_header_mode_label), headerMode)
+                        DiagnosticItem(stringResource(id = R.string.settings_js_compat_status), if (jsCompatEnabled) "Enabled" else "Disabled")
+                        DiagnosticItem(stringResource(id = R.string.settings_proxy_stack), proxyStack)
                     }
                 }
             }

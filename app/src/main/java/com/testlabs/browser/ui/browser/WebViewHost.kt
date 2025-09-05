@@ -32,6 +32,7 @@ import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebSettingsCompat
 import com.testlabs.browser.domain.settings.WebViewConfig
+import org.koin.compose.koinInject
 private const val TAG = "WebViewHost"
 private const val MIME_TYPE_GUESS = "application/octet-stream"
 
@@ -115,6 +116,11 @@ public interface WebViewController {
      * Returns the current `X-Requested-With` header suppression mode detected for this engine.
      */
     public fun requestedWithHeaderMode(): RequestedWithHeaderMode
+
+    /**
+     * Returns the name of the active proxy stack.
+     */
+    public fun proxyStackName(): String
 }
 
 
@@ -156,7 +162,7 @@ public fun WebViewHost(
     val context = LocalContext.current
     val downloadHandler = remember { DownloadHandler(context) }
     val fileUploadHandler = remember { FileUploadHandler(context) }
-    val networkProxy = remember { NetworkProxy() }
+    val networkProxy: NetworkProxy = koinInject()
 
     var latestConfig by remember { mutableStateOf(config) }
     var webViewKey by remember { mutableIntStateOf(0) }
@@ -217,6 +223,7 @@ public fun WebViewHost(
                     }
                 }
                 override fun requestedWithHeaderMode(): RequestedWithHeaderMode = requestedWithHeaderModeOf(webView)
+                override fun proxyStackName(): String = networkProxy.stackName
             }
         onControllerReady(controller)
         onDispose {
