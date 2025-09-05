@@ -10,7 +10,7 @@ This browser implements advanced network proxying and configuration management t
 
 ✅ **Accept-Language**: Configurable language preferences that match Chrome's format
 
-✅ **X-Requested-With Removal**: Complete elimination of the `X-Requested-With` header on all HTTP/HTTPS requests through network proxying
+✅ **X-Requested-With Removal**: Complete elimination of the `X-Requested-With` header on all HTTP/HTTPS requests through Cronet proxying
 
 ✅ **Standard Headers**: Proper `Accept`, `Cache-Control`, `Sec-Fetch-*` headers matching Chrome's behavior
 
@@ -22,11 +22,11 @@ This browser implements advanced network proxying and configuration management t
 
 ❌ **Sec-CH-UA* Client Hints**: These are controlled by Chromium engine and cannot be fully overridden in WebView
 
-❌ **TLS Extension Ordering**: WebView's underlying network stack determines TLS handshake details
+❌ **Sec-CH-UA* Client Hints**: Controlled by Chromium engine and expose WebView/Chromium rather than Chrome
 
-❌ **GREASE Randomness**: Chrome's random GREASE values are not replicable in WebView
+❌ **TLS Extension Ordering**: TLS fingerprints (JA3/JA4) depend on engine internals; Cronet improves parity but some differences remain
 
-❌ **HTTP/2 Frame Ordering**: Exact frame priority and ordering may differ
+❌ **HTTP/2 SETTINGS/GREASE**: Frame ordering and GREASE values may vary from Chrome
 
 ❌ **Request Body Proxying**: WebResourceRequest API doesn't expose POST/PUT request bodies
 
@@ -34,7 +34,7 @@ This browser implements advanced network proxying and configuration management t
 
 ### Network Proxy Layer (`NetworkProxy`)
 - Intercepts all HTTP/HTTPS requests via `shouldInterceptRequest`
-- Recreates requests with OkHttp using shared HTTP client (HTTP/2, connection pooling)
+- Recreates requests with Cronet when available (Brotli, Zstd, HTTP/2, QUIC) with OkHttp fallback
 - Strips X-Requested-With header completely
 - Maintains cookie consistency through CookieManager
 - Bypasses native schemes: `blob:`, `data:`, `file:`, `ws:`, `wss:`, `intent:`
@@ -148,7 +148,8 @@ Smart recreation triggers on changes to:
 
 ## Dependencies
 
-- **OkHttp 4.12.0**: HTTP client for network proxying
+- **Cronet Embedded**: Chromium networking stack with Brotli/Zstd, HTTP/2, and QUIC
+- **OkHttp 5.1.0**: Fallback HTTP client
 - **AndroidX WebKit**: Modern WebView APIs
 - **Kotlinx Coroutines**: Async operations
 - **Koin**: Dependency injection

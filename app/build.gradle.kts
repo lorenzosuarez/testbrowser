@@ -102,6 +102,8 @@ dependencies {
     implementation(libs.koin.androidx.compose.v356)
     implementation(libs.okhttp)
     implementation(libs.logging.interceptor)
+    implementation(libs.cronet.embedded)
+    implementation(libs.play.services.cronet)
     implementation(libs.coil.compose)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)

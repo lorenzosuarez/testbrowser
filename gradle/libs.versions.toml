@@ -28,6 +28,8 @@ turbine-version = "1.2.1"
 datastore = "1.1.7"
 kotlinx-serialization-json = "1.9.0"
 webkit = "1.14.0"
+cronet = "119.6045.31"
+play-services-cronet = "18.0.1"
 
 [libraries]
 # AndroidX Core
@@ -73,6 +75,8 @@ logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", ver
 mockk-v1145 = { module = "io.mockk:mockk", version.ref = "mockk-version" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 turbine-v121 = { module = "app.cash.turbine:turbine", version.ref = "turbine-version" }
+cronet-embedded = { module = "org.chromium.net:cronet-embedded", version.ref = "cronet" }
+play-services-cronet = { module = "com.google.android.gms:play-services-cronet", version.ref = "play-services-cronet" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

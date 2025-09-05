@@ -64,6 +64,7 @@ public fun BrowserScreen(
     val topScroll = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     val snackbarHostState = remember { SnackbarHostState() }
     var webController by remember { mutableStateOf<WebViewController?>(value = null) }
+    var pendingUrl by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
@@ -81,10 +82,9 @@ public fun BrowserScreen(
                 BrowserEffect.NavigateForward -> webController?.goForward()
                 is BrowserEffect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
                 BrowserEffect.RecreateWebView -> {
+                    pendingUrl = state.url.value
                     webController?.recreateWebView()
-                    scope.launch {
-                        snackbarHostState.showSnackbar("WebView restarted with new settings")
-                    }
+                    scope.launch { snackbarHostState.showSnackbar("WebView restarted with new settings") }
                 }
                 BrowserEffect.ClearBrowsingData -> {
                     val controller = webController
@@ -114,7 +114,13 @@ public fun BrowserScreen(
                 val onNavigationStateChanged: (Boolean, Boolean) -> Unit = { b, f -> viewModel.handleIntent(BrowserIntent.NavigationStateChanged(b, f)) }
                 val onError: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.NavigationError(it)) }
                 val onUrlChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.UrlChanged(ValidatedUrl.fromValidUrl(it))) }
-                val onControllerReady: (WebViewController) -> Unit = { webController = it }
+                val onControllerReady: (WebViewController) -> Unit = {
+                    webController = it
+                    pendingUrl?.let { url ->
+                        webController?.loadUrl(url)
+                        pendingUrl = null
+                    }
+                }
                 val onBack: () -> Unit = { viewModel.handleIntent(BrowserIntent.GoBack) }
                 val onForward: () -> Unit = { viewModel.handleIntent(BrowserIntent.GoForward) }
                 val onReload: () -> Unit = { viewModel.handleIntent(BrowserIntent.Reload) }
@@ -213,14 +219,10 @@ public fun BrowserScreen(
                 acceptLanguages = state.settingsCurrent.acceptLanguages,
                 headerMode = mode.name,
                 jsCompatEnabled = state.settingsCurrent.jsCompatibilityMode,
+                proxyStack = webController?.proxyStackName() ?: "Disabled",
                 onCopyDiagnostics = {
-                    val diagnostics = buildString {
-                        append("User-Agent: $ua\n")
-                        append("Accept-Language: ${state.settingsCurrent.acceptLanguages}\n")
-                        append("X-Requested-With: ${mode.name}\n")
-                        append("JS Compatibility: ${if (state.settingsCurrent.jsCompatibilityMode) "Enabled" else "Disabled"}\n")
-                        append("Proxy Status: ${if (state.settingsCurrent.proxyEnabled) "Active" else "Disabled"}")
-                    }
+                    val stack = webController?.proxyStackName() ?: "Disabled"
+                    val diagnostics = """{"userAgent":"$ua","acceptLanguage":"${state.settingsCurrent.acceptLanguages}","proxyStack":"$stack","xRequestedWith":"${mode.name}","jsCompat":${state.settingsCurrent.jsCompatibilityMode}}"""
                     scope.launch {
                         val clipData = ClipData.newPlainText("Diagnostics", diagnostics)
                         clipboard.setClipEntry(ClipEntry(clipData))

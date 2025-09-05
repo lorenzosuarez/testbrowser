@@ -47,7 +47,7 @@ public class BrowserViewModel(
 
             _state.value = newState
 
-            if (intent is BrowserIntent.ApplySettings) {
+            if (intent is BrowserIntent.ApplySettings || intent is BrowserIntent.ApplySettingsAndRestart) {
                 settingsRepository.save(newState.settingsCurrent)
             }
 
