@@ -45,6 +45,11 @@ public interface WebViewController {
     public fun canGoForward(): Boolean
 
     public fun clearBrowsingData(onComplete: () -> Unit)
+
+    /**
+     * Check if X-Requested-With header is properly disabled.
+     */
+    public fun isRequestedWithHeaderDisabled(): Boolean
 }
 
 @Composable
@@ -111,6 +116,15 @@ public fun WebViewHost(
                     } catch (t: Throwable) {
                         Log.e(TAG, "Error clearing data", t)
                         onComplete()
+                    }
+                }
+                override fun isRequestedWithHeaderDisabled(): Boolean {
+                    return try {
+                        // Check if we're using the allowlist approach (the only supported method)
+                        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error checking RequestedWithHeader status", e)
+                        false
                     }
                 }
             }
@@ -196,9 +210,12 @@ private fun WebView.applyConfig(
             setJavaScriptEnabled(true)
             setDomStorageEnabled(true)
         }
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
-            WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
+
+        // Apply X-Requested-With header configuration
+        if (config.disableXRequestedWithHeader) {
+            applyRequestedWithHeaderSuppression()
         }
+
         CookieManager.getInstance().apply {
             setAcceptCookie(true)
             setAcceptThirdPartyCookies(this@applyConfig, true)
@@ -206,6 +223,30 @@ private fun WebView.applyConfig(
         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
     }
     applyInternal()
+}
+
+/**
+ * Applies X-Requested-With header suppression using proper WebKit APIs with feature gate checking.
+ * This ensures Chrome-like parity by preventing fingerprinting detection through the header.
+ */
+private fun WebView.applyRequestedWithHeaderSuppression() {
+    var headerSuppressed = false
+
+    // Use REQUESTED_WITH_HEADER_ALLOW_LIST feature to suppress the header
+    try {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+            // Set empty allow list to block the header for all origins
+            WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
+            headerSuppressed = true
+            Log.d(TAG, "X-Requested-With header disabled using empty REQUESTED_WITH_HEADER_ALLOW_LIST")
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "Failed to set empty RequestedWithHeaderOriginAllowList", e)
+    }
+
+    if (!headerSuppressed) {
+        Log.w(TAG, "Unable to suppress X-Requested-With header - REQUESTED_WITH_HEADER_ALLOW_LIST feature not supported")
+    }
 }
 
 private fun WebView.configureSettings(

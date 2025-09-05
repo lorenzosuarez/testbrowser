@@ -116,11 +116,11 @@ public object BrowserReducer {
 
             BrowserIntent.NewTab -> {
                 state.copy(
-                    url = ValidatedUrl.fromInput(""),
+                    url = ValidatedUrl.fromInput("about:blank"),
                     inputUrl = "",
                     title = "",
                     progress = 0f,
-                    isLoading = false,
+                    isLoading = true,
                     isPullToRefresh = false,
                     canGoBack = false,
                     canGoForward = false,

@@ -19,4 +19,14 @@
   <string name="settings_js_enabled">Enable JavaScript</string>
   <string name="settings_clear_browsing_data">Clear storage &amp; cookies</string>
   <string name="settings_clear_browsing_data_done">Storage, cache &amp; cookies cleared</string>
+  <string name="settings_disable_x_requested_with">Disable X-Requested-With header</string>
+  <string name="settings_diagnostics_header">Diagnostics</string>
+  <string name="settings_x_requested_with_status">X-Requested-With header suppressed</string>
+  <string name="start_page_title">Fingerprint Test Launcher</string>
+  <string name="start_page_subtitle">Choose a recommended page to begin fingerprint parity evaluation.</string>
+  <string name="start_page_scan_title">BrowserScan</string>
+  <string name="start_page_scan_desc">Full surface fingerprint scan (UA-CH, canvas, WebGL, storage, entropy metrics).</string>
+  <string name="start_page_headers_title">HTTP Headers (httpbin)</string>
+  <string name="start_page_headers_desc">Inspect raw request headers (verify User-Agent &amp; absence of X-Requested-With).</string>
+  <string name="start_page_open">Open</string>
 </resources>

@@ -3,9 +3,7 @@ package com.testlabs.browser.ui.browser
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.ActivityResultLauncher
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -34,6 +32,7 @@ import com.testlabs.browser.ui.browser.components.BrowserBottomBar
 import com.testlabs.browser.ui.browser.components.BrowserProgressIndicator
 import com.testlabs.browser.ui.browser.components.BrowserSettingsDialog
 import com.testlabs.browser.ui.browser.components.BrowserTopBar
+import com.testlabs.browser.ui.browser.components.StartPage
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -142,37 +141,47 @@ public fun BrowserScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
-        WebViewHost(
-            onProgressChanged = callbacks.onProgressChanged,
-            onPageStarted = callbacks.onPageStarted,
-            onPageFinished = callbacks.onPageFinished,
-            onTitleChanged = callbacks.onTitleChanged,
-            onNavigationStateChanged = callbacks.onNavigationStateChanged,
-            onError = callbacks.onError,
-            onUrlChanged = callbacks.onUrlChanged,
-            filePickerLauncher = filePickerLauncher,
-            uaProvider = uaProvider,
-            config = state.settingsCurrent,
-            onControllerReady = callbacks.onControllerReady,
-            onScrollDelta = { dyPx ->
-                val available = Offset(x = 0f, y = -dyPx.toFloat())
-                val pre =
-                    topScroll.nestedScrollConnection.onPreScroll(
-                        available,
-                        NestedScrollSource.UserInput,
-                    )
-                val remaining = available - pre
-                topScroll.nestedScrollConnection.onPostScroll(
-                    Offset.Zero,
-                    remaining,
-                    NestedScrollSource.UserInput,
-                )
-            },
+        Box(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-        )
+        ) {
+            WebViewHost(
+                onProgressChanged = callbacks.onProgressChanged,
+                onPageStarted = callbacks.onPageStarted,
+                onPageFinished = callbacks.onPageFinished,
+                onTitleChanged = callbacks.onTitleChanged,
+                onNavigationStateChanged = callbacks.onNavigationStateChanged,
+                onError = callbacks.onError,
+                onUrlChanged = callbacks.onUrlChanged,
+                filePickerLauncher = filePickerLauncher,
+                uaProvider = uaProvider,
+                config = state.settingsCurrent,
+                onControllerReady = callbacks.onControllerReady,
+                onScrollDelta = { dyPx ->
+                    val available = Offset(x = 0f, y = -dyPx.toFloat())
+                    val pre =
+                        topScroll.nestedScrollConnection.onPreScroll(
+                            available,
+                            NestedScrollSource.UserInput,
+                        )
+                    val remaining = available - pre
+                    topScroll.nestedScrollConnection.onPostScroll(
+                        Offset.Zero,
+                        remaining,
+                        NestedScrollSource.UserInput,
+                    )
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+            val showStart = (state.url.value.isBlank() || state.url.value == "about:blank") && !state.isLoading && state.errorMessage == null
+            StartPage(
+                visible = showStart,
+                onOpenUrl = { target -> viewModel.submitUrl(target) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         if (state.isSettingsDialogVisible) {
             BrowserSettingsDialog(
                 config = state.settingsDraft,
@@ -180,6 +189,7 @@ public fun BrowserScreen(
                 onDismiss = { viewModel.handleIntent(BrowserIntent.CloseSettings) },
                 onConfirm = { viewModel.handleIntent(BrowserIntent.ApplySettings) },
                 onClearBrowsingData = { viewModel.handleIntent(BrowserIntent.ClearBrowsingData) },
+                requestedWithHeaderDisabled = webController?.isRequestedWithHeaderDisabled() ?: false,
             )
         }
     }

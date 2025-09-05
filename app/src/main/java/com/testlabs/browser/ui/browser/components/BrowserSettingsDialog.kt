@@ -29,6 +29,7 @@ public fun BrowserSettingsDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     onClearBrowsingData: () -> Unit,
+    requestedWithHeaderDisabled: Boolean = false,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -53,6 +54,13 @@ public fun BrowserSettingsDialog(
                     Switch(
                         checked = config.javascriptEnabled,
                         onCheckedChange = { onConfigChange(config.copy(javascriptEnabled = it)) },
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(text = stringResource(id = R.string.settings_disable_x_requested_with))
+                    Switch(
+                        checked = config.disableXRequestedWithHeader,
+                        onCheckedChange = { onConfigChange(config.copy(disableXRequestedWithHeader = it)) },
                     )
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
