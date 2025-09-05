@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.testlabs.browser"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.testlabs.browser"
