@@ -14,9 +14,10 @@ import java.io.IOException
 public class BrowserSettingsRepositoryImpl(
     private val dataStore: DataStore<WebViewConfig>,
 ) : BrowserSettingsRepository {
-    override val config: Flow<WebViewConfig> = dataStore.data
-        .catch { if (it is IOException) emit(WebViewConfig()) else throw it }
-        .map { it }
+    override val config: Flow<WebViewConfig> =
+        dataStore.data
+            .catch { if (it is IOException) emit(WebViewConfig()) else throw it }
+            .map { it }
 
     override suspend fun save(config: WebViewConfig) {
         dataStore.updateData { config }

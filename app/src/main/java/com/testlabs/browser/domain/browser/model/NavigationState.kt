@@ -9,5 +9,5 @@ package com.testlabs.browser.domain.browser.model
  */
 public data class NavigationState(
     val canGoBack: Boolean = false,
-    val canGoForward: Boolean = false
+    val canGoForward: Boolean = false,
 )

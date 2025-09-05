@@ -7,32 +7,34 @@ import com.testlabs.browser.core.ValidatedUrl
  * This function is side-effect free and deterministic.
  */
 public object BrowserReducer {
-
     /**
      * Reduces the current state with a browser intent to produce a new state and optional effect.
      */
-    public fun reduce(state: BrowserState, intent: BrowserIntent): Pair<BrowserState, BrowserEffect?> {
-        return when (intent) {
+    public fun reduce(
+        state: BrowserState,
+        intent: BrowserIntent,
+    ): Pair<BrowserState, BrowserEffect?> =
+        when (intent) {
             is BrowserIntent.NavigateToUrl -> {
                 state.copy(
                     url = intent.url,
                     inputUrl = intent.url.value,
                     errorMessage = null,
-                    isPullToRefresh = false
+                    isPullToRefresh = false,
                 ) to BrowserEffect.LoadUrl(intent.url)
             }
 
             BrowserIntent.Reload -> {
                 state.copy(
                     errorMessage = null,
-                    isPullToRefresh = false
+                    isPullToRefresh = false,
                 ) to BrowserEffect.ReloadPage
             }
 
             BrowserIntent.PullToRefresh -> {
                 state.copy(
                     isPullToRefresh = true,
-                    errorMessage = null
+                    errorMessage = null,
                 ) to BrowserEffect.ReloadPage
             }
 
@@ -40,7 +42,7 @@ public object BrowserReducer {
                 if (state.canGoBack) {
                     state.copy(
                         errorMessage = null,
-                        isPullToRefresh = false
+                        isPullToRefresh = false,
                     ) to BrowserEffect.NavigateBack
                 } else {
                     state to null
@@ -51,7 +53,7 @@ public object BrowserReducer {
                 if (state.canGoForward) {
                     state.copy(
                         errorMessage = null,
-                        isPullToRefresh = false
+                        isPullToRefresh = false,
                     ) to BrowserEffect.NavigateForward
                 } else {
                     state to null
@@ -61,27 +63,27 @@ public object BrowserReducer {
             is BrowserIntent.UpdateInputUrl -> {
                 state.copy(
                     inputUrl = intent.inputUrl,
-                    shouldFocusUrlInput = false
+                    shouldFocusUrlInput = false,
                 ) to null
             }
 
             is BrowserIntent.PageStarted -> {
                 state.copy(
                     url = intent.url,
-                    inputUrl = intent.url.value, // Sincronizar URL del WebView con el TextField
+                    inputUrl = intent.url.value,
                     isLoading = true,
                     progress = 0f,
-                    errorMessage = null
+                    errorMessage = null,
                 ) to null
             }
 
             is BrowserIntent.PageFinished -> {
                 state.copy(
                     url = intent.url,
-                    inputUrl = intent.url.value, // Mantener sincronización en PageFinished también
+                    inputUrl = intent.url.value,
                     isLoading = false,
                     isPullToRefresh = false,
-                    progress = 1f
+                    progress = 1f,
                 ) to null
             }
 
@@ -96,7 +98,7 @@ public object BrowserReducer {
             is BrowserIntent.NavigationStateChanged -> {
                 state.copy(
                     canGoBack = intent.canGoBack,
-                    canGoForward = intent.canGoForward
+                    canGoForward = intent.canGoForward,
                 ) to null
             }
 
@@ -104,7 +106,7 @@ public object BrowserReducer {
                 state.copy(
                     isLoading = false,
                     isPullToRefresh = false,
-                    errorMessage = intent.message
+                    errorMessage = intent.message,
                 ) to BrowserEffect.ShowMessage(intent.message)
             }
 
@@ -123,7 +125,7 @@ public object BrowserReducer {
                     canGoBack = false,
                     canGoForward = false,
                     errorMessage = null,
-                    shouldFocusUrlInput = true
+                    shouldFocusUrlInput = true,
                 ) to BrowserEffect.LoadUrl(ValidatedUrl.fromInput("about:blank"))
             }
 
@@ -152,9 +154,8 @@ public object BrowserReducer {
             is BrowserIntent.UrlChanged -> {
                 state.copy(
                     url = intent.url,
-                    inputUrl = intent.url.value
+                    inputUrl = intent.url.value,
                 ) to null
             }
         }
-    }
 }

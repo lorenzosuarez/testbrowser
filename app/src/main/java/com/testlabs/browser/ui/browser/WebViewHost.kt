@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.WebViewConfig
 import java.util.Locale
 
@@ -30,10 +32,15 @@ private const val MIME_TYPE_GUESS = "application/octet-stream"
 
 public interface WebViewController {
     public fun loadUrl(url: String)
+
     public fun reload()
+
     public fun goBack()
+
     public fun goForward()
+
     public fun canGoBack(): Boolean
+
     public fun canGoForward(): Boolean
 }
 
@@ -51,55 +58,63 @@ public fun WebViewHost(
     config: WebViewConfig,
     onControllerReady: (WebViewController) -> Unit,
     onScrollDelta: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val downloadHandler = remember { DownloadHandler(context) }
     val fileUploadHandler = remember { FileUploadHandler(context) }
 
-    // Only initialize file upload handler when needed (for website file uploads)
     LaunchedEffect(filePickerLauncher) {
         fileUploadHandler.initialize(filePickerLauncher)
     }
 
-    // Only set file upload handler in MainActivity for website file uploads
     LaunchedEffect(fileUploadHandler) {
         val act = context as? com.testlabs.browser.MainActivity
         act?.setFileUploadHandler(fileUploadHandler)
     }
 
-    val webView = remember {
-        createWebView(
-            context = context,
-            onProgressChanged = onProgressChanged,
-            onPageStarted = onPageStarted,
-            onPageFinished = onPageFinished,
-            onTitleChanged = onTitleChanged,
-            onNavigationStateChanged = onNavigationStateChanged,
-            onError = onError,
-            onUrlChanged = onUrlChanged,
-            downloadHandler = downloadHandler,
-            fileUploadHandler = fileUploadHandler,
-            uaProvider = uaProvider,
-            config = config,
-            onScrollDelta = onScrollDelta
-        )
-    }
+    val webView =
+        remember {
+            createWebView(
+                context = context,
+                onProgressChanged = onProgressChanged,
+                onPageStarted = onPageStarted,
+                onPageFinished = onPageFinished,
+                onTitleChanged = onTitleChanged,
+                onNavigationStateChanged = onNavigationStateChanged,
+                onError = onError,
+                onUrlChanged = onUrlChanged,
+                downloadHandler = downloadHandler,
+                fileUploadHandler = fileUploadHandler,
+                uaProvider = uaProvider,
+                config = config,
+                onScrollDelta = onScrollDelta,
+            )
+        }
 
     DisposableEffect(webView) {
-        val controller = object : WebViewController {
-            override fun loadUrl(url: String) {
-                val headers = if (url.startsWith("https://")) {
-                    mapOf("Accept-Language" to Locale.getDefault().toLanguageTag())
-                } else emptyMap()
-                if (headers.isEmpty()) webView.loadUrl(url) else webView.loadUrl(url, headers)
+        val controller =
+            object : WebViewController {
+                override fun loadUrl(url: String) {
+                    val headers =
+                        if (url.startsWith("https://")) {
+                            mapOf("Accept-Language" to Locale.getDefault().toLanguageTag())
+                        } else {
+                            emptyMap()
+                        }
+                    if (headers.isEmpty()) webView.loadUrl(url) else webView.loadUrl(url, headers)
+                }
+
+                override fun reload() = webView.reload()
+
+                override fun goBack() = webView.goBack()
+
+                override fun goForward() = webView.goForward()
+
+                override fun canGoBack(): Boolean = webView.canGoBack()
+
+                override fun canGoForward(): Boolean = webView.canGoForward()
             }
-            override fun reload() = webView.reload()
-            override fun goBack() = webView.goBack()
-            override fun goForward() = webView.goForward()
-            override fun canGoBack(): Boolean = webView.canGoBack()
-            override fun canGoForward(): Boolean = webView.canGoForward()
-        }
         onControllerReady(controller)
         onDispose { webView.destroy() }
     }
@@ -114,9 +129,14 @@ public fun WebViewHost(
 @SuppressLint("ViewConstructor")
 private class ObservableWebView(
     context: Context,
-    private val onScrollDelta: (Int) -> Unit
+    private val onScrollDelta: (Int) -> Unit,
 ) : WebView(context) {
-    override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
+    override fun onScrollChanged(
+        l: Int,
+        t: Int,
+        oldl: Int,
+        oldt: Int,
+    ) {
         super.onScrollChanged(l, t, oldl, oldt)
         onScrollDelta(t - oldt)
     }
@@ -136,30 +156,29 @@ private fun createWebView(
     fileUploadHandler: FileUploadHandler,
     uaProvider: UAProvider,
     config: WebViewConfig,
-    onScrollDelta: (Int) -> Unit
-): WebView {
-    return ObservableWebView(context, onScrollDelta).apply {
+    onScrollDelta: (Int) -> Unit,
+): WebView =
+    ObservableWebView(context, onScrollDelta).apply {
         configureSettings(uaProvider, config)
         setupWebViewClient(onPageStarted, onPageFinished, onNavigationStateChanged, onError, onUrlChanged, downloadHandler)
         setupWebChromeClient(onProgressChanged, onTitleChanged, fileUploadHandler)
         setupDownloadManager(downloadHandler)
     }
-}
 
-private fun WebView.applyConfig(config: WebViewConfig, uaProvider: UAProvider) {
+private fun WebView.applyConfig(
+    config: WebViewConfig,
+    uaProvider: UAProvider,
+) {
     settings.apply {
-        // Core JavaScript and DOM settings
         javaScriptEnabled = config.javascriptEnabled
         domStorageEnabled = true
         databaseEnabled = true
 
-        // File access settings optimized for blob handling
         allowFileAccess = true
         allowContentAccess = true
         allowFileAccessFromFileURLs = true
         allowUniversalAccessFromFileURLs = true
 
-        // Modern web standards support
         mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         useWideViewPort = true
         loadWithOverviewMode = true
@@ -168,41 +187,41 @@ private fun WebView.applyConfig(config: WebViewConfig, uaProvider: UAProvider) {
         builtInZoomControls = true
         displayZoomControls = false
 
-        // User agent and content loading
         userAgentString = uaProvider.userAgent(config.desktopMode)
         loadsImagesAutomatically = true
         blockNetworkImage = false
         blockNetworkLoads = false
 
-        // Cache and performance optimization
         cacheMode = WebSettings.LOAD_DEFAULT
         setRenderPriority(WebSettings.RenderPriority.HIGH)
 
-        // Media and performance enhancements
         mediaPlaybackRequiresUserGesture = false
-        javaScriptCanOpenWindowsAutomatically = true // Enable for blob downloads
+        javaScriptCanOpenWindowsAutomatically = true
 
-        // Security settings (balanced for functionality)
         setSavePassword(false)
         setSaveFormData(false)
         setGeolocationEnabled(true)
 
-        // Enhanced JavaScript execution environment
-        setJavaScriptEnabled(true) // Ensure JavaScript is fully enabled
-        setDomStorageEnabled(true) // Enhanced DOM storage
+        setJavaScriptEnabled(true)
+        setDomStorageEnabled(true)
     }
 
-    // Cookie configuration for enhanced compatibility
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
+    }
+
     CookieManager.getInstance().apply {
         setAcceptCookie(true)
         setAcceptThirdPartyCookies(this@applyConfig, true)
     }
 
-    // Enable hardware acceleration for better performance
     setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 }
 
-private fun WebView.configureSettings(uaProvider: UAProvider, config: WebViewConfig) {
+private fun WebView.configureSettings(
+    uaProvider: UAProvider,
+    config: WebViewConfig,
+) {
     applyConfig(config, uaProvider)
 }
 
@@ -212,132 +231,159 @@ private fun WebView.setupWebViewClient(
     onNavigationStateChanged: (Boolean, Boolean) -> Unit,
     onError: (String) -> Unit,
     onUrlChanged: (String) -> Unit,
-    downloadHandler: DownloadHandler
+    downloadHandler: DownloadHandler,
 ) {
-    webViewClient = object : WebViewClient() {
-        override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-            super.onPageStarted(view, url, favicon)
-            url?.let { onPageStarted(it) }
-        }
-
-        override fun onPageFinished(view: WebView?, url: String?) {
-            super.onPageFinished(view, url)
-            url?.let { onPageFinished(it) }
-            view?.let { onNavigationStateChanged(it.canGoBack(), it.canGoForward()) }
-        }
-
-        override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
-            super.doUpdateVisitedHistory(view, url, isReload)
-            // Capturar cambios de URL durante navegación (redirecciones, etc.)
-            url?.let {
-                onUrlChanged(it)
-                view?.let { v -> onNavigationStateChanged(v.canGoBack(), v.canGoForward()) }
+    webViewClient =
+        object : WebViewClient() {
+            override fun onPageStarted(
+                view: WebView?,
+                url: String?,
+                favicon: android.graphics.Bitmap?,
+            ) {
+                super.onPageStarted(view, url, favicon)
+                url?.let { onPageStarted(it) }
             }
-        }
 
-        override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-            super.onReceivedError(view, request, error)
-            error?.let {
-                // Only report main frame errors to avoid spam from resource loading errors
+            override fun onPageFinished(
+                view: WebView?,
+                url: String?,
+            ) {
+                super.onPageFinished(view, url)
+                url?.let { onPageFinished(it) }
+                view?.let { onNavigationStateChanged(it.canGoBack(), it.canGoForward()) }
+            }
+
+            override fun doUpdateVisitedHistory(
+                view: WebView?,
+                url: String?,
+                isReload: Boolean,
+            ) {
+                super.doUpdateVisitedHistory(view, url, isReload)
+                url?.let {
+                    onUrlChanged(it)
+                    view?.let { v -> onNavigationStateChanged(v.canGoBack(), v.canGoForward()) }
+                }
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?,
+            ) {
+                super.onReceivedError(view, request, error)
+                error?.let {
+                    if (request?.isForMainFrame == true) {
+                        onError("Error loading page: ${it.description}")
+                    }
+                }
+            }
+
+            override fun onReceivedSslError(
+                view: WebView?,
+                handler: SslErrorHandler?,
+                error: android.net.http.SslError?,
+            ) {
+                handler?.cancel()
+
+                error?.let { sslError ->
+                    val errorMessage =
+                        when (sslError.primaryError) {
+                            android.net.http.SslError.SSL_UNTRUSTED -> "Certificate not trusted"
+                            android.net.http.SslError.SSL_EXPIRED -> "Certificate expired"
+                            android.net.http.SslError.SSL_IDMISMATCH -> "Certificate hostname mismatch"
+                            android.net.http.SslError.SSL_NOTYETVALID -> "Certificate not yet valid"
+                            android.net.http.SslError.SSL_DATE_INVALID -> "Certificate date invalid"
+                            android.net.http.SslError.SSL_INVALID -> "Certificate invalid"
+                            else -> "SSL certificate error"
+                        }
+                    onError("SSL Error: $errorMessage")
+                }
+            }
+
+            override fun onReceivedHttpError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                errorResponse: android.webkit.WebResourceResponse?,
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse)
                 if (request?.isForMainFrame == true) {
-                    onError("Error loading page: ${it.description}")
-                }
-            }
-        }
-
-        override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: android.net.http.SslError?) {
-            // In production, always cancel SSL errors for security
-            // In debug builds, you might want to proceed for testing
-            handler?.cancel()
-
-            error?.let { sslError ->
-                val errorMessage = when (sslError.primaryError) {
-                    android.net.http.SslError.SSL_UNTRUSTED -> "Certificate not trusted"
-                    android.net.http.SslError.SSL_EXPIRED -> "Certificate expired"
-                    android.net.http.SslError.SSL_IDMISMATCH -> "Certificate hostname mismatch"
-                    android.net.http.SslError.SSL_NOTYETVALID -> "Certificate not yet valid"
-                    android.net.http.SslError.SSL_DATE_INVALID -> "Certificate date invalid"
-                    android.net.http.SslError.SSL_INVALID -> "Certificate invalid"
-                    else -> "SSL certificate error"
-                }
-                onError("SSL Error: $errorMessage")
-            }
-        }
-
-        override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: android.webkit.WebResourceResponse?) {
-            super.onReceivedHttpError(view, request, errorResponse)
-            // Only report main frame HTTP errors
-            if (request?.isForMainFrame == true) {
-                errorResponse?.let { response ->
-                    onError("HTTP Error: ${response.statusCode} ${response.reasonPhrase}")
-                }
-            }
-        }
-
-        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-            val u = request?.url?.toString() ?: return false
-            Log.d(TAG, "shouldOverrideUrlLoading: $u")
-            if (u.startsWith("blob:")) {
-                Log.d(TAG, "Detected blob URL, triggering download")
-                downloadHandler.handleDownload(u, settings.userAgentString ?: "", "", MIME_TYPE_GUESS, this@setupWebViewClient) { err ->
-                    Log.e(TAG, "Blob download error: $err")
-                    onError(err)
-                }
-                return true
-            }
-            // Handle special URL schemes if needed
-            request.url?.let { uri ->
-                when (uri.scheme) {
-                    "mailto", "tel", "sms" -> {
-                        Log.d(TAG, "Letting system handle scheme: ${uri.scheme}")
-                        return false
-                    }
-                    "http", "https" -> {
-                        Log.d(TAG, "Letting WebView handle HTTP(S) URL")
-                        return false
-                    }
-                    else -> {
-                        Log.d(TAG, "Unknown scheme: ${uri.scheme}")
-                        return false
+                    errorResponse?.let { response ->
+                        onError("HTTP Error: ${response.statusCode} ${response.reasonPhrase}")
                     }
                 }
             }
-            return false
+
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?,
+            ): Boolean {
+                val u = request?.url?.toString() ?: return false
+                Log.d(TAG, "shouldOverrideUrlLoading: $u")
+                if (u.startsWith("blob:")) {
+                    Log.d(TAG, "Detected blob URL, triggering download")
+                    downloadHandler.handleDownload(u, settings.userAgentString ?: "", "", MIME_TYPE_GUESS, this@setupWebViewClient) { err ->
+                        Log.e(TAG, "Blob download error: $err")
+                        onError(err)
+                    }
+                    return true
+                }
+                request.url?.let { uri ->
+                    when (uri.scheme) {
+                        "mailto", "tel", "sms" -> {
+                            Log.d(TAG, "Letting system handle scheme: ${uri.scheme}")
+                            return false
+                        }
+                        "http", "https" -> {
+                            Log.d(TAG, "Letting WebView handle HTTP(S) URL")
+                            return false
+                        }
+                        else -> {
+                            Log.d(TAG, "Unknown scheme: ${uri.scheme}")
+                            return false
+                        }
+                    }
+                }
+                return false
+            }
         }
-    }
 }
 
 private fun WebView.setupWebChromeClient(
     onProgressChanged: (Float) -> Unit,
     onTitleChanged: (String) -> Unit,
-    fileUploadHandler: FileUploadHandler
+    fileUploadHandler: FileUploadHandler,
 ) {
-    webChromeClient = object : WebChromeClient() {
-        override fun onProgressChanged(view: WebView?, newProgress: Int) {
-            super.onProgressChanged(view, newProgress)
-            onProgressChanged(newProgress / 100f)
-        }
-
-        override fun onReceivedTitle(view: WebView?, title: String?) {
-            super.onReceivedTitle(view, title)
-            title?.let { onTitleChanged(it) }
-        }
-
-        override fun onShowFileChooser(
-            webView: WebView?,
-            filePathCallback: ValueCallback<Array<Uri>>?,
-            fileChooserParams: FileChooserParams?
-        ): Boolean {
-            return fileUploadHandler.handleFileChooser(filePathCallback, fileChooserParams)
-        }
-
-        override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
-            consoleMessage?.let { msg ->
-                Log.d("WebViewConsole", "[${msg.messageLevel()}] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})")
+    webChromeClient =
+        object : WebChromeClient() {
+            override fun onProgressChanged(
+                view: WebView?,
+                newProgress: Int,
+            ) {
+                super.onProgressChanged(view, newProgress)
+                onProgressChanged(newProgress / 100f)
             }
-            return true
+
+            override fun onReceivedTitle(
+                view: WebView?,
+                title: String?,
+            ) {
+                super.onReceivedTitle(view, title)
+                title?.let { onTitleChanged(it) }
+            }
+
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?,
+            ): Boolean = fileUploadHandler.handleFileChooser(filePathCallback, fileChooserParams)
+
+            override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+                consoleMessage?.let { msg ->
+                    Log.d("WebViewConsole", "[${msg.messageLevel()}] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})")
+                }
+                return true
+            }
         }
-    }
 }
 
 private fun WebView.setupDownloadManager(downloadHandler: DownloadHandler) {
@@ -358,12 +404,10 @@ private fun WebView.setupDownloadManager(downloadHandler: DownloadHandler) {
             webView = this,
             onError = { error ->
                 Log.e(TAG, "Download failed: $error")
-                // Post error to main thread to show user feedback
                 post {
                     Log.e(TAG, "Posting download error to main thread: $error")
-                    // You could also show a toast or snackbar here
                 }
-            }
+            },
         )
     }
 }

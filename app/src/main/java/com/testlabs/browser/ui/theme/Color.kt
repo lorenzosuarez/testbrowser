@@ -2,7 +2,6 @@ package com.testlabs.browser.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Light theme colors
 public val BrowserPrimary: Color = Color(0xFFFF6A00)
 public val BrowserOnPrimary: Color = Color(0xFFFFFFFF)
 public val BrowserPrimaryContainer: Color = Color(0xFFFFDBCC)
@@ -33,7 +32,6 @@ public val BrowserOutline: Color = Color(0xFF85746B)
 
 public val BrowserTopBarBackground: Color = Color(0xFFF2F1F1)
 
-// Dark theme colors
 public val BrowserPrimaryDark: Color = Color(0xFFFFB599)
 public val BrowserOnPrimaryDark: Color = Color(0xFF552100)
 public val BrowserPrimaryContainerDark: Color = Color(0xFF793000)

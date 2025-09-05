@@ -15,21 +15,22 @@ import androidx.compose.ui.unit.dp
 internal fun BrowserProgressIndicator(
     progress: Float,
     isVisible: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
         visible = isVisible,
         enter = fadeIn(),
         exit = fadeOut(),
-        modifier = modifier
+        modifier = modifier,
     ) {
         LinearProgressIndicator(
             progress = { progress },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(2.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(2.dp),
             color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         )
     }
 }

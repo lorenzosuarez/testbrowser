@@ -21,11 +21,12 @@ class BrowserReducerTest {
 
     @Test
     fun applySettings_updatesCurrent() {
-        val state = BrowserState(
-            settingsCurrent = WebViewConfig(desktopMode = false),
-            settingsDraft = WebViewConfig(desktopMode = true),
-            isSettingsDialogVisible = true,
-        )
+        val state =
+            BrowserState(
+                settingsCurrent = WebViewConfig(desktopMode = false),
+                settingsDraft = WebViewConfig(desktopMode = true),
+                isSettingsDialogVisible = true,
+            )
         val (newState, _) = BrowserReducer.reduce(state, BrowserIntent.ApplySettings)
         assertFalse(newState.isSettingsDialogVisible)
         assertTrue(newState.settingsCurrent.desktopMode)

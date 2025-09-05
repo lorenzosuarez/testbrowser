@@ -20,18 +20,16 @@ import org.koin.android.ext.android.inject
  * Enables edge-to-edge display and ensures proper theme support.
  */
 public class MainActivity : ComponentActivity() {
-
     private val uaProvider: UAProvider by inject()
     private var fileUploadHandler: com.testlabs.browser.ui.browser.FileUploadHandler? = null
 
-    private val filePickerLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        // Handle file picker result through our advanced upload handler
-        fileUploadHandler?.handleActivityResult(result.data)
-    }
+    private val filePickerLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            fileUploadHandler?.handleActivityResult(result.data)
+        }
 
-    // Function to set the file upload handler from BrowserScreen
     public fun setFileUploadHandler(handler: com.testlabs.browser.ui.browser.FileUploadHandler) {
         fileUploadHandler = handler
     }
@@ -46,11 +44,11 @@ public class MainActivity : ComponentActivity() {
             TestBrowserTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = MaterialTheme.colorScheme.background,
                 ) {
                     BrowserScreen(
                         filePickerLauncher = filePickerLauncher,
-                        uaProvider = uaProvider
+                        uaProvider = uaProvider,
                     )
                 }
             }
