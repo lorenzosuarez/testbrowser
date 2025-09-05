@@ -103,6 +103,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.logging.interceptor)
     implementation(libs.okhttp.brotli)
+    implementation(libs.brotli.dec)
+    implementation(libs.zstd.jni)
     implementation(libs.cronet.embedded)
     implementation(libs.play.services.cronet)
     implementation(libs.coil.compose)

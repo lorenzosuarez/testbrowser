@@ -23,6 +23,7 @@
 # Keep WebView related classes
 -keep class android.webkit.** { *; }
 -keep class com.android.webview.** { *; }
+-keep class androidx.webkit.** { *; }
 
 # Keep Koin related classes
 -keep class org.koin.** { *; }
@@ -45,3 +46,9 @@
 # Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+
+# Brotli decoder
+-keep class org.brotli.dec.** { *; }
+
+# Zstandard decoder
+-keep class com.github.luben.zstd.** { *; }
