@@ -20,7 +20,7 @@
   <string name="settings_clear_browsing_data">Clear storage &amp; cookies</string>
   <string name="settings_clear_browsing_data_done">Storage, cache &amp; cookies cleared</string>
   <string name="settings_diagnostics_header">Diagnostics</string>
-  <string name="settings_js_compat">JS Compatibility Layer (Chrome-like)</string>
+  <string name="settings_js_compat">JS Compatibility Layer</string>
   <string name="settings_user_agent_label">User-Agent</string>
   <string name="settings_accept_language_label">Accept-Language</string>
   <string name="settings_header_mode_label">X-Requested-With header mode</string>

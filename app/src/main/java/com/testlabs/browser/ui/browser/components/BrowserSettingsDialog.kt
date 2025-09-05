@@ -8,12 +8,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import com.testlabs.browser.R
 import com.testlabs.browser.domain.settings.WebViewConfig
@@ -79,8 +83,16 @@ public fun BrowserSettingsDialog(
                     Text(text = stringResource(id = R.string.settings_accept_language_label) + ": " + acceptLanguages)
                     Text(text = stringResource(id = R.string.settings_header_mode_label) + ": " + headerMode)
                     Text(text = stringResource(id = R.string.settings_js_compat_status) + ": " + if (jsCompatEnabled) "on" else "off")
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = onCopyDiagnostics) { Text(text = stringResource(id = R.string.settings_copy_diagnostics)) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        IconButton(onClick = onCopyDiagnostics) {
+                            Icon(
+                                imageVector = ImageVector.vectorResource(R.drawable.ic_copy),
+                                contentDescription = stringResource(id = R.string.settings_copy_diagnostics)
+                            )
+                        }
                     }
                 }
             }
