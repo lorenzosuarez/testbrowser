@@ -100,6 +100,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.koin.android.v356)
     implementation(libs.koin.androidx.compose.v356)
+    implementation(libs.okhttp)
+    implementation(libs.logging.interceptor)
     implementation(libs.coil.compose)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)

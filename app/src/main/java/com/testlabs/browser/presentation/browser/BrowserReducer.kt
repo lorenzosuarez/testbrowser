@@ -140,8 +140,16 @@ public object BrowserReducer {
                 state.copy(isSettingsDialogVisible = false) to null
             }
 
-            is BrowserIntent.SettingsUpdated -> {
+            is BrowserIntent.UpdateSettings -> {
                 state.copy(settingsDraft = intent.config) to null
+            }
+
+            is BrowserIntent.ApplySettingsAndRestart -> {
+                state.copy(
+                    settingsCurrent = intent.config,
+                    settingsDraft = intent.config,
+                    isSettingsDialogVisible = false,
+                ) to BrowserEffect.RecreateWebView
             }
 
             BrowserIntent.ApplySettings -> {

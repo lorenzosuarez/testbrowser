@@ -1,9 +1,5 @@
 package com.testlabs.browser.ui.browser
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.os.Build
 import android.webkit.WebView
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +31,7 @@ public interface VersionProvider {
  * Android implementation of [VersionProvider].
  */
 public class AndroidVersionProvider(
-    private val context: Context,
+    private val context: android.content.Context,
 ) : VersionProvider {
     override fun chromeMajor(): String? =
         runCatching {
@@ -52,79 +48,49 @@ public class AndroidVersionProvider(
 }
 
 /**
- * Default implementation supplying Chrome user agents using runtime version information.
+ * Chrome-compatible User Agent provider that generates UA strings matching Chrome Stable.
+ * Detects Chrome version via package manager or falls back to WebView version.
  */
-public class DefaultUAProvider(
-    private val context: Context,
-    private val versionProvider: VersionProvider = AndroidVersionProvider(context),
-    registerReceivers: Boolean = true,
+public class ChromeUAProvider(
+    private val versionProvider: VersionProvider,
 ) : UAProvider {
-    private val _uaFlow = MutableStateFlow(buildMobileUa())
+
+    private val _uaFlow = MutableStateFlow(generateMobileUA())
     override val uaFlow: StateFlow<String> = _uaFlow.asStateFlow()
 
-    private var customUa: String? = null
-
-    private val packageReceiver =
-        object : BroadcastReceiver() {
-            override fun onReceive(
-                ctx: Context?,
-                intent: Intent?,
-            ) {
-                val pkg = intent?.data?.schemeSpecificPart ?: return
-                if (pkg == "com.android.chrome" ||
-                    pkg == WebView.getCurrentWebViewPackage()?.packageName
-                ) {
-                    refresh()
-                }
-            }
-        }
-
-    init {
-        if (registerReceivers) {
-            val filter =
-                IntentFilter(Intent.ACTION_PACKAGE_REPLACED).apply {
-                    addDataScheme("package")
-                }
-            context.registerReceiver(packageReceiver, filter)
-        }
-    }
+    private var customUA: String? = null
 
     override fun userAgent(desktop: Boolean): String {
-        val ua = customUa ?: if (desktop) buildDesktopUa() else buildMobileUa()
-        _uaFlow.value = ua
-        return ua
+        return customUA ?: if (desktop) generateDesktopUA() else generateMobileUA()
     }
 
     override fun setCustomUserAgent(ua: String?) {
-        customUa = ua
-        _uaFlow.value = ua ?: buildMobileUa()
+        customUA = ua
+        _uaFlow.value = ua ?: generateMobileUA()
     }
 
-    private fun refresh() {
-        _uaFlow.value = customUa ?: buildMobileUa()
-    }
-
-    private fun buildMobileUa(): String {
-        val major =
-            versionProvider.chromeMajor()
-                ?: versionProvider.webViewMajor()
-                ?: FALLBACK_CHROME_MAJOR
+    private fun generateMobileUA(): String {
+        val chromeVersion = getChromeVersion()
         val androidVersion = Build.VERSION.RELEASE
-        val model = Build.MODEL
-        return "Mozilla/5.0 (Linux; Android $androidVersion; $model) " +
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$major.0.0.0 Mobile Safari/537.36"
+        val deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+
+        return "Mozilla/5.0 (Linux; Android $androidVersion; $deviceModel) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/$chromeVersion Mobile Safari/537.36"
     }
 
-    private fun buildDesktopUa(): String {
-        val major =
-            versionProvider.chromeMajor()
-                ?: versionProvider.webViewMajor()
-                ?: FALLBACK_CHROME_MAJOR
+    private fun generateDesktopUA(): String {
+        val chromeVersion = getChromeVersion()
+
         return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$major.0.0.0 Safari/537.36"
+                "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/$chromeVersion Safari/537.36"
     }
 
-    private companion object {
-        private const val FALLBACK_CHROME_MAJOR = "140"
+    private fun getChromeVersion(): String {
+        // Try Chrome Stable first, then WebView, then fallback
+        return versionProvider.chromeMajor()?.let { "$it.0.0.0" }
+            ?: versionProvider.webViewMajor()?.let { "$it.0.0.0" }
+            ?: "120.0.0.0" // Fallback to recent stable version
     }
 }

@@ -80,6 +80,12 @@ public fun BrowserScreen(
                 BrowserEffect.NavigateBack -> webController?.goBack()
                 BrowserEffect.NavigateForward -> webController?.goForward()
                 is BrowserEffect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
+                BrowserEffect.RecreateWebView -> {
+                    webController?.recreateWebView()
+                    scope.launch {
+                        snackbarHostState.showSnackbar("WebView restarted with new settings")
+                    }
+                }
                 BrowserEffect.ClearBrowsingData -> {
                     val controller = webController
                     if (controller == null) {
@@ -198,9 +204,10 @@ public fun BrowserScreen(
 
             BrowserSettingsDialog(
                 config = state.settingsDraft,
-                onConfigChange = { viewModel.handleIntent(BrowserIntent.SettingsUpdated(it)) },
+                onConfigChange = { viewModel.handleIntent(BrowserIntent.UpdateSettings(it)) },
                 onDismiss = { viewModel.handleIntent(BrowserIntent.CloseSettings) },
                 onConfirm = { viewModel.handleIntent(BrowserIntent.ApplySettings) },
+                onApplyAndRestart = { viewModel.handleIntent(BrowserIntent.ApplySettingsAndRestart(state.settingsDraft)) },
                 onClearBrowsingData = { viewModel.handleIntent(BrowserIntent.ClearBrowsingData) },
                 userAgent = ua,
                 acceptLanguages = state.settingsCurrent.acceptLanguages,
@@ -211,11 +218,13 @@ public fun BrowserScreen(
                         append("User-Agent: $ua\n")
                         append("Accept-Language: ${state.settingsCurrent.acceptLanguages}\n")
                         append("X-Requested-With: ${mode.name}\n")
-                        append("JS Compatibility Layer: ${if (state.settingsCurrent.jsCompatibilityMode) "on" else "off"}")
+                        append("JS Compatibility: ${if (state.settingsCurrent.jsCompatibilityMode) "Enabled" else "Disabled"}\n")
+                        append("Proxy Status: ${if (state.settingsCurrent.proxyEnabled) "Active" else "Disabled"}")
                     }
                     scope.launch {
                         val clipData = ClipData.newPlainText("Diagnostics", diagnostics)
                         clipboard.setClipEntry(ClipEntry(clipData))
+                        snackbarHostState.showSnackbar("Diagnostics copied to clipboard")
                     }
                 },
             )

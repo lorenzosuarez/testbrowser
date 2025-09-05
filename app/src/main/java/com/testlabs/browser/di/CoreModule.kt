@@ -5,11 +5,14 @@
 
 package com.testlabs.browser.di
 
-import com.testlabs.browser.ui.browser.DefaultUAProvider
+import com.testlabs.browser.ui.browser.AndroidVersionProvider
+import com.testlabs.browser.ui.browser.ChromeUAProvider
 import com.testlabs.browser.ui.browser.DefaultDeviceInfoProvider
 import com.testlabs.browser.ui.browser.DeviceInfoProvider
 import com.testlabs.browser.ui.browser.JsCompatScriptProvider
+import com.testlabs.browser.ui.browser.NetworkProxy
 import com.testlabs.browser.ui.browser.UAProvider
+import com.testlabs.browser.ui.browser.VersionProvider
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -19,7 +22,9 @@ import org.koin.dsl.module
  */
 public val coreModule: Module =
     module {
-        single<UAProvider> { DefaultUAProvider(androidContext()) }
+        single<VersionProvider> { AndroidVersionProvider(androidContext()) }
+        single<UAProvider> { ChromeUAProvider(get()) }
         single<DeviceInfoProvider> { DefaultDeviceInfoProvider(androidContext()) }
         single { JsCompatScriptProvider(get()) }
+        single { NetworkProxy() }
     }

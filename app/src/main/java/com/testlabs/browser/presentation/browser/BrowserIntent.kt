@@ -100,19 +100,26 @@ public sealed interface BrowserIntent {
     public data object OpenSettings : BrowserIntent
 
     /**
-     * User dismissed the settings dialog without applying changes.
+     * User closed the settings dialog.
      */
     public data object CloseSettings : BrowserIntent
 
     /**
-     * User modified the settings draft.
+     * User modified settings configuration.
      */
-    public data class SettingsUpdated(
+    public data class UpdateSettings(
         val config: WebViewConfig,
     ) : BrowserIntent
 
     /**
-     * User confirmed the edited settings.
+     * User applied settings and wants to restart WebView immediately.
+     */
+    public data class ApplySettingsAndRestart(
+        val config: WebViewConfig,
+    ) : BrowserIntent
+
+    /**
+     * User confirmed and applied settings.
      */
     public data object ApplySettings : BrowserIntent
 

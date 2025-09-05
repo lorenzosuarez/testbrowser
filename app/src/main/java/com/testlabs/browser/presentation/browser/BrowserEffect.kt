@@ -35,5 +35,13 @@ public sealed interface BrowserEffect {
         val message: String,
     ) : BrowserEffect
 
+    /**
+     * Effect to clear browsing data.
+     */
     public data object ClearBrowsingData : BrowserEffect
+
+    /**
+     * Effect to recreate the WebView with new configuration.
+     */
+    public data object RecreateWebView : BrowserEffect
 }
