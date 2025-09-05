@@ -2,9 +2,14 @@ package com.testlabs.browser.ui.browser
 
 import app.cash.turbine.test
 import com.testlabs.browser.core.ValidatedUrl
+import com.testlabs.browser.domain.settings.BrowserSettingsRepository
+import com.testlabs.browser.domain.settings.WebViewConfig
 import com.testlabs.browser.presentation.browser.BrowserEffect
 import com.testlabs.browser.presentation.browser.BrowserIntent
 import com.testlabs.browser.presentation.browser.BrowserViewModel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -14,10 +19,21 @@ import kotlin.test.assertTrue
  * Unit tests for BrowserViewModel MVI orchestration.
  */
 class BrowserViewModelTest {
+
+    private class MockBrowserSettingsRepository : BrowserSettingsRepository {
+        private val _config = MutableStateFlow(WebViewConfig())
+        override val config: Flow<WebViewConfig> = _config.asStateFlow()
+
+        override suspend fun save(config: WebViewConfig) {
+            _config.value = config
+        }
+    }
+
     @Test
     fun `initial state is correct`() =
         runTest {
-            val viewModel = BrowserViewModel()
+            val settingsRepository = MockBrowserSettingsRepository()
+            val viewModel = BrowserViewModel(settingsRepository)
 
             val initialState = viewModel.state.value
 
@@ -32,7 +48,8 @@ class BrowserViewModelTest {
     @Test
     fun `submitUrl creates NavigateToUrl intent and LoadUrl effect`() =
         runTest {
-            val viewModel = BrowserViewModel()
+            val settingsRepository = MockBrowserSettingsRepository()
+            val viewModel = BrowserViewModel(settingsRepository)
 
             viewModel.effects.test {
                 viewModel.submitUrl("example.com")
@@ -46,7 +63,8 @@ class BrowserViewModelTest {
     @Test
     fun `handleIntent processes state changes correctly`() =
         runTest {
-            val viewModel = BrowserViewModel()
+            val settingsRepository = MockBrowserSettingsRepository()
+            val viewModel = BrowserViewModel(settingsRepository)
             val testUrl = ValidatedUrl.fromInput("example.com")
 
             viewModel.handleIntent(BrowserIntent.PageStarted(testUrl))
