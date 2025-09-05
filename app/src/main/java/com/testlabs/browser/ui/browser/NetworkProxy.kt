@@ -69,7 +69,7 @@ public class NetworkProxy(
         }
     }
 
-    private suspend fun proxyRequest(
+    private fun proxyRequest(
         webRequest: WebResourceRequest,
         userAgent: String,
         acceptLanguage: String
@@ -81,7 +81,7 @@ public class NetworkProxy(
         // Build OkHttp request with all necessary headers
         val requestBuilder = Request.Builder()
             .url(httpUrl)
-            .method(webRequest.method, createRequestBody(webRequest))
+            .method(webRequest.method, createRequestBody())
 
         // Add standard headers, ensuring X-Requested-With is NEVER included
         addStandardHeaders(requestBuilder, webRequest, userAgent, acceptLanguage)
@@ -90,7 +90,7 @@ public class NetworkProxy(
         return convertToWebResourceResponse(response, url)
     }
 
-    private fun createRequestBody(request: WebResourceRequest): okhttp3.RequestBody? {
+    private fun createRequestBody(): okhttp3.RequestBody? {
         // WebResourceRequest doesn't expose the request body in Android WebView API
         // This is a known limitation - we can only handle GET requests properly
         // For POST/PUT requests, the body would need to be captured at a higher level
@@ -224,7 +224,7 @@ public class NetworkProxy(
         }
 
         // Get the input stream - this will be automatically closed when WebView is done with it
-        val inputStream = response.body?.byteStream() ?: "".byteInputStream()
+        val inputStream = response.body.byteStream()
 
         // Ensure we have a non-empty reason phrase for WebResourceResponse
         val reasonPhrase = response.message.takeIf { it.isNotBlank() } ?: getDefaultReasonPhrase(response.code)
