@@ -23,8 +23,8 @@ detekt = "1.23.8"
 ktlint = "13.1.0"
 startup-runtime = "1.2.0"
 turbine-version = "1.2.1"
-datastore = "1.1.1"
-kotlinx-serialization-json = "1.7.3"
+datastore = "1.1.7"
+kotlinx-serialization-json = "1.9.0"
 webkit = "1.14.0"
 
 [libraries]
