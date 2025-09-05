@@ -12,21 +12,22 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.webkit.WebStorage
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebSettingsCompat
-import androidx.webkit.WebSettingsCompat.RequestedWithHeaderMode
-import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.WebViewConfig
 
 private const val TAG = "WebViewHost"
@@ -125,13 +126,8 @@ public fun WebViewHost(
                         onComplete()
                     }
                 }
-                override fun requestedWithHeaderMode(): RequestedWithHeaderMode {
-                    return if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)) {
-                        WebSettingsCompat.getRequestedWithHeaderMode(webView.settings)
-                    } else {
-                        RequestedWithHeaderMode.DEFAULT
-                    }
-                }
+                override fun requestedWithHeaderMode(): RequestedWithHeaderMode = requestedWithHeaderModeOf(webView)
+
             }
         onControllerReady(controller)
         onDispose { webView.destroy() }
@@ -230,13 +226,17 @@ private fun WebView.applyConfig(
     applyInternal()
 }
 
+
 /**
- * Applies X-Requested-With header suppression using proper WebKit APIs with feature gate checking.
- * This ensures Chrome-like parity by preventing fingerprinting detection through the header.
+ * Applies a strict suppression policy for the X-Requested-With header across page and service workers
+ * without referencing restricted feature constants. Safe on older engines due to runtime guards.
  */
+@SuppressLint("WebViewFeature", "RequiresFeature")
 private fun WebView.applyRequestedWithHeaderSuppression() {
-    if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)) {
-        WebSettingsCompat.setRequestedWithHeaderMode(settings, RequestedWithHeaderMode.NO_HEADER)
+    runCatching { WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet()) }
+    runCatching {
+        val sw = ServiceWorkerControllerCompat.getInstance().serviceWorkerWebSettings
+        sw.requestedWithHeaderOriginAllowList = emptySet()
     }
 }
 
@@ -336,10 +336,10 @@ private fun WebView.setupWebViewClient(
                     return true
                 }
                 request.url?.let { uri ->
-                    when (uri.scheme) {
-                        "mailto", "tel", "sms" -> return false
-                        "http", "https" -> return false
-                        else -> return false
+                    return when (uri.scheme) {
+                        "mailto", "tel", "sms" -> false
+                        "http", "https" -> false
+                        else -> false
                     }
                 }
                 return false

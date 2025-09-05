@@ -194,6 +194,8 @@ public fun BrowserScreen(
             )
         }
         if (state.isSettingsDialogVisible) {
+            val mode = webController?.requestedWithHeaderMode() ?: RequestedWithHeaderMode.UNKNOWN
+
             BrowserSettingsDialog(
                 config = state.settingsDraft,
                 onConfigChange = { viewModel.handleIntent(BrowserIntent.SettingsUpdated(it)) },
@@ -202,13 +204,13 @@ public fun BrowserScreen(
                 onClearBrowsingData = { viewModel.handleIntent(BrowserIntent.ClearBrowsingData) },
                 userAgent = ua,
                 acceptLanguages = state.settingsCurrent.acceptLanguages,
-                headerMode = webController?.requestedWithHeaderMode() ?: "DEFAULT",
+                headerMode = mode.name,
                 jsCompatEnabled = state.settingsCurrent.jsCompatibilityMode,
                 onCopyDiagnostics = {
                     val diagnostics = buildString {
                         append("User-Agent: $ua\n")
                         append("Accept-Language: ${state.settingsCurrent.acceptLanguages}\n")
-                        append("X-Requested-With: ${webController?.requestedWithHeaderMode() ?: "DEFAULT"}\n")
+                        append("X-Requested-With: ${mode.name}\n")
                         append("JS Compatibility Layer: ${if (state.settingsCurrent.jsCompatibilityMode) "on" else "off"}")
                     }
                     scope.launch {

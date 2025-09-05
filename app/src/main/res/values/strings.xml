@@ -32,5 +32,9 @@
   <string name="start_page_scan_desc">Full surface fingerprint scan (UA-CH, canvas, WebGL, storage, entropy metrics).</string>
   <string name="start_page_headers_title">HTTP Headers (httpbin)</string>
   <string name="start_page_headers_desc">Inspect raw request headers (verify User-Agent &amp; absence of X-Requested-With).</string>
+  <string name="start_page_fingerprint_title">FingerprintJS Demo</string>
+  <string name="start_page_fingerprint_desc">Advanced browser fingerprinting test with comprehensive device &amp; environment detection.</string>
+  <string name="start_page_tls_title">TLS Configuration Test</string>
+  <string name="start_page_tls_desc">Analyze TLS/SSL cipher suites, protocols, and connection security parameters.</string>
   <string name="start_page_open">Open</string>
 </resources>
