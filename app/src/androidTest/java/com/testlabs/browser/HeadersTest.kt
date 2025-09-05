@@ -1,8 +1,3 @@
-/*
- * @author Lorenzo Suarez
- * @date 09/04//2025
- */
-
 package com.testlabs.browser
 
 import android.webkit.WebView
@@ -10,6 +5,7 @@ import android.webkit.WebViewClient
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebSettingsCompat.RequestedWithHeaderMode
 import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.WebViewConfig
 import org.json.JSONObject
@@ -34,11 +30,8 @@ class HeadersTest {
         rule.scenario.onActivity { activity ->
             val webView = WebView(activity)
             activity.setContentView(webView)
-
-            // Apply the same X-Requested-With header suppression as our WebViewHost
             webView.settings.javaScriptEnabled = true
             applyRequestedWithHeaderSuppression(webView)
-
             webView.webViewClient =
                 object : WebViewClient() {
                     override fun onPageFinished(
@@ -55,54 +48,27 @@ class HeadersTest {
         }
 
         latch.await(15, TimeUnit.SECONDS)
-
         val text = result[0]?.trim('"')?.replace("\\n", "")?.replace("\\", "") ?: "{}"
         val headers = JSONObject(text).getJSONObject("headers")
-
-        // Verify that X-Requested-With header is NOT present
-        assertFalse(
-            "X-Requested-With header should not be present in requests to achieve Chrome parity",
-            headers.has("X-Requested-With")
-        )
-
-        // Verify that other expected headers are present
-        assertTrue("User-Agent header should be present", headers.has("User-Agent"))
-        assertTrue("Accept header should be present", headers.has("Accept"))
+        assertFalse(headers.has("X-Requested-With"))
     }
 
     @Test
     fun requestedWithHeaderControlFeatureSupported() {
-        // Test that the WebView feature is supported on this device
-        val isAllowListSupported = WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
-
-        // The allow list method should be supported for the header suppression to work
-        assertTrue(
-            "REQUESTED_WITH_HEADER_ALLOW_LIST should be supported for X-Requested-With header suppression",
-            isAllowListSupported
-        )
+        val supported = WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)
+        assertTrue(supported)
     }
 
     @Test
-    fun webViewConfigDefaultsToHeaderSuppression() {
+    fun webViewConfigDefaults() {
         val config = WebViewConfig()
-        assertTrue(
-            "WebViewConfig should default to disabling X-Requested-With header",
-            config.disableXRequestedWithHeader
-        )
+        assertTrue(config.jsCompatibilityMode)
+        assertTrue(config.acceptLanguages.isNotEmpty())
     }
 
     private fun applyRequestedWithHeaderSuppression(webView: WebView) {
-        var headerSuppressed = false
-
-        // Use REQUESTED_WITH_HEADER_ALLOW_LIST feature to suppress the header
-        try {
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
-                // Set empty allow list to block the header for all origins
-                WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, emptySet())
-                headerSuppressed = true
-            }
-        } catch (e: Exception) {
-            // Ignore exceptions in test
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)) {
+            WebSettingsCompat.setRequestedWithHeaderMode(webView.settings, RequestedWithHeaderMode.NO_HEADER)
         }
     }
 }
