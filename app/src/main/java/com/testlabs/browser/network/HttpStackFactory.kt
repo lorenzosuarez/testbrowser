@@ -1,40 +1,35 @@
 package com.testlabs.browser.network
 
 import android.content.Context
-import com.google.android.gms.net.CronetProviderInstaller
-import com.google.android.gms.tasks.Tasks
+import android.util.Log
 import com.testlabs.browser.ui.browser.UAProvider
-import org.chromium.net.CronetEngine
+
+private const val TAG = "HttpStackFactory"
 
 public object HttpStackFactory {
-    public fun create(context: Context, uaProvider: UAProvider): HttpStack {
-        val engine = buildCronet(context, uaProvider.userAgent(desktop = false))
-        return if (engine != null) CronetHttpStack(engine) else OkHttpStack()
-    }
-    private fun buildCronet(context: Context, ua: String): CronetEngine? {
-        return try {
-            CronetEngine.Builder(context)
-                .enableHttp2(true)
-                .enableQuic(true)
-                .enableBrotli(true)
-                .enableZstd(true)
-                .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_IN_MEMORY, 10 * 1024 * 1024)
-                .setUserAgent(ua)
-                .build()
-        } catch (e: Throwable) {
+
+    public fun create(context: Context, uaProvider: UAProvider, proxyEnabled: Boolean = true): HttpStack {
+        Log.d(TAG, "Creating HTTP stack (proxy enabled: $proxyEnabled)...")
+
+        return if (proxyEnabled) {
             try {
-                Tasks.await(CronetProviderInstaller.installProvider(context))
-                CronetEngine.Builder(context)
-                    .enableHttp2(true)
-                    .enableQuic(true)
-                    .enableBrotli(true)
-                    .enableZstd(true)
-                    .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_IN_MEMORY, 10 * 1024 * 1024)
-                    .setUserAgent(ua)
-                    .build()
-            } catch (_: Throwable) {
-                null
+                val userAgent = uaProvider.userAgent(desktop = false)
+                val engine = CronetHolder.getEngine(context, userAgent)
+
+                if (engine != null) {
+                    Log.d(TAG, "Using CronetHttpStack")
+                    CronetHttpStack(engine)
+                } else {
+                    Log.w(TAG, "Cronet engine creation failed, falling back to OkHttp")
+                    OkHttpStack()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating Cronet stack, using OkHttp fallback", e)
+                OkHttpStack()
             }
+        } else {
+            Log.d(TAG, "Proxy disabled, using OkHttp")
+            OkHttpStack()
         }
     }
 }

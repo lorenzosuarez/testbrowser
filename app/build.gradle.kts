@@ -102,6 +102,7 @@ dependencies {
     implementation(libs.koin.androidx.compose.v356)
     implementation(libs.okhttp)
     implementation(libs.logging.interceptor)
+    implementation(libs.okhttp.brotli)
     implementation(libs.cronet.embedded)
     implementation(libs.play.services.cronet)
     implementation(libs.coil.compose)

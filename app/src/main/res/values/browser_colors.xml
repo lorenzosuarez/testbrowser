@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Additional theme attributes to prevent invalid resource ID errors -->
+    <color name="browser_primary">#FF1976D2</color>
+    <color name="browser_primary_variant">#FF1565C0</color>
+    <color name="browser_secondary">#FF03DAC6</color>
+    <color name="browser_background">#FFFFFFFF</color>
+    <color name="browser_surface">#FFFFFFFF</color>
+    <color name="browser_error">#FFB00020</color>
+    <color name="browser_on_primary">#FFFFFFFF</color>
+    <color name="browser_on_secondary">#FF000000</color>
+    <color name="browser_on_background">#FF000000</color>
+    <color name="browser_on_surface">#FF000000</color>
+    <color name="browser_on_error">#FFFFFFFF</color>
+
+    <!-- Status bar and navigation colors -->
+    <color name="status_bar">#FF1565C0</color>
+    <color name="navigation_bar">#FFFFFFFF</color>
+
+    <!-- WebView specific colors -->
+    <color name="webview_background">#FFFFFFFF</color>
+    <color name="progress_bar">#FF1976D2</color>
+</resources>
+

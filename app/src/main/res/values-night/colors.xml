@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Dark theme colors -->
+    <color name="browser_primary_dark">#FF90CAF9</color>
+    <color name="browser_primary_variant_dark">#FF42A5F5</color>
+    <color name="browser_secondary_dark">#FF80CBC4</color>
+    <color name="browser_background_dark">#FF121212</color>
+    <color name="browser_surface_dark">#FF1E1E1E</color>
+    <color name="browser_error_dark">#FFCF6679</color>
+    <color name="browser_on_primary_dark">#FF000000</color>
+    <color name="browser_on_secondary_dark">#FF000000</color>
+    <color name="browser_on_background_dark">#FFFFFFFF</color>
+    <color name="browser_on_surface_dark">#FFFFFFFF</color>
+    <color name="browser_on_error_dark">#FF000000</color>
+
+    <!-- Dark status bar and navigation -->
+    <color name="status_bar_dark">#FF1565C0</color>
+    <color name="navigation_bar_dark">#FF000000</color>
+</resources>
+

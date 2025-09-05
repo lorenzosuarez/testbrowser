@@ -4,6 +4,7 @@
       <w>iface</w>
       <w>onerror</w>
       <w>snackbar</w>
+      <w>zstd</w>
     </words>
   </dictionary>
 </component>

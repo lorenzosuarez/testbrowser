@@ -1,6 +1,7 @@
 package com.testlabs.browser.ui.browser.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +17,7 @@ import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -36,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.testlabs.browser.R
 import com.testlabs.browser.ui.theme.BrowserThemeTokens
 
@@ -75,30 +78,44 @@ public fun BrowserTopBar(
         shouldRequestFocus = true
     }
 
+
     TopAppBar(
         title = {
             OutlinedTextField(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(end = dimensionResource(id = R.dimen.browser_topbar_horizontal_padding))
-                        .padding(vertical = dimensionResource(id = R.dimen.browser_topbar_vertical_padding))
-                        .focusRequester(focusRequester),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(x = (-6).dp)
+                    .padding(end = dimensionResource(id = R.dimen.browser_topbar_horizontal_padding))
+                    .focusRequester(focusRequester),
                 value = url,
                 onValueChange = onUrlChanged,
                 placeholder = {
-                    androidx.compose.material3.Text(
+                    Text(
                         text = stringResource(id = R.string.browser_url_placeholder),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
                 },
+                leadingIcon = {
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                        IconButton(
+                            onClick = onMenuClick,
+                            modifier = Modifier.size(dimensionResource(id = R.dimen.browser_menu_icon_size)),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = stringResource(id = R.string.browser_menu),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                },
                 trailingIcon = {
                     if (url.isNotEmpty()) {
-                        CompositionLocalProvider(value = LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                             IconButton(
                                 onClick = handleClear,
-                                modifier = Modifier.size(size = dimensionResource(id = R.dimen.browser_clear_icon_size)),
+                                modifier = Modifier.size(dimensionResource(id = R.dimen.browser_clear_icon_size)),
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Clear,
@@ -109,47 +126,27 @@ public fun BrowserTopBar(
                         }
                     }
                 },
-                textStyle = MaterialTheme.typography.bodyMedium,
+                textStyle = MaterialTheme.typography.bodyLarge,
                 singleLine = true,
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Uri,
-                        imeAction = ImeAction.Go,
-                    ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = { handleSubmit() }),
-                shape = RoundedCornerShape(size = dimensionResource(id = R.dimen.browser_pill_radius)),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                    ),
+                shape = RoundedCornerShape(dimensionResource(id = R.dimen.browser_pill_radius)),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                ),
             )
-        },
-        navigationIcon = {
-            CompositionLocalProvider(value = LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                IconButton(
-                    onClick = onMenuClick,
-                    modifier = Modifier.size(size = dimensionResource(id = R.dimen.browser_menu_icon_size)),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.MoreVert,
-                        contentDescription = stringResource(id = R.string.browser_menu),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
         },
         modifier = modifier,
         scrollBehavior = scrollBehavior,
-        colors =
-            TopAppBarDefaults.topAppBarColors(
-                containerColor = barColors.container,
-                scrolledContainerColor = barColors.container,
-                navigationIconContentColor = barColors.content,
-                titleContentColor = barColors.content,
-                actionIconContentColor = barColors.content,
-            ),
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = barColors.container,
+            scrolledContainerColor = barColors.container,
+            navigationIconContentColor = barColors.content,
+            titleContentColor = barColors.content,
+            actionIconContentColor = barColors.content,
+        ),
     )
 }

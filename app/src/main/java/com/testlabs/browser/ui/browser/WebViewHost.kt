@@ -202,6 +202,12 @@ public fun WebViewHost(
                 override fun loadUrl(url: String) {
                     webView.settings.userAgentString = uaProvider.userAgent(latestConfig.desktopMode)
                     val headers = mapOf("Accept-Language" to latestConfig.acceptLanguages)
+
+                    // Validate proxy health before loading important URLs
+                    if (url.contains("browserscan.net") || url.contains("tls.peet.ws") || url.contains("httpbin.org")) {
+                        ProxyValidator.validateProxyHealth(webView)
+                    }
+
                     webView.loadUrl(url, headers)
                 }
                 override fun reload() = webView.reload()
@@ -225,14 +231,14 @@ public fun WebViewHost(
                 override fun requestedWithHeaderMode(): RequestedWithHeaderMode = requestedWithHeaderModeOf(webView)
                 override fun proxyStackName(): String = networkProxy.stackName
             }
+
+        // Validate proxy health when WebView is created
+        ProxyValidator.logProxyStatus()
+
         onControllerReady(controller)
         onDispose {
-            try {
-                webView.stopLoading()
-                webView.loadUrl("about:blank")
-            } finally {
-                webView.destroy()
-            }
+            Log.d(TAG, "Disposing WebView")
+            webView.destroy()
         }
     }
 
@@ -279,22 +285,166 @@ private fun createWebView(
     onScrollDelta: (Int) -> Unit,
     networkProxy: NetworkProxy,
 ): WebView =
-    ObservableWebView(context, onScrollDelta).apply {
-        configureSettings(uaProvider, jsCompat, config)
+    try {
+        Log.d(TAG, "Creating WebView with enhanced safety measures...")
+
+        ObservableWebView(context, onScrollDelta).apply {
+            try {
+                Log.d(TAG, "Setting up basic WebView configuration...")
+
+                settings.apply {
+                    javaScriptEnabled = false
+                    domStorageEnabled = false
+                    allowFileAccess = false
+                    allowContentAccess = false
+                    allowFileAccessFromFileURLs = false
+                    allowUniversalAccessFromFileURLs = false
+                    useWideViewPort = true
+                    loadWithOverviewMode = true
+                    setSupportZoom(false)
+                    builtInZoomControls = false
+                    displayZoomControls = false
+                    mediaPlaybackRequiresUserGesture = true
+                    javaScriptCanOpenWindowsAutomatically = false
+                    setGeolocationEnabled(false)
+                    cacheMode = WebSettings.LOAD_NO_CACHE
+                    blockNetworkImage = true
+                    blockNetworkLoads = true
+                    userAgentString = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36"
+                }
+
+                Log.d(TAG, "Basic WebView settings applied successfully")
+
+                loadUrl("about:blank")
+
+                webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        if (url == "about:blank") {
+                            Log.d(TAG, "WebView renderer initialized successfully")
+                            post {
+                                try {
+                                    configureWebViewSafely(config, uaProvider, jsCompat, onProgressChanged, onPageStarted, onPageFinished, onTitleChanged, onNavigationStateChanged, onError, onUrlChanged, downloadHandler, fileUploadHandler, networkProxy)
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error during full WebView configuration", e)
+                                    onError("WebView configuration failed: ${e.message}")
+                                }
+                            }
+                        }
+                    }
+
+                    override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                        Log.w(TAG, "WebView error during initialization: ${error?.description}")
+                        if (request?.isForMainFrame == true) {
+                            onError("WebView initialization error: ${error?.description}")
+                        }
+                    }
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during basic WebView setup", e)
+                onError("Failed to initialize WebView: ${e.message}")
+            }
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "Critical error creating WebView", e)
+
+        ObservableWebView(context, onScrollDelta).apply {
+            loadUrl("about:blank")
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    onError("WebView creation failed - using minimal fallback")
+                }
+            }
+        }
+    }
+
+@SuppressLint("RequiresFeature")
+private fun WebView.configureWebViewSafely(
+    config: WebViewConfig,
+    uaProvider: UAProvider,
+    jsCompat: JsCompatScriptProvider,
+    onProgressChanged: (Float) -> Unit,
+    onPageStarted: (String) -> Unit,
+    onPageFinished: (String) -> Unit,
+    onTitleChanged: (String) -> Unit,
+    onNavigationStateChanged: (Boolean, Boolean) -> Unit,
+    onError: (String) -> Unit,
+    onUrlChanged: (String) -> Unit,
+    downloadHandler: DownloadHandler,
+    fileUploadHandler: FileUploadHandler,
+    networkProxy: NetworkProxy,
+) {
+    try {
+        Log.d(TAG, "Applying full WebView configuration...")
+        settings.apply {
+            javaScriptEnabled = config.javascriptEnabled
+            domStorageEnabled = config.domStorageEnabled
+            allowFileAccess = config.fileAccessEnabled
+            allowContentAccess = config.fileAccessEnabled
+            mixedContentMode = if (config.mixedContentAllowed) WebSettings.MIXED_CONTENT_ALWAYS_ALLOW else WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            setSupportZoom(true)
+            builtInZoomControls = true
+            displayZoomControls = false
+            userAgentString = config.customUserAgent ?: uaProvider.userAgent(config.desktopMode)
+            loadsImagesAutomatically = true
+            blockNetworkImage = false
+            blockNetworkLoads = false
+            cacheMode = WebSettings.LOAD_DEFAULT
+            mediaPlaybackRequiresUserGesture = !config.mediaAutoplayEnabled
+            javaScriptCanOpenWindowsAutomatically = true
+            setGeolocationEnabled(true)
+        }
+
+        try {
+            WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, config.forceDarkMode)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to set algorithmic darkening", e)
+        }
+
+        try {
+            applyRequestedWithHeaderSuppression()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to suppress X-Requested-With header", e)
+        }
+
+        try {
+            jsCompat.apply(this, config.acceptLanguages, config.jsCompatibilityMode)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to apply JS compatibility", e)
+        }
+
         setupWebViewClient(onPageStarted, onPageFinished, onNavigationStateChanged, onError, onUrlChanged, downloadHandler, networkProxy, uaProvider, config)
         setupWebChromeClient(onProgressChanged, onTitleChanged, fileUploadHandler)
         setupDownloadManager(downloadHandler)
-        ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(object : ServiceWorkerClientCompat() {
-            override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
-                return networkProxy.interceptRequest(
-                    request,
-                    config.customUserAgent ?: uaProvider.userAgent(config.desktopMode),
-                    config.acceptLanguages,
-                    config.proxyEnabled
-                )
-            }
-        })
+
+        try {
+            ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(object : ServiceWorkerClientCompat() {
+                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
+                    return try {
+                        networkProxy.interceptRequest(
+                            request,
+                            config.customUserAgent ?: uaProvider.userAgent(config.desktopMode),
+                            config.acceptLanguages,
+                            config.proxyEnabled
+                        )
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error intercepting ServiceWorker request", e)
+                        null
+                    }
+                }
+            })
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to setup ServiceWorker client", e)
+        }
+
+        Log.d(TAG, "WebView configuration completed successfully")
+
+    } catch (e: Exception) {
+        Log.e(TAG, "Error during WebView configuration", e)
+        onError("WebView configuration failed: ${e.message}")
     }
+}
 
 private fun WebView.applyConfig(
     config: WebViewConfig,
@@ -365,21 +515,42 @@ private fun WebView.setupWebViewClient(
         object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 return request?.let { req ->
-                    networkProxy.interceptRequest(
+                    Log.d(TAG, "WebViewClient.shouldInterceptRequest called for: ${req.url}")
+                    Log.d(TAG, "Request method: ${req.method}, headers: ${req.requestHeaders.keys}")
+
+                    val response = networkProxy.interceptRequest(
                         req,
                         config.customUserAgent ?: uaProvider.userAgent(config.desktopMode),
                         config.acceptLanguages,
                         config.proxyEnabled
                     )
-                } ?: super.shouldInterceptRequest(view, request)
+
+                    if (response != null) {
+                        Log.d(TAG, "✅ Proxy returned response for: ${req.url}")
+                    } else {
+                        Log.d(TAG, "❌ Proxy returned null for: ${req.url} - WebView will handle")
+                    }
+
+                    response
+                } ?: run {
+                    Log.d(TAG, "❌ WebResourceRequest was null")
+                    super.shouldInterceptRequest(view, request)
+                }
             }
             override fun shouldInterceptRequest(view: WebView?, url: String?): WebResourceResponse? = null
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                Log.d(TAG, "📄 Page started loading: $url")
                 url?.let { onPageStarted(it) }
             }
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                Log.d(TAG, "✅ Page finished loading: $url")
+                Log.d(TAG, "📊 WebView state after page load:")
+                Log.d(TAG, "  - JavaScript enabled: ${view?.settings?.javaScriptEnabled}")
+                Log.d(TAG, "  - DOM storage enabled: ${view?.settings?.domStorageEnabled}")
+                Log.d(TAG, "  - Images loading: ${view?.settings?.loadsImagesAutomatically}")
+                Log.d(TAG, "  - Network loads blocked: ${view?.settings?.blockNetworkLoads}")
                 url?.let { onPageFinished(it) }
                 view?.let { onNavigationStateChanged(it.canGoBack(), it.canGoForward()) }
             }
