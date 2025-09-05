@@ -1,3 +1,8 @@
+/*
+ * @author Lorenzo Suarez
+ * @date 09/04//2025
+ */
+
 package com.testlabs.browser.ui.theme
 
 import androidx.compose.material3.Typography

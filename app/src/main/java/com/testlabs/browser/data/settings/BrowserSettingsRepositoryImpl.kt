@@ -1,3 +1,8 @@
+/*
+ * @author Lorenzo Suarez
+ * @date 09/04//2025
+ */
+
 package com.testlabs.browser.data.settings
 
 import androidx.datastore.core.DataStore

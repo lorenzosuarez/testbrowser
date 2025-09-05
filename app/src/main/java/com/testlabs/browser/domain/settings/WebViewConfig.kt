@@ -1,3 +1,8 @@
+/*
+ * @author Lorenzo Suarez
+ * @date 09/04//2025
+ */
+
 package com.testlabs.browser.domain.settings
 
 import androidx.compose.runtime.Immutable
