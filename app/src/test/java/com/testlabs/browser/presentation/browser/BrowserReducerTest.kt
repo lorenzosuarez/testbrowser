@@ -6,7 +6,7 @@
 package com.testlabs.browser.presentation.browser
 
 import com.testlabs.browser.domain.settings.WebViewConfig
-import kotlin.test.Test
+import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

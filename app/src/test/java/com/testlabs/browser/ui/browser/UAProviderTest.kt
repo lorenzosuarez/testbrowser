@@ -1,7 +1,7 @@
 package com.testlabs.browser.ui.browser
 
 import io.mockk.mockk
-import kotlin.test.Test
+import org.junit.Test
 import kotlin.test.assertTrue
 
 private class FakeVersionProvider(
