@@ -125,6 +125,6 @@ public class DefaultUAProvider(
     }
 
     private companion object {
-        private const val FALLBACK_CHROME_MAJOR = "120"
+        private const val FALLBACK_CHROME_MAJOR = "140"
     }
 }

@@ -16,5 +16,6 @@ import kotlinx.serialization.Serializable
 public data class WebViewConfig(
     val desktopMode: Boolean = false,
     val javascriptEnabled: Boolean = true,
-    val disableXRequestedWithHeader: Boolean = true,
+    val acceptLanguages: String = "en-US,en;q=0.9",
+    val jsCompatibilityMode: Boolean = true,
 )

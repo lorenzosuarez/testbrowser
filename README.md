@@ -78,16 +78,19 @@ Accessible from the top app bar menu (⋮ → Advanced Config).
 ---
 
 ## Testing Fingerprint Parity
-1. Navigate to [httpbin.org/headers](https://httpbin.org/headers)  
-   - Verify: UA matches Chrome stable format.  
-   - Verify: `X-Requested-With` header is absent.  
-2. Navigate to [browserscan.net](https://www.browserscan.net)  
-   - Compare results with Chrome on the same device.  
-   - Note: `Sec-CH-UA*` client hints may differ (engine controlled).  
+1. Navigate to [httpbin.org/headers](https://httpbin.org/headers)
+   - `User-Agent` matches the value from UAProvider.
+   - `Accept-Language` equals the configured setting.
+   - `X-Requested-With` is absent on reloads.
+2. Navigate to [FingerprintJS demo](https://fingerprintjs.github.io/fingerprintjs/)
+   - With compatibility layer enabled: `navigator.vendor` is `Google Inc.`, languages reflect settings, hardwareConcurrency and deviceMemory show bucketed values.
+   - With the layer disabled: values revert to WebView defaults.
+3. Navigate to [TLS Peet](https://tls.peet.ws/api/all)
+   - Capture JSON; TLS/ALPN/cipher suite ordering differs from Chrome and cannot be aligned.
 
-Expected acceptable differences:  
-- Client Hints brand lists may include `"Not A Brand"` or `"Chromium"`.  
-- Minor variations in high-entropy fingerprinting APIs are expected.  
+Expected acceptable differences:
+-- Client Hints brand lists may include `"Not A Brand"` or `"Chromium"`.
+-- Minor variations in high-entropy fingerprinting APIs are expected.
 
 ---
 
@@ -123,19 +126,26 @@ Expected acceptable differences:
 ---
 
 ## Limitations
-- Client Hints (`Sec-CH-UA*`) cannot be fully overridden.  
-- Some Web APIs may differ from standalone Chrome.  
-- Not a full browser: no multi-tab or history UI.  
+- Client Hints (`Sec-CH-UA*`) cannot be fully overridden.
+- Some Web APIs may differ from standalone Chrome.
+- Not a full browser: no multi-tab or history UI.
+
+## Chrome Parity Limits
+- TLS fingerprint (ciphers, key_share, ALPN, GREASE, extension ordering) is controlled by the OS WebView stack and cannot fully match Chrome.
+- Client Hints brands are fixed (`Android WebView`, `Not A Brand`) and not spoofable in app code.
+- Accept-Language for subresources is engine-controlled; only the main navigation header is overridden.
 
 ---
 
-## Screenshots (Placeholders)
+## Fingerprint Comparison (Reference)
 
-| TestBrowser | Chrome |
-|------------------|------------------------|
-| ![](https://github.com/user-attachments/assets/b2707cd3-2f32-44c8-9750-e7a565e3bce8) | ![](https://github.com/user-attachments/assets/b580f8b0-6541-437e-a20d-b48550a67504) |
+| Signal | TestBrowser | Chrome | Notes |
+| ------ | ----------- | ------ | ----- |
+| navigator.vendor | Google Inc. | Google Inc. | Match with compatibility layer |
+| navigator.platform | Linux aarch64 | Linux aarch64 | Present on 64-bit devices |
+| navigator.languages | en-US,en | en-US,en | Derived from settings |
+| X-Requested-With header | none | none | Suppressed for parity |
+| Sec-CH-UA | "Android WebView", "Not A Brand" | "Google Chrome" | Engine-controlled |
+| TLS fingerprint | differs | Chrome-specific | WebView stack is authoritative |
 
-| Main UI | Advanced Config Dialog |
-|---------|------------------------|
-| ![](https://github.com/user-attachments/assets/f1e02cfc-197f-4b80-9147-4a6a315dd99d) | ![](https://github.com/user-attachments/assets/8f3573d9-04b6-4728-b97d-0d1448ac1364) |
 

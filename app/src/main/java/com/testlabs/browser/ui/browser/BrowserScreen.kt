@@ -22,6 +22,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.testlabs.browser.R
 import com.testlabs.browser.core.ValidatedUrl
@@ -33,8 +35,10 @@ import com.testlabs.browser.ui.browser.components.BrowserProgressIndicator
 import com.testlabs.browser.ui.browser.components.BrowserSettingsDialog
 import com.testlabs.browser.ui.browser.components.BrowserTopBar
 import com.testlabs.browser.ui.browser.components.StartPage
+import com.testlabs.browser.ui.browser.JsCompatScriptProvider
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.androidx.compose.koinInject
 
 /**
  * Browser screen using Material3 Scaffold with custom TopBar and BottomBar components.
@@ -49,14 +53,17 @@ import org.koin.androidx.compose.koinViewModel
 public fun BrowserScreen(
     filePickerLauncher: ActivityResultLauncher<Intent>,
     uaProvider: UAProvider,
+    jsCompat: JsCompatScriptProvider = koinInject(),
     viewModel: BrowserViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val ua by uaProvider.uaFlow.collectAsStateWithLifecycle()
     val topScroll = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     val snackbarHostState = remember { SnackbarHostState() }
     var webController by remember { mutableStateOf<WebViewController?>(value = null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
 
     BackHandler(enabled = state.canGoBack) { viewModel.handleIntent(BrowserIntent.GoBack) }
 
@@ -157,6 +164,7 @@ public fun BrowserScreen(
                 onUrlChanged = callbacks.onUrlChanged,
                 filePickerLauncher = filePickerLauncher,
                 uaProvider = uaProvider,
+                jsCompat = jsCompat,
                 config = state.settingsCurrent,
                 onControllerReady = callbacks.onControllerReady,
                 onScrollDelta = { dyPx ->
@@ -189,7 +197,19 @@ public fun BrowserScreen(
                 onDismiss = { viewModel.handleIntent(BrowserIntent.CloseSettings) },
                 onConfirm = { viewModel.handleIntent(BrowserIntent.ApplySettings) },
                 onClearBrowsingData = { viewModel.handleIntent(BrowserIntent.ClearBrowsingData) },
-                requestedWithHeaderDisabled = webController?.isRequestedWithHeaderDisabled() ?: false,
+                userAgent = ua,
+                acceptLanguages = state.settingsCurrent.acceptLanguages,
+                headerMode = webController?.requestedWithHeaderMode()?.name ?: "DEFAULT",
+                jsCompatEnabled = state.settingsCurrent.jsCompatibilityMode,
+                onCopyDiagnostics = {
+                    val diag = buildString {
+                        append("User-Agent: $ua\n")
+                        append("Accept-Language: ${state.settingsCurrent.acceptLanguages}\n")
+                        append("X-Requested-With: ${webController?.requestedWithHeaderMode()?.name ?: "DEFAULT"}\n")
+                        append("JS Compatibility Layer: ${if (state.settingsCurrent.jsCompatibilityMode) "on" else "off"}")
+                    }
+                    clipboard.setText(AnnotatedString(diag))
+                },
             )
         }
     }

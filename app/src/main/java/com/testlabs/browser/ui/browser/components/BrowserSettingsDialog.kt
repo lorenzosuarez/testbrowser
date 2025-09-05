@@ -29,7 +29,11 @@ public fun BrowserSettingsDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     onClearBrowsingData: () -> Unit,
-    requestedWithHeaderDisabled: Boolean = false,
+    userAgent: String,
+    acceptLanguages: String,
+    headerMode: String,
+    jsCompatEnabled: Boolean,
+    onCopyDiagnostics: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -57,10 +61,10 @@ public fun BrowserSettingsDialog(
                     )
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(text = stringResource(id = R.string.settings_disable_x_requested_with))
+                    Text(text = stringResource(id = R.string.settings_js_compat))
                     Switch(
-                        checked = config.disableXRequestedWithHeader,
-                        onCheckedChange = { onConfigChange(config.copy(disableXRequestedWithHeader = it)) },
+                        checked = config.jsCompatibilityMode,
+                        onCheckedChange = { onConfigChange(config.copy(jsCompatibilityMode = it)) },
                     )
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -69,6 +73,16 @@ public fun BrowserSettingsDialog(
                     }
                 }
                 Spacer(modifier = Modifier.height(0.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = stringResource(id = R.string.settings_diagnostics_header))
+                    Text(text = stringResource(id = R.string.settings_user_agent_label) + ": " + userAgent)
+                    Text(text = stringResource(id = R.string.settings_accept_language_label) + ": " + acceptLanguages)
+                    Text(text = stringResource(id = R.string.settings_header_mode_label) + ": " + headerMode)
+                    Text(text = stringResource(id = R.string.settings_js_compat_status) + ": " + if (jsCompatEnabled) "on" else "off")
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = onCopyDiagnostics) { Text(text = stringResource(id = R.string.settings_copy_diagnostics)) }
+                    }
+                }
             }
         },
     )

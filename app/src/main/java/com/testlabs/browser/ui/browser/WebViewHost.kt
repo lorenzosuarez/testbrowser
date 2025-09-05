@@ -20,13 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebSettingsCompat.RequestedWithHeaderMode
 import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.WebViewConfig
-import java.util.Locale
 
 private const val TAG = "WebViewHost"
 private const val MIME_TYPE_GUESS = "application/octet-stream"
@@ -47,9 +48,9 @@ public interface WebViewController {
     public fun clearBrowsingData(onComplete: () -> Unit)
 
     /**
-     * Check if X-Requested-With header is properly disabled.
+     * Returns current Requested-With header mode.
      */
-    public fun isRequestedWithHeaderDisabled(): Boolean
+    public fun requestedWithHeaderMode(): RequestedWithHeaderMode
 }
 
 @Composable
@@ -63,6 +64,7 @@ public fun WebViewHost(
     onUrlChanged: (String) -> Unit,
     filePickerLauncher: ActivityResultLauncher<Intent>,
     uaProvider: UAProvider,
+    jsCompat: JsCompatScriptProvider,
     config: WebViewConfig,
     onControllerReady: (WebViewController) -> Unit,
     onScrollDelta: (Int) -> Unit,
@@ -71,6 +73,9 @@ public fun WebViewHost(
     val context = LocalContext.current
     val downloadHandler = remember { DownloadHandler(context) }
     val fileUploadHandler = remember { FileUploadHandler(context) }
+
+    var latestConfig by remember { mutableStateOf(config) }
+    LaunchedEffect(config) { latestConfig = config }
 
     LaunchedEffect(filePickerLauncher) { fileUploadHandler.initialize(filePickerLauncher) }
     LaunchedEffect(fileUploadHandler) { (context as? com.testlabs.browser.MainActivity)?.setFileUploadHandler(fileUploadHandler) }
@@ -89,6 +94,7 @@ public fun WebViewHost(
                 downloadHandler = downloadHandler,
                 fileUploadHandler = fileUploadHandler,
                 uaProvider = uaProvider,
+                jsCompat = jsCompat,
                 config = config,
                 onScrollDelta = onScrollDelta,
             )
@@ -98,8 +104,9 @@ public fun WebViewHost(
         val controller =
             object : WebViewController {
                 override fun loadUrl(url: String) {
-                    val headers = if (url.startsWith("https://")) mapOf("Accept-Language" to Locale.getDefault().toLanguageTag()) else emptyMap()
-                    if (headers.isEmpty()) webView.loadUrl(url) else webView.loadUrl(url, headers)
+                    webView.settings.userAgentString = uaProvider.userAgent(latestConfig.desktopMode)
+                    val headers = mapOf("Accept-Language" to latestConfig.acceptLanguages)
+                    webView.loadUrl(url, headers)
                 }
                 override fun reload() = webView.reload()
                 override fun goBack() = webView.goBack()
@@ -118,13 +125,11 @@ public fun WebViewHost(
                         onComplete()
                     }
                 }
-                override fun isRequestedWithHeaderDisabled(): Boolean {
-                    return try {
-                        // Check if we're using the allowlist approach (the only supported method)
-                        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error checking RequestedWithHeader status", e)
-                        false
+                override fun requestedWithHeaderMode(): RequestedWithHeaderMode {
+                    return if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)) {
+                        WebSettingsCompat.getRequestedWithHeaderMode(webView.settings)
+                    } else {
+                        RequestedWithHeaderMode.DEFAULT
                     }
                 }
             }
@@ -133,7 +138,7 @@ public fun WebViewHost(
     }
 
     AndroidView(factory = { webView }, modifier = modifier)
-    LaunchedEffect(config) { webView.applyConfig(config, uaProvider) }
+    LaunchedEffect(config) { webView.applyConfig(config, uaProvider, jsCompat) }
 }
 
 @SuppressLint("ViewConstructor")
@@ -165,11 +170,12 @@ private fun createWebView(
     downloadHandler: DownloadHandler,
     fileUploadHandler: FileUploadHandler,
     uaProvider: UAProvider,
+    jsCompat: JsCompatScriptProvider,
     config: WebViewConfig,
     onScrollDelta: (Int) -> Unit,
 ): WebView =
     ObservableWebView(context, onScrollDelta).apply {
-        configureSettings(uaProvider, config)
+        configureSettings(uaProvider, jsCompat, config)
         setupWebViewClient(onPageStarted, onPageFinished, onNavigationStateChanged, onError, onUrlChanged, downloadHandler)
         setupWebChromeClient(onProgressChanged, onTitleChanged, fileUploadHandler)
         setupDownloadManager(downloadHandler)
@@ -178,6 +184,7 @@ private fun createWebView(
 private fun WebView.applyConfig(
     config: WebViewConfig,
     uaProvider: UAProvider,
+    jsCompat: JsCompatScriptProvider,
 ) {
     @SuppressLint("RestrictedApi")
     fun applyInternal() {
@@ -211,10 +218,8 @@ private fun WebView.applyConfig(
             setDomStorageEnabled(true)
         }
 
-        // Apply X-Requested-With header configuration
-        if (config.disableXRequestedWithHeader) {
-            applyRequestedWithHeaderSuppression()
-        }
+        applyRequestedWithHeaderSuppression()
+        jsCompat.apply(this@applyConfig, config.acceptLanguages, config.jsCompatibilityMode)
 
         CookieManager.getInstance().apply {
             setAcceptCookie(true)
@@ -230,29 +235,16 @@ private fun WebView.applyConfig(
  * This ensures Chrome-like parity by preventing fingerprinting detection through the header.
  */
 private fun WebView.applyRequestedWithHeaderSuppression() {
-    var headerSuppressed = false
-
-    // Use REQUESTED_WITH_HEADER_ALLOW_LIST feature to suppress the header
-    try {
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
-            // Set empty allow list to block the header for all origins
-            WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
-            headerSuppressed = true
-            Log.d(TAG, "X-Requested-With header disabled using empty REQUESTED_WITH_HEADER_ALLOW_LIST")
-        }
-    } catch (e: Exception) {
-        Log.w(TAG, "Failed to set empty RequestedWithHeaderOriginAllowList", e)
-    }
-
-    if (!headerSuppressed) {
-        Log.w(TAG, "Unable to suppress X-Requested-With header - REQUESTED_WITH_HEADER_ALLOW_LIST feature not supported")
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)) {
+        WebSettingsCompat.setRequestedWithHeaderMode(settings, RequestedWithHeaderMode.NO_HEADER)
     }
 }
 
 private fun WebView.configureSettings(
     uaProvider: UAProvider,
+    jsCompat: JsCompatScriptProvider,
     config: WebViewConfig,
-) { applyConfig(config, uaProvider) }
+) { applyConfig(config, uaProvider, jsCompat) }
 
 private fun WebView.setupWebViewClient(
     onPageStarted: (String) -> Unit,
