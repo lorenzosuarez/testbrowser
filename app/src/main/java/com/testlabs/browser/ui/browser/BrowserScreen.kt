@@ -1,9 +1,13 @@
 package com.testlabs.browser.ui.browser
 
+import android.content.ClipData
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.ActivityResultLauncher
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -21,9 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.testlabs.browser.R
 import com.testlabs.browser.core.ValidatedUrl
@@ -35,10 +39,9 @@ import com.testlabs.browser.ui.browser.components.BrowserProgressIndicator
 import com.testlabs.browser.ui.browser.components.BrowserSettingsDialog
 import com.testlabs.browser.ui.browser.components.BrowserTopBar
 import com.testlabs.browser.ui.browser.components.StartPage
-import com.testlabs.browser.ui.browser.JsCompatScriptProvider
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
-import org.koin.androidx.compose.koinInject
+import org.koin.compose.koinInject
 
 /**
  * Browser screen using Material3 Scaffold with custom TopBar and BottomBar components.
@@ -63,7 +66,7 @@ public fun BrowserScreen(
     var webController by remember { mutableStateOf<WebViewController?>(value = null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
 
     BackHandler(enabled = state.canGoBack) { viewModel.handleIntent(BrowserIntent.GoBack) }
 
@@ -199,16 +202,19 @@ public fun BrowserScreen(
                 onClearBrowsingData = { viewModel.handleIntent(BrowserIntent.ClearBrowsingData) },
                 userAgent = ua,
                 acceptLanguages = state.settingsCurrent.acceptLanguages,
-                headerMode = webController?.requestedWithHeaderMode()?.name ?: "DEFAULT",
+                headerMode = webController?.requestedWithHeaderMode() ?: "DEFAULT",
                 jsCompatEnabled = state.settingsCurrent.jsCompatibilityMode,
                 onCopyDiagnostics = {
-                    val diag = buildString {
+                    val diagnostics = buildString {
                         append("User-Agent: $ua\n")
                         append("Accept-Language: ${state.settingsCurrent.acceptLanguages}\n")
-                        append("X-Requested-With: ${webController?.requestedWithHeaderMode()?.name ?: "DEFAULT"}\n")
+                        append("X-Requested-With: ${webController?.requestedWithHeaderMode() ?: "DEFAULT"}\n")
                         append("JS Compatibility Layer: ${if (state.settingsCurrent.jsCompatibilityMode) "on" else "off"}")
                     }
-                    clipboard.setText(AnnotatedString(diag))
+                    scope.launch {
+                        val clipData = ClipData.newPlainText("Diagnostics", diagnostics)
+                        clipboard.setClipEntry(ClipEntry(clipData))
+                    }
                 },
             )
         }
