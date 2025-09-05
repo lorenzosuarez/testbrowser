@@ -122,4 +122,9 @@ public sealed interface BrowserIntent {
     public data class UrlChanged(
         val url: ValidatedUrl,
     ) : BrowserIntent
+
+    /**
+     * User wants to clear browsing data.
+     */
+    public data object ClearBrowsingData : BrowserIntent
 }

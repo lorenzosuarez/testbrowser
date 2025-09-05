@@ -28,6 +28,7 @@ public fun BrowserSettingsDialog(
     onConfigChange: (WebViewConfig) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
+    onClearBrowsingData: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -53,6 +54,11 @@ public fun BrowserSettingsDialog(
                         checked = config.javascriptEnabled,
                         onCheckedChange = { onConfigChange(config.copy(javascriptEnabled = it)) },
                     )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onClearBrowsingData) {
+                        Text(text = stringResource(id = R.string.settings_clear_browsing_data))
+                    }
                 }
                 Spacer(modifier = Modifier.height(0.dp))
             }

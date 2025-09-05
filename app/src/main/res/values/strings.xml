@@ -17,4 +17,6 @@
   <string name="settings_title">Advanced settings</string>
   <string name="settings_desktop_mode">Desktop mode</string>
   <string name="settings_js_enabled">Enable JavaScript</string>
+  <string name="settings_clear_browsing_data">Clear storage &amp; cookies</string>
+  <string name="settings_clear_browsing_data_done">Storage, cache &amp; cookies cleared</string>
 </resources>

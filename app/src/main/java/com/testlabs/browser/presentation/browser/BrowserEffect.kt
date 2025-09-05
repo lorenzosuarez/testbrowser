@@ -34,4 +34,6 @@ public sealed interface BrowserEffect {
     public data class ShowMessage(
         val message: String,
     ) : BrowserEffect
+
+    public data object ClearBrowsingData : BrowserEffect
 }

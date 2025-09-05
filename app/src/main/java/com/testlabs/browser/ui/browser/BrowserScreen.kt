@@ -3,17 +3,13 @@ package com.testlabs.browser.ui.browser
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.ActivityResultLauncher
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -21,26 +17,24 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewParameter
-import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.testlabs.browser.R
 import com.testlabs.browser.core.ValidatedUrl
 import com.testlabs.browser.presentation.browser.BrowserEffect
 import com.testlabs.browser.presentation.browser.BrowserIntent
-import com.testlabs.browser.presentation.browser.BrowserState
 import com.testlabs.browser.presentation.browser.BrowserViewModel
 import com.testlabs.browser.ui.browser.components.BrowserBottomBar
 import com.testlabs.browser.ui.browser.components.BrowserProgressIndicator
 import com.testlabs.browser.ui.browser.components.BrowserSettingsDialog
 import com.testlabs.browser.ui.browser.components.BrowserTopBar
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -62,16 +56,12 @@ public fun BrowserScreen(
     val topScroll = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     val snackbarHostState = remember { SnackbarHostState() }
     var webController by remember { mutableStateOf<WebViewController?>(value = null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
-    BackHandler(enabled = state.canGoBack) {
-        viewModel.handleIntent(BrowserIntent.GoBack)
-    }
+    BackHandler(enabled = state.canGoBack) { viewModel.handleIntent(BrowserIntent.GoBack) }
 
-    LaunchedEffect(state.shouldFocusUrlInput) {
-        if (state.shouldFocusUrlInput) {
-            topScroll.state.heightOffset = 0f
-        }
-    }
+    LaunchedEffect(state.shouldFocusUrlInput) { if (state.shouldFocusUrlInput) topScroll.state.heightOffset = 0f }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -81,6 +71,20 @@ public fun BrowserScreen(
                 BrowserEffect.NavigateBack -> webController?.goBack()
                 BrowserEffect.NavigateForward -> webController?.goForward()
                 is BrowserEffect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
+                BrowserEffect.ClearBrowsingData -> {
+                    val controller = webController
+                    if (controller == null) {
+                        snackbarHostState.showSnackbar("No WebView")
+                    } else {
+                        controller.clearBrowsingData {
+                            scope.launch {
+                                viewModel.handleIntent(BrowserIntent.CloseSettings)
+                                viewModel.handleIntent(BrowserIntent.NewTab)
+                                snackbarHostState.showSnackbar(context.getString(R.string.settings_clear_browsing_data_done))
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -92,10 +96,7 @@ public fun BrowserScreen(
                 val onPageStarted: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.PageStarted(ValidatedUrl.fromValidUrl(it))) }
                 val onPageFinished: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.PageFinished(ValidatedUrl.fromValidUrl(it))) }
                 val onTitleChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.TitleChanged(it)) }
-                val onNavigationStateChanged: (
-                    Boolean,
-                    Boolean,
-                ) -> Unit = { b, f -> viewModel.handleIntent(BrowserIntent.NavigationStateChanged(b, f)) }
+                val onNavigationStateChanged: (Boolean, Boolean) -> Unit = { b, f -> viewModel.handleIntent(BrowserIntent.NavigationStateChanged(b, f)) }
                 val onError: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.NavigationError(it)) }
                 val onUrlChanged: (String) -> Unit = { viewModel.handleIntent(BrowserIntent.UrlChanged(ValidatedUrl.fromValidUrl(it))) }
                 val onControllerReady: (WebViewController) -> Unit = { webController = it }
@@ -178,95 +179,8 @@ public fun BrowserScreen(
                 onConfigChange = { viewModel.handleIntent(BrowserIntent.SettingsUpdated(it)) },
                 onDismiss = { viewModel.handleIntent(BrowserIntent.CloseSettings) },
                 onConfirm = { viewModel.handleIntent(BrowserIntent.ApplySettings) },
+                onClearBrowsingData = { viewModel.handleIntent(BrowserIntent.ClearBrowsingData) },
             )
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-public fun BrowserScreenPreview(
-    @PreviewParameter(BrowserStateProvider::class) state: BrowserState,
-) {
-    MaterialTheme {
-        BrowserScreenPreviewContent(state)
-    }
-}
-
-@Composable
-public fun BrowserScreenPreviewContent(state: BrowserState) {
-    val mockViewModel =
-        remember {
-            object {
-                fun handleIntent() {}
-
-                fun submitUrl() {}
-            }
-        }
-    val topScroll = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    Scaffold(
-        modifier =
-            Modifier
-                .nestedScroll(topScroll.nestedScrollConnection)
-                .fillMaxSize(),
-        topBar = {
-            Column {
-                BrowserTopBar(
-                    url = state.inputUrl,
-                    onUrlChanged = { mockViewModel.handleIntent() },
-                    onSubmit = { mockViewModel.submitUrl() },
-                    onMenuClick = {},
-                    scrollBehavior = topScroll,
-                    shouldFocusUrlInput = state.shouldFocusUrlInput,
-                )
-                BrowserProgressIndicator(
-                    progress = state.progress,
-                    isVisible = state.isLoading,
-                )
-            }
-        },
-        bottomBar = {
-            BrowserBottomBar(
-                canGoBack = state.canGoBack,
-                canGoForward = state.canGoForward,
-                onBackClick = { mockViewModel.handleIntent() },
-                onForwardClick = { mockViewModel.handleIntent() },
-                onReloadClick = { mockViewModel.handleIntent() },
-                onNewTabClick = { mockViewModel.handleIntent() },
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { innerPadding ->
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .background(MaterialTheme.colorScheme.surface),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "WebView Preview\n${state.inputUrl}",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-public class BrowserStateProvider : PreviewParameterProvider<BrowserState> {
-    override val values: Sequence<BrowserState> =
-        sequenceOf(
-            BrowserState(
-                inputUrl = "https://www.example.com",
-                title = "Example Website",
-                canGoBack = true,
-                canGoForward = false,
-                shouldFocusUrlInput = false,
-                isLoading = false,
-                progress = 0.75f,
-            ),
-        )
 }

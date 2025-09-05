@@ -157,5 +157,9 @@ public object BrowserReducer {
                     inputUrl = intent.url.value,
                 ) to null
             }
+
+            BrowserIntent.ClearBrowsingData -> {
+                state to BrowserEffect.ClearBrowsingData
+            }
         }
 }
