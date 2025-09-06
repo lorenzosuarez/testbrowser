@@ -187,20 +187,23 @@ private fun setupWebViewDefaults(webView: WebView) {
     CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 }
 
-@SuppressLint("WebViewFeature", "RequiresFeature")
+@SuppressLint("WebViewFeature", "RequiresFeature", "RestrictedApi")
 private fun applyRequestedWithHeaderPolicy(webView: WebView, config: WebViewConfig) {
     if (!WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) return
 
     val allow = when (config.requestedWithHeaderMode) {
-        RequestedWithHeaderMode.ELIMINATED -> emptySet()
+        RequestedWithHeaderMode.ELIMINATED -> emptySet<String>()
         RequestedWithHeaderMode.ALLOW_LIST -> config.requestedWithHeaderAllowList
         RequestedWithHeaderMode.UNSUPPORTED -> return
     }
 
-    WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, allow)
+    val webSettings = webView.settings
+    WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webSettings, allow)
+
     if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
-        val sw = ServiceWorkerControllerCompat.getInstance().serviceWorkerWebSettings
-        ServiceWorkerWebSettingsCompat.setRequestedWithHeaderOriginAllowList(sw, allow)
+        val swController = ServiceWorkerControllerCompat.getInstance()
+        val serviceWorkerSettings = swController.serviceWorkerWebSettings
+        serviceWorkerSettings.requestedWithHeaderOriginAllowList = allow
     }
 }
 
