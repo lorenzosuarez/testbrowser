@@ -29,7 +29,7 @@ public interface NetworkProxy {
 public class DefaultNetworkProxy(
     context: Context,
     private val config: WebViewConfig,
-    private val uaProvider: UAProvider,
+    uaProvider: UAProvider,
     private val chManager: UserAgentClientHintsManager
 ) : NetworkProxy {
     private val httpStack = if (config.engineMode == EngineMode.Cronet) {
@@ -75,7 +75,7 @@ public class DefaultNetworkProxy(
 }
 
     /** Normalize outbound headers from WebView prior to hitting HttpStack */
-    fun normalizeHeaders(incoming: Map<String, String>): Map<String, String> {
+    public fun normalizeHeaders(incoming: Map<String, String>): Map<String, String> {
         val sanitized = incoming.toMutableMap()
 
         if (config.suppressXRequestedWith) {
