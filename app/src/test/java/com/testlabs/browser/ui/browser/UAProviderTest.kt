@@ -39,4 +39,13 @@ class UAProviderTest {
         )
         assertTrue(provider.userAgent(desktop = false).contains("Chrome/200.0.0.0"))
     }
+
+    @Test
+    fun noAndroidWebViewBrand() {
+        val provider = ChromeUAProvider(
+            versionProvider = FakeVersionProvider("123.0.0.0", null)
+        )
+        val ua = provider.userAgent(desktop = false)
+        assertTrue(!ua.contains("Android WebView"))
+    }
 }
