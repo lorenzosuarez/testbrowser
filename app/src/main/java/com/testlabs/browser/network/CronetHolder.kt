@@ -23,10 +23,8 @@ public object CronetHolder {
     @Volatile
     private var _engine: CronetEngine? = null
 
-    private val executor = Executors.newCachedThreadPool { r ->
-        Thread(r, "CronetExecutor").apply {
-            isDaemon = true
-        }
+    private val executor = Executors.newCachedThreadPool { r: Runnable ->
+        Thread(r, "CronetExecutor").apply { isDaemon = true }
     }
 
     /**
@@ -53,6 +51,18 @@ public object CronetHolder {
 
     private fun createEngine(context: Context, userAgent: String): CronetEngine? {
         fun createBuilder(): CronetEngine.Builder {
+            val builder = CronetEngine.Builder(context)
+                .enableHttp2(true)
+                .enableQuic(false)
+
+            try {
+                CronetEngine.Builder::class.java
+                    .getMethod("enableBrotli", Boolean::class.javaPrimitiveType)
+                    .invoke(builder, true)
+            } catch (e: Exception) {
+                Log.d(TAG, "Brotli not available: ${e.message}")
+            }
+
             val experimental =
                 """{
                   "disable_certificate_compression": false,
@@ -61,31 +71,19 @@ public object CronetHolder {
                   "enable_tls13_early_data": false,
                   "enable_tls13_kyber": false
                 }""".trimIndent()
-            return CronetEngine.Builder(context)
-                .enableHttp2(true)
-                .enableQuic(false)
-                .enableBrotli(true)
-                .setExperimentalOptions(experimental)
-                .apply {
-                    
-                    try {
-                        
-                        val enableZstdMethod = this::class.java.getDeclaredMethod("enableZstd", Boolean::class.javaPrimitiveType)
-                        enableZstdMethod.invoke(this, true)
-                        Log.d(TAG, "ZSTD compression enabled successfully")
-                    } catch (e: NoSuchMethodException) {
-                        Log.d(TAG, "ZSTD compression not available in this Cronet version (method not found) - error: ${e.message}")
-                    } catch (e: Exception) {
-                        Log.d(TAG, "ZSTD compression not available: ${e.javaClass.simpleName}")
-                    }
-                }
-                .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_IN_MEMORY, 20L * 1024 * 1024)
-                .setUserAgent(userAgent)
-                .setThreadPriority(Thread.NORM_PRIORITY)
+            try {
+                CronetEngine.Builder::class.java
+                    .getMethod("setExperimentalOptions", String::class.java)
+                    .invoke(builder, experimental)
+            } catch (e: Exception) {
+                Log.d(TAG, "Experimental options not supported: ${e.message}")
+            }
+
+            builder.setUserAgent(userAgent)
+            return builder
         }
 
         return try {
-            
             Log.d(TAG, "Creating Cronet engine with UA: ${userAgent.take(100)}")
             createBuilder().build().also {
                 Log.d(TAG, "Cronet engine created successfully")
@@ -94,7 +92,6 @@ public object CronetHolder {
             Log.d(TAG, "Direct Cronet creation failed, trying with provider installation: ${e.message}")
 
             try {
-                
                 val installTask = CronetProviderInstaller.installProvider(context)
                 Tasks.await(installTask, 5, TimeUnit.SECONDS)
 
