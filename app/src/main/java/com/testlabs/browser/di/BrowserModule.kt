@@ -8,6 +8,7 @@ import com.testlabs.browser.ui.browser.NetworkProxy
 import com.testlabs.browser.ui.browser.UAProvider
 import com.testlabs.browser.ui.browser.VersionProvider
 import com.testlabs.browser.ui.browser.DefaultNetworkProxy
+import com.testlabs.browser.domain.settings.WebViewConfig
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModelOf
@@ -26,5 +27,7 @@ public val browserModule: Module = module {
         }
     }
 
-    single<NetworkProxy> { DefaultNetworkProxy() }
+    factory<NetworkProxy> { (config: WebViewConfig) ->
+        DefaultNetworkProxy(androidContext(), config, get(), get())
+    }
 }

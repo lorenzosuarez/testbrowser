@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
-import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
@@ -19,6 +18,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
  */
 public class OkHttpStack(
     private val uaProvider: UAProvider,
+    private val chManager: UserAgentClientHintsManager,
     private val client: OkHttpClient = OkHttpClientProvider.client
 ) : HttpStack {
 
@@ -26,7 +26,21 @@ public class OkHttpStack(
 
     override suspend fun execute(request: ProxyRequest): ProxyResponse = withContext(Dispatchers.IO) {
         val builder = Request.Builder().url(request.url)
-        val headers = request.headers
+        val headers = request.headers.toMutableMap()
+        headers.keys
+            .filter { it.equals("x-requested-with", true) }
+            .forEach { headers.remove(it) }
+
+        val ua = uaProvider.userAgent(false)
+        headers["User-Agent"] = ua
+        val acceptLang = headers["Accept-Language"] ?: "en-US,en;q=0.9"
+        headers["Accept-Language"] = acceptLang
+        val major = Regex("Chrome/(\\d+)").find(ua)?.groupValues?.get(1) ?: "99"
+        val hints = chManager.lowEntropyUaHints(major)
+        headers["Sec-CH-UA"] = hints["sec-ch-ua"]!!
+        headers["Sec-CH-UA-Mobile"] = hints["sec-ch-ua-mobile"]!!
+        headers["Sec-CH-UA-Platform"] = hints["sec-ch-ua-platform"]!!
+
         headers.forEach { (k, v) -> builder.header(k, v) }
 
         val method = request.method.uppercase()
