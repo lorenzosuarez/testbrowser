@@ -29,9 +29,16 @@ public data class WebViewConfig(
     val forceDarkMode: Boolean = false,
     val proxyEnabled: Boolean = true,
     val proxyInterceptEnabled: Boolean = true,
+    val suppressXRequestedWith: Boolean = true,
+    val engineMode: EngineMode = EngineMode.Cronet,
 )
 
 public enum class AcceptLanguageMode {
     Baseline,
     DeviceList
+}
+
+public enum class EngineMode {
+    Cronet,
+    OkHttp
 }

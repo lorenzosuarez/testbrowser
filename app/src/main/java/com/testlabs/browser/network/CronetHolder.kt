@@ -55,7 +55,7 @@ public object CronetHolder {
         fun createBuilder(): CronetEngine.Builder {
             return CronetEngine.Builder(context)
                 .enableHttp2(true)
-                .enableQuic(true)  
+                .enableQuic(false)
                 .enableBrotli(true)
                 .apply {
                     

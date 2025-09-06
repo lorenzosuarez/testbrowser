@@ -23,16 +23,17 @@ public object HttpStackFactory {
     public fun create(
         context: Context,
         settings: DeveloperSettings,
-        uaProvider: UAProvider
+        uaProvider: UAProvider,
+        chManager: UserAgentClientHintsManager
     ): HttpStack {
         return if (settings.useCronet.value) {
             val builder = CronetEngine.Builder(context)
             if (settings.enableQuic.value) builder.enableQuic(true)
             builder.enableHttp2(true)
             val engine = builder.build()
-            CronetHttpStack(engine, uaProvider)
+            CronetHttpStack(engine, uaProvider, chManager)
         } else {
-            OkHttpStack(uaProvider)
+            OkHttpStack(uaProvider, chManager)
         }
     }
 }
