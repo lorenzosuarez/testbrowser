@@ -1,14 +1,9 @@
-/**
- * Author: Lorenzo Suarez
- * Date: 09/06/2025
- */
 package com.testlabs.browser.ui.browser
 
 import android.content.ClipData
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.ActivityResultLauncher
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,8 +13,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,10 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -52,15 +42,6 @@ import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
-/**
- * High-level browser screen that hosts the material scaffold and the WebView container.
- *
- * This screen wires the MVI view model with the WebView host:
- * - Maps WebView callbacks to intents (title, progress, URL, navigation state, errors)
- * - Handles view-model effects (load/reload/back/forward/recreate/clear data)
- * - Bridges WebView scroll deltas into the TopAppBar nested scroll behavior
- * - Shows settings dialog and start page
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 public fun BrowserScreen(
@@ -70,7 +51,6 @@ public fun BrowserScreen(
     viewModel: BrowserViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val topScroll = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -80,9 +60,7 @@ public fun BrowserScreen(
     var webController by remember { mutableStateOf<WebViewController?>(null) }
     val focusRequester = remember { FocusRequester() }
 
-    BackHandler(enabled = state.canGoBack) {
-        viewModel.handleIntent(BrowserIntent.GoBack)
-    }
+    BackHandler(enabled = state.canGoBack) { viewModel.handleIntent(BrowserIntent.GoBack) }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -95,7 +73,6 @@ public fun BrowserScreen(
                 BrowserEffect.FocusUrlEditor -> {
                     focusRequester.requestFocus()
                     keyboard?.show()
-                    topScroll.state.heightOffset = 0f
                 }
                 BrowserEffect.ClearBrowsingData -> {
                     val controller = webController
@@ -115,14 +92,10 @@ public fun BrowserScreen(
         }
     }
 
-    LaunchedEffect(state.mode) {
-        if (state.mode == BrowserMode.StartPage) {
-            webController = null
-        }
-    }
+    LaunchedEffect(state.mode) { if (state.mode == BrowserMode.StartPage) { webController = null } }
 
     Scaffold(
-        modifier = Modifier.nestedScroll(topScroll.nestedScrollConnection).fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             Column {
                 BrowserTopBar(
@@ -130,7 +103,6 @@ public fun BrowserScreen(
                     onUrlChanged = { viewModel.handleIntent(BrowserIntent.UpdateInputUrl(it)) },
                     onSubmit = { viewModel.submitUrl(state.inputUrl) },
                     onMenuClick = { viewModel.handleIntent(BrowserIntent.OpenSettings) },
-                    scrollBehavior = topScroll,
                     focusRequester = focusRequester,
                     onEditingChange = { editing -> viewModel.handleIntent(BrowserIntent.UrlInputEditing(editing)) }
                 )
@@ -179,19 +151,6 @@ public fun BrowserScreen(
                             val initial = state.url.value.ifBlank { null }
                             if (initial != null) controller.loadUrl(initial)
                         },
-                        onScrollDelta = { dyPx ->
-                            val available = Offset(x = 0f, y = -dyPx.toFloat())
-                            val pre = topScroll.nestedScrollConnection.onPreScroll(
-                                available,
-                                NestedScrollSource.UserInput
-                            )
-                            val remaining = available - pre
-                            topScroll.nestedScrollConnection.onPostScroll(
-                                Offset.Zero,
-                                remaining,
-                                NestedScrollSource.UserInput
-                            )
-                        },
                     )
                 }
             }
@@ -206,7 +165,6 @@ public fun BrowserScreen(
         if (state.isSettingsDialogVisible) {
             val mode = webController?.requestedWithHeaderMode() ?: RequestedWithHeaderMode.UNKNOWN
             val proxyStack = webController?.proxyStackName() ?: "Disabled"
-
 
             val currentUserAgent = state.settingsDraft.customUserAgent
                 ?: uaProvider.userAgent(desktop = state.settingsDraft.desktopMode)

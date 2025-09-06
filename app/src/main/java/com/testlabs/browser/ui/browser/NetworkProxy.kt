@@ -7,6 +7,7 @@ package com.testlabs.browser.ui.browser
 import android.content.Context
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import androidx.webkit.WebResourceResponseCompat
 import com.testlabs.browser.domain.settings.EngineMode
 import com.testlabs.browser.domain.settings.WebViewConfig
 import com.testlabs.browser.network.CronetHolder
@@ -84,6 +85,7 @@ public class DefaultNetworkProxy(
         val mime = contentType.substringBefore(';')
         val charset = contentType.substringAfter("charset=", "")
             .ifEmpty { null }
+
         val webResp = WebResourceResponse(mime, charset, resp.body)
         webResp.responseHeaders = headerMap.toMutableMap()
         webResp.setStatusCodeAndReasonPhrase(resp.statusCode, resp.reasonPhrase.ifBlank { " " })

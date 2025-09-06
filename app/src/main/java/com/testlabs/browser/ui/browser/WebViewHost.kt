@@ -1,7 +1,3 @@
-/**
- * Author: Lorenzo Suarez
- * Date: 09/06/2025
- */
 package com.testlabs.browser.ui.browser
 
 import android.annotation.SuppressLint
@@ -62,7 +58,6 @@ public fun WebViewHost(
     jsCompat: JsCompatScriptProvider,
     config: WebViewConfig,
     onControllerReady: (WebViewController) -> Unit,
-    onScrollDelta: (Int) -> Unit,
 ) {
     val koin = getKoin()
     val networkProxy: NetworkProxy = remember(config) { koin.get(parameters = { parametersOf(config) }) }
@@ -100,10 +95,6 @@ public fun WebViewHost(
                 onError = onError,
                 filePickerLauncher = filePickerLauncher
             )
-
-            wv.setOnScrollChangeListener { _, _, y, _, oldY ->
-                onScrollDelta(y - oldY)
-            }
             wv
         },
         update = { webView ->
@@ -497,31 +488,15 @@ private fun applyFullWebViewConfiguration(
 
         override fun onCloseWindow(window: WebView?) {}
 
-        override fun onJsAlert(
-            view: WebView?,
-            url: String?,
-            message: String?,
-            result: JsResult?
-        ): Boolean {
+        override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
             return super.onJsAlert(view, url, message, result)
         }
 
-        override fun onJsConfirm(
-            view: WebView?,
-            url: String?,
-            message: String?,
-            result: JsResult?
-        ): Boolean {
+        override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
             return super.onJsConfirm(view, url, message, result)
         }
 
-        override fun onJsPrompt(
-            view: WebView?,
-            url: String?,
-            message: String?,
-            defaultValue: String?,
-            result: JsPromptResult?
-        ): Boolean {
+        override fun onJsPrompt(view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?): Boolean {
             return super.onJsPrompt(view, url, message, defaultValue, result)
         }
 
