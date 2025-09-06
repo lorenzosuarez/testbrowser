@@ -412,7 +412,6 @@ private fun applyFullWebViewConfiguration(
         }
 
         override fun onPageCommitVisible(view: WebView?, url: String?) {
-            Log.d(TAG, "onPageCommitVisible $url")
             super.onPageCommitVisible(view, url)
             url?.let {
                 onUrlChange(it)
@@ -488,6 +487,10 @@ private fun applyFullWebViewConfiguration(
         override fun onCloseWindow(window: WebView?) {
             Log.d(TAG, "onCloseWindow")
         }
+            return false
+        }
+
+        override fun onCloseWindow(window: WebView?) {}
 
         override fun onJsAlert(
             view: WebView?,
