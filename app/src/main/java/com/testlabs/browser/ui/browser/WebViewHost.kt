@@ -1,5 +1,6 @@
 package com.testlabs.browser.ui.browser
 
+import android.R.attr.allow
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
@@ -33,6 +34,7 @@ import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.ServiceWorkerWebSettingsCompat
 import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.AcceptLanguageMode
 import com.testlabs.browser.domain.settings.WebViewConfig
@@ -188,24 +190,49 @@ private fun setupWebViewDefaults(webView: WebView) {
 }
 
 @SuppressLint("WebViewFeature", "RequiresFeature", "RestrictedApi")
-private fun applyRequestedWithHeaderPolicy(webView: WebView, config: WebViewConfig) {
-    if (!WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) return
-
-    val allow = when (config.requestedWithHeaderMode) {
-        RequestedWithHeaderMode.ELIMINATED -> emptySet<String>()
+private fun applyRequestedWithHeaderPolicy(
+    webView: WebView,
+    config: WebViewConfig
+) {
+    val allow: Set<String> = when (config.requestedWithHeaderMode) {
+        RequestedWithHeaderMode.ELIMINATED -> emptySet()
         RequestedWithHeaderMode.ALLOW_LIST -> config.requestedWithHeaderAllowList
         RequestedWithHeaderMode.UNSUPPORTED -> return
     }
 
-    val webSettings = webView.settings
-    WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webSettings, allow)
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+        try {
+            WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, allow)
+        } catch (iae: IllegalArgumentException) {
+            val sanitized = allow.filterIsOriginLike().toSet()
+            WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, sanitized)
+        }
+    } else {
+        return
+    }
 
-    if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
-        val swController = ServiceWorkerControllerCompat.getInstance()
-        val serviceWorkerSettings = swController.serviceWorkerWebSettings
-        serviceWorkerSettings.requestedWithHeaderOriginAllowList = allow
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE) &&
+        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
+    ) {
+        val swSettings = ServiceWorkerControllerCompat
+            .getInstance()
+            .serviceWorkerWebSettings
+
+        try {
+            swSettings.requestedWithHeaderOriginAllowList = allow
+        } catch (iae: IllegalArgumentException) {
+            val sanitized = allow.filterIsOriginLike().toSet()
+            swSettings.requestedWithHeaderOriginAllowList = sanitized
+        }
     }
 }
+
+private fun Iterable<String>.filterIsOriginLike(): List<String> =
+    this.map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .filter { it.startsWith("https://") || it.startsWith("http://") }
+        .map { it.removeSuffix("/") }
+
 
 @SuppressLint("RestrictedApi")
 private fun WebView.applyConfig(
@@ -243,24 +270,6 @@ private fun WebView.applyConfig(
     val acceptLanguage = when (config.acceptLanguageMode) {
         AcceptLanguageMode.Baseline -> config.acceptLanguages
         AcceptLanguageMode.DeviceList -> buildDeviceAcceptLanguage()
-    }
-
-    if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
-        runCatching {
-            val controller = ServiceWorkerControllerCompat.getInstance()
-            controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
-                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
-                    if (request.isForMainFrame) return null
-                    val uaNow = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
-                    return networkProxy.interceptRequest(
-                        request = request,
-                        userAgent = uaNow,
-                        acceptLanguage = acceptLanguage,
-                        proxyEnabled = config.proxyEnabled
-                    )
-                }
-            })
-        }
     }
 
     CookieManager.getInstance().setAcceptCookie(true)
@@ -545,6 +554,16 @@ private fun applyFullWebViewConfiguration(
         WebSettingsCompat.setForceDark(
             s,
             if (config.forceDarkMode) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+        )
+    }
+
+    if (config.jsCompatibilityMode &&
+        WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+    ) {
+        WebViewCompat.addDocumentStartJavaScript(
+            webView,
+            getDocStartScript(jsCompat),
+            setOf("*")
         )
     }
 }

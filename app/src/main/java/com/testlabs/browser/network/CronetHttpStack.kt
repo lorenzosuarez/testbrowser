@@ -1,20 +1,4 @@
-/**
- * Author: Lorenzo Suarez
- * Date: 09/06/2025
- */
 package com.testlabs.browser.network
-
-import com.testlabs.browser.ui.browser.UAProvider
-import kotlinx.coroutines.suspendCancellableCoroutine
-import org.chromium.net.CronetEngine
-import org.chromium.net.UrlRequest
-import org.chromium.net.UrlRequest.Builder
-import org.chromium.net.UrlResponseInfo
-import java.io.ByteArrayInputStream
-import java.nio.ByteBuffer
-import java.util.concurrent.Executors
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /**
  * HTTP stack backed by a CronetEngine.
@@ -36,6 +20,20 @@ import kotlin.coroutines.resumeWithException
  * Memory note:
  * - Aggregates received ByteBuffer fragments into a single byte array before creating the InputStream.
  */
+
+import com.testlabs.browser.ui.browser.UAProvider
+import kotlinx.coroutines.suspendCancellableCoroutine
+import org.chromium.net.CronetEngine
+import org.chromium.net.UrlRequest
+import org.chromium.net.UrlRequest.Builder
+import org.chromium.net.UrlResponseInfo
+import org.chromium.net.apihelpers.UploadDataProviders
+import java.io.ByteArrayInputStream
+import java.nio.ByteBuffer
+import java.util.concurrent.Executors
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+
 public class CronetHttpStack(
     private val engine: CronetEngine,
     private val uaProvider: UAProvider,
@@ -91,6 +89,7 @@ public class CronetHttpStack(
             val builder: Builder = engine.newUrlRequestBuilder(request.url, callback, executor)
             builder.setHttpMethod(request.method)
             builder.disableCache()
+
             val forbidden = setOf(
                 "host", "connection", "proxy-connection",
                 "transfer-encoding", "content-length",
@@ -99,11 +98,10 @@ public class CronetHttpStack(
             )
 
             val headers = request.headers.toMutableMap().apply {
-                keys.filter { it.equals("x-requested-with", true) }.forEach { remove(it) }
-                listOf("sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform").forEach { h ->
-                    keys.firstOrNull { it.equals(h, true) }?.let { remove(it) }
-                }
+                keys.filter { it.equals("x-requested-with", true) }.toList().forEach { remove(it) }
+                keys.filter { it.lowercase().startsWith("sec-ch-ua") }.toList().forEach { remove(it) }
             }
+
             val ua = uaProvider.userAgent(false)
             headers["User-Agent"] = ua
             val acceptLang = headers["Accept-Language"] ?: "en-US,en;q=0.9"
@@ -116,23 +114,23 @@ public class CronetHttpStack(
                 }
             }
 
-            // Canonical UA-CH
             chManager.asMap(isMobile = true).forEach { (k, v) -> builder.addHeader(k, v) }
+
             val hasBody = request.body != null && request.method.uppercase() !in setOf("GET", "HEAD")
             if (hasBody) {
-                val provider = org.chromium.net.UploadDataProviders.create(request.body)
+                val provider = UploadDataProviders.create(request.body)
                 val contentType = request.headers.entries
                     .firstOrNull { it.key.equals("Content-Type", true) }
                     ?.value ?: "application/octet-stream"
                 builder.setUploadDataProvider(provider, executor)
                 builder.addHeader("Content-Type", contentType)
             }
+
             val urlRequest = builder.build()
             cont.invokeOnCancellation {
                 try { urlRequest.cancel() } catch (_: Throwable) {}
                 executor.shutdown()
             }
-
             urlRequest.start()
         }
 }

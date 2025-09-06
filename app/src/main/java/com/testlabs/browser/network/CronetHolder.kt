@@ -1,6 +1,8 @@
 /**
- * Author: Lorenzo Suarez
- * Date: 09/06/2025
+ * Singleton holder for an app-wide CronetEngine instance.
+ *
+ * Provides a shared, properly configured Cronet instance for all network requests.
+ * The engine is initialized lazily and can be recreated when configuration changes.
  */
 package com.testlabs.browser.network
 
@@ -15,21 +17,16 @@ import java.util.concurrent.TimeUnit
 
 private const val TAG = "CronetHolder"
 
-/**
- * Singleton holder for the app-wide CronetEngine.
- * Provides a shared, properly configured Cronet instance for all network requests.
- */
 public object CronetHolder {
     @Volatile
     private var _engine: CronetEngine? = null
 
-    private val executor = Executors.newCachedThreadPool { r: Runnable ->
+    private val executor: ExecutorService = Executors.newCachedThreadPool { r: Runnable ->
         Thread(r, "CronetExecutor").apply { isDaemon = true }
     }
 
     /**
-     * Gets the shared CronetEngine instance, creating it if necessary.
-     * This method is thread-safe and will return the same instance for all callers.
+     * Returns the shared CronetEngine instance, creating it if necessary.
      */
     public fun getEngine(context: Context, userAgent: String): CronetEngine? {
         return _engine ?: synchronized(this) {
@@ -38,8 +35,7 @@ public object CronetHolder {
     }
 
     /**
-     * Force recreates the CronetEngine with new configuration.
-     * Useful when user agent or other settings change.
+     * Recreates the CronetEngine with a new configuration.
      */
     public fun recreateEngine(context: Context, userAgent: String): CronetEngine? {
         synchronized(this) {
@@ -59,24 +55,25 @@ public object CronetHolder {
                 CronetEngine.Builder::class.java
                     .getMethod("enableBrotli", Boolean::class.javaPrimitiveType)
                     .invoke(builder, true)
-            } catch (e: Exception) {
-                Log.d(TAG, "Brotli not available: ${e.message}")
+            } catch (_: Exception) {
+                Log.d(TAG, "Brotli not available")
             }
 
-            val experimental =
-                """{
+            val experimental = """
+                {
                   "disable_certificate_compression": false,
                   "enable_certificate_compression_brotli": true,
                   "enable_encrypted_client_hello": false,
                   "enable_tls13_early_data": false,
                   "enable_tls13_kyber": false
-                }""".trimIndent()
+                }
+            """.trimIndent()
             try {
                 CronetEngine.Builder::class.java
                     .getMethod("setExperimentalOptions", String::class.java)
                     .invoke(builder, experimental)
-            } catch (e: Exception) {
-                Log.d(TAG, "Experimental options not supported: ${e.message}")
+            } catch (_: Exception) {
+                Log.d(TAG, "Experimental options not supported")
             }
 
             builder.setUserAgent(userAgent)
@@ -84,20 +81,18 @@ public object CronetHolder {
         }
 
         return try {
-            Log.d(TAG, "Creating Cronet engine with UA: ${userAgent.take(100)}")
+            Log.d(TAG, "Creating Cronet engine")
             createBuilder().build().also {
-                Log.d(TAG, "Cronet engine created successfully")
+                Log.d(TAG, "Cronet engine created")
             }
         } catch (e: Exception) {
-            Log.d(TAG, "Direct Cronet creation failed, trying with provider installation: ${e.message}")
-
+            Log.d(TAG, "Direct Cronet creation failed, trying provider install: ${e.message}")
             try {
                 val installTask = CronetProviderInstaller.installProvider(context)
                 Tasks.await(installTask, 5, TimeUnit.SECONDS)
-
-                Log.d(TAG, "Cronet provider installed successfully")
+                Log.d(TAG, "Cronet provider installed")
                 createBuilder().build().also {
-                    Log.d(TAG, "Cronet engine created successfully after provider installation")
+                    Log.d(TAG, "Cronet engine created after provider install")
                 }
             } catch (providerException: Exception) {
                 Log.w(TAG, "Failed to install Cronet provider or create engine", providerException)
@@ -107,13 +102,12 @@ public object CronetHolder {
     }
 
     /**
-     * Gets the shared executor for Cronet operations.
+     * Returns the shared executor for Cronet operations.
      */
-    public fun getExecutor(): ExecutorService? = executor
+    public fun getExecutor(): ExecutorService = executor
 
     /**
-     * Shuts down the Cronet engine and executor when the app is destroyed.
-     * Should be called from Application.onTerminate() or similar.
+     * Shuts down the Cronet engine and executor.
      */
     public fun shutdown() {
         synchronized(this) {
