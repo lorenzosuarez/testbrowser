@@ -220,6 +220,12 @@ private fun WebView.applyConfig(
     s.useWideViewPort = true
     s.loadWithOverviewMode = true
 
+    if (config.suppressXRequestedWith &&
+        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)
+    ) {
+        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(s, emptySet())
+    }
+
     val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
     s.userAgentString = ua
 

@@ -40,6 +40,19 @@ public class UserAgentClientHintsManager(private val context: Context) {
     }
 
     /**
+     * Returns the default low-entropy UA-CH headers that mimic Chrome Mobile.
+     * The provided [majorVersion] must match the major version used in the User-Agent string.
+     */
+    public fun lowEntropyUaHints(majorVersion: String): Map<String, String> {
+        val ua = "\"Not;A=Brand\";v=\"99\", \"Google Chrome\";v=\"$majorVersion\", \"Chromium\";v=\"$majorVersion\""
+        return mapOf(
+            "sec-ch-ua" to ua,
+            "sec-ch-ua-mobile" to "?1",
+            "sec-ch-ua-platform" to "\"Android\""
+        )
+    }
+
+    /**
      * Check if a high-entropy hint is allowed for the given origin
      */
     public suspend fun isHighEntropyAllowed(origin: String, hintName: String): Boolean {

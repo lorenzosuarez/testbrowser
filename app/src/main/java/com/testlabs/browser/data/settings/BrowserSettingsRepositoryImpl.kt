@@ -14,6 +14,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.testlabs.browser.domain.settings.AcceptLanguageMode
 import com.testlabs.browser.domain.settings.BrowserSettingsRepository
 import com.testlabs.browser.domain.settings.WebViewConfig
+import com.testlabs.browser.domain.settings.EngineMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -39,6 +40,8 @@ public class BrowserSettingsRepositoryImpl(
         val FORCE_DARK_MODE = booleanPreferencesKey("force_dark_mode")
         val PROXY_ENABLED = booleanPreferencesKey("proxy_enabled")
         val PROXY_INTERCEPT_ENABLED = booleanPreferencesKey("proxy_intercept_enabled")
+        val SUPPRESS_X_REQUESTED_WITH = booleanPreferencesKey("suppress_x_requested_with")
+        val ENGINE_MODE = stringPreferencesKey("engine_mode")
     }
 
     override val config: Flow<WebViewConfig> = dataStore.data.map { preferences ->
@@ -59,6 +62,8 @@ public class BrowserSettingsRepositoryImpl(
             forceDarkMode = preferences[PreferenceKeys.FORCE_DARK_MODE] ?: false,
             proxyEnabled = preferences[PreferenceKeys.PROXY_ENABLED] ?: true,
             proxyInterceptEnabled = preferences[PreferenceKeys.PROXY_INTERCEPT_ENABLED] ?: true,
+            suppressXRequestedWith = preferences[PreferenceKeys.SUPPRESS_X_REQUESTED_WITH] ?: true,
+            engineMode = preferences[PreferenceKeys.ENGINE_MODE]?.let { EngineMode.valueOf(it) } ?: EngineMode.Cronet,
         )
     }
 
@@ -78,6 +83,8 @@ public class BrowserSettingsRepositoryImpl(
             preferences[PreferenceKeys.FORCE_DARK_MODE] = config.forceDarkMode
             preferences[PreferenceKeys.PROXY_ENABLED] = config.proxyEnabled
             preferences[PreferenceKeys.PROXY_INTERCEPT_ENABLED] = config.proxyInterceptEnabled
+            preferences[PreferenceKeys.SUPPRESS_X_REQUESTED_WITH] = config.suppressXRequestedWith
+            preferences[PreferenceKeys.ENGINE_MODE] = config.engineMode.name
         }
     }
 
