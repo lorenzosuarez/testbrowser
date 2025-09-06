@@ -13,4 +13,5 @@ public interface WebViewController {
     public fun clearBrowsingData(done: () -> Unit)
     public fun requestedWithHeaderMode(): RequestedWithHeaderMode
     public fun proxyStackName(): String
+    public fun dumpSettings(): String
 }

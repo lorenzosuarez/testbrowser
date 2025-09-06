@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -47,7 +48,7 @@ public fun BrowserSettingsDialog(
     onConfigChange: (WebViewConfig) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
-    onApplyAndRestart: () -> Unit,
+    onApplyAndRestart: (WebViewConfig) -> Unit,
     onClearBrowsingData: () -> Unit,
     userAgent: String,
     acceptLanguages: String,
@@ -61,17 +62,12 @@ public fun BrowserSettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.fillMaxWidth(0.9f),
+        modifier = Modifier.fillMaxWidth().widthIn(max = 560.dp),
         properties = DialogProperties(usePlatformDefaultWidth = false),
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (hasChanges) {
-                    Button(
-                        onClick = {
-                            onConfigChange(tempConfig)
-                            onApplyAndRestart()
-                        }
-                    ) {
+                    Button(onClick = { onApplyAndRestart(tempConfig) }) {
                         Text("Apply & Restart WebView")
                     }
                 }

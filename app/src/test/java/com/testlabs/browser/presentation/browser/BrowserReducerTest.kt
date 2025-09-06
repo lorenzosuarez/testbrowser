@@ -7,6 +7,7 @@
 package com.testlabs.browser.presentation.browser
 
 import com.testlabs.browser.domain.settings.WebViewConfig
+import com.testlabs.browser.core.ValidatedUrl
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -36,5 +37,15 @@ class BrowserReducerTest {
         val (newState, _) = BrowserReducer.reduce(state, BrowserIntent.ApplySettings)
         assertFalse(newState.isSettingsDialogVisible)
         assertTrue(newState.settingsCurrent.desktopMode)
+    }
+
+    @Test
+    fun urlChanged_updatesState() {
+        val state = BrowserState(url = ValidatedUrl.fromInput("start.com"), inputUrl = "start.com")
+        val newUrl = ValidatedUrl.fromInput("next.com")
+        val (newState, effect) = BrowserReducer.reduce(state, BrowserIntent.UrlChanged(newUrl))
+        assertEquals(newUrl, newState.url)
+        assertEquals("next.com", newState.inputUrl)
+        assertEquals(null, effect)
     }
 }

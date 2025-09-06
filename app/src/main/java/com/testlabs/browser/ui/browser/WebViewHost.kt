@@ -8,15 +8,20 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Message
 import android.webkit.CookieManager
 import android.webkit.MimeTypeMap
+import android.webkit.JsPromptResult
+import android.webkit.JsResult
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.util.Log
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -27,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebSettingsCompat
@@ -63,15 +69,22 @@ public fun WebViewHost(
 
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var progress by remember { mutableIntStateOf(0) }
+    var controllerRef by remember { mutableStateOf<RealWebViewController?>(null) }
 
     androidx.compose.ui.viewinterop.AndroidView(
-        modifier = modifier,
+        modifier = modifier.pointerInteropFilter { false },
         factory = { ctx ->
             val wv = WebView(ctx)
             webViewRef = wv
             setupWebViewDefaults(wv)
 
-            val controller = RealWebViewController(wv, networkProxy)
+            wv.setOnTouchListener { _, event ->
+                Log.d(TAG, "onTouch ${'$'}{event.action}")
+                false
+            }
+
+            val controller = RealWebViewController(wv, networkProxy, config)
+            controllerRef = controller
             onControllerReady(controller)
 
             applyFullWebViewConfiguration(
@@ -100,16 +113,25 @@ public fun WebViewHost(
         },
         update = { webView ->
 
-            webView.applyConfig(
+            controllerRef?.updateConfig(config)
+
+            applyFullWebViewConfiguration(
+                webView = webView,
                 config = config,
                 uaProvider = uaProvider,
                 jsCompat = jsCompat,
                 networkProxy = networkProxy,
+                onTitle = { title -> onTitleChanged(title ?: "") },
+                onProgress = { p ->
+                    progress = p
+                    onProgressChanged(p / 100f)
+                },
                 onUrlChange = { url -> onUrlChanged(url) },
                 onPageStarted = onPageStarted,
                 onPageFinished = onPageFinished,
                 onNavState = { b, f -> onNavigationStateChanged(b, f) },
                 onError = onError,
+                filePickerLauncher = filePickerLauncher
             )
 
             val newUserAgent = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
@@ -162,6 +184,13 @@ private fun setupWebViewDefaults(webView: WebView) {
     s.displayZoomControls = false
     s.useWideViewPort = true
     s.loadWithOverviewMode = true
+    s.supportMultipleWindows = true
+    s.javaScriptCanOpenWindowsAutomatically = true
+
+    webView.isVerticalScrollBarEnabled = true
+    webView.isClickable = true
+    webView.isFocusable = true
+    webView.isFocusableInTouchMode = true
 
     CookieManager.getInstance().setAcceptCookie(true)
     CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
@@ -199,6 +228,24 @@ private fun WebView.applyConfig(
         AcceptLanguageMode.DeviceList -> buildDeviceAcceptLanguage()
     }
 
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
+        runCatching {
+            val controller = ServiceWorkerControllerCompat.getInstance()
+            controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
+                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
+                    if (request.isForMainFrame) return null
+                    val uaNow = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
+                    return networkProxy.interceptRequest(
+                        request = request,
+                        userAgent = uaNow,
+                        acceptLanguage = acceptLanguage,
+                        proxyEnabled = config.proxyEnabled
+                    )
+                }
+            })
+        }
+    }
+
     CookieManager.getInstance().setAcceptCookie(true)
     CookieManager.getInstance().setAcceptThirdPartyCookies(this, config.enableThirdPartyCookies)
 
@@ -231,6 +278,14 @@ private fun WebView.applyConfig(
 
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
             super.doUpdateVisitedHistory(view, url, isReload)
+            url?.let {
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+            }
+        }
+
+        override fun onPageCommitVisible(view: WebView?, url: String?) {
+            super.onPageCommitVisible(view, url)
             url?.let {
                 onUrlChange(it)
                 onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
@@ -328,6 +383,7 @@ private fun applyFullWebViewConfiguration(
 
     webView.webViewClient = object : WebViewClient() {
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+            Log.d(TAG, "onPageStarted $url")
             super.onPageStarted(view, url, favicon)
             url?.let {
                 onPageStarted(it)
@@ -337,6 +393,7 @@ private fun applyFullWebViewConfiguration(
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
+            Log.d(TAG, "onPageFinished $url")
             super.onPageFinished(view, url)
             url?.let {
                 onPageFinished(it)
@@ -346,6 +403,7 @@ private fun applyFullWebViewConfiguration(
         }
 
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+            Log.d(TAG, "doUpdateVisitedHistory $url")
             super.doUpdateVisitedHistory(view, url, isReload)
             url?.let {
                 onUrlChange(it)
@@ -353,7 +411,17 @@ private fun applyFullWebViewConfiguration(
             }
         }
 
+        override fun onPageCommitVisible(view: WebView?, url: String?) {
+            Log.d(TAG, "onPageCommitVisible $url")
+            super.onPageCommitVisible(view, url)
+            url?.let {
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+            }
+        }
+
         override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
+            Log.e(TAG, "onReceivedError $errorCode $description")
             super.onReceivedError(view, errorCode, description, failingUrl)
             onError("Error $errorCode: $description")
         }
@@ -375,17 +443,98 @@ private fun applyFullWebViewConfiguration(
                 null
             }
         }
+
+        override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+            Log.e(TAG, "renderProcessGone crash=${detail?.didCrash()}")
+            return super.onRenderProcessGone(view, detail)
+        }
     }
 
     webView.webChromeClient = object : WebChromeClient() {
         override fun onProgressChanged(view: WebView?, newProgress: Int) {
+            Log.d(TAG, "onProgressChanged $newProgress")
             super.onProgressChanged(view, newProgress)
             onProgress(newProgress)
         }
 
         override fun onReceivedTitle(view: WebView?, title: String?) {
+            Log.d(TAG, "onReceivedTitle $title")
             super.onReceivedTitle(view, title)
             onTitle(title)
+        }
+
+        override fun onCreateWindow(
+            view: WebView?,
+            isDialog: Boolean,
+            isUserGesture: Boolean,
+            resultMsg: Message?
+        ): Boolean {
+            Log.d(TAG, "onCreateWindow")
+            val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+            val popup = WebView(view?.context ?: return false)
+            setupWebViewDefaults(popup)
+            popup.webViewClient = object : WebViewClient() {
+                override fun onPageStarted(v: WebView?, url: String?, favicon: Bitmap?) {
+                    if (url != null) {
+                        view?.loadUrl(url)
+                    }
+                }
+            }
+            transport.webView = popup
+            resultMsg.sendToTarget()
+            return true
+        }
+
+        override fun onCloseWindow(window: WebView?) {
+            Log.d(TAG, "onCloseWindow")
+        }
+
+        override fun onJsAlert(
+            view: WebView?,
+            url: String?,
+            message: String?,
+            result: JsResult?
+        ): Boolean {
+            return super.onJsAlert(view, url, message, result)
+        }
+
+        override fun onJsConfirm(
+            view: WebView?,
+            url: String?,
+            message: String?,
+            result: JsResult?
+        ): Boolean {
+            return super.onJsConfirm(view, url, message, result)
+        }
+
+        override fun onJsPrompt(
+            view: WebView?,
+            url: String?,
+            message: String?,
+            defaultValue: String?,
+            result: JsPromptResult?
+        ): Boolean {
+            return super.onJsPrompt(view, url, message, defaultValue, result)
+        }
+
+        override fun onShowFileChooser(
+            webView: WebView?,
+            filePathCallback: ValueCallback<Array<Uri>>?,
+            fileChooserParams: FileChooserParams?
+        ): Boolean {
+            val launcher = filePickerLauncher
+            return if (launcher != null && filePathCallback != null) {
+                fileCallbackRef.set(filePathCallback)
+                val intent = fileChooserParams?.createIntent()
+                if (intent != null) {
+                    launcher.launch(intent)
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
         }
     }
 
@@ -399,7 +548,8 @@ private fun applyFullWebViewConfiguration(
 
 public class RealWebViewController(
     private val webView: WebView,
-    private val proxy: NetworkProxy
+    private val proxy: NetworkProxy,
+    private var currentConfig: WebViewConfig
 ) : WebViewController {
     override fun loadUrl(url: String) {
         webView.loadUrl(url)
@@ -436,6 +586,11 @@ public class RealWebViewController(
     }
     override fun requestedWithHeaderMode(): RequestedWithHeaderMode = RequestedWithHeaderMode.UNKNOWN
     override fun proxyStackName(): String = proxy.stackName
+    override fun dumpSettings(): String = dumpWebViewConfig(webView, currentConfig)
+
+    internal fun updateConfig(config: WebViewConfig) {
+        currentConfig = config
+    }
 }
 
 private fun extractFileName(contentDisposition: String?, url: String, mimeType: String?): String {
