@@ -24,13 +24,13 @@ public enum class RequestedWithHeaderMode {
 }
 
 @SuppressLint("WebViewFeature", "RequiresFeature")
-internal fun requestedWithHeaderModeOf(webView: android.webkit.WebView): RequestedWithHeaderMode =
+public fun requestedWithHeaderModeOf(webView: android.webkit.WebView): RequestedWithHeaderMode =
     runCatching {
         val allow = WebSettingsCompat.getRequestedWithHeaderOriginAllowList(webView.settings)
         if (allow.isEmpty()) RequestedWithHeaderMode.ELIMINATED else RequestedWithHeaderMode.ALLOW_LIST
     }.getOrElse { RequestedWithHeaderMode.UNKNOWN }
 
-internal fun parseRequestedWithHeaderAllowList(raw: String): Set<String> = raw
+public fun parseRequestedWithHeaderAllowList(raw: String): Set<String> = raw
     .split(',', ' ', '\n')
     .map { it.trim() }
     .filter { it.isNotEmpty() }

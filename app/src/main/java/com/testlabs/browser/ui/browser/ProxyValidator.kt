@@ -29,7 +29,8 @@ public object ProxyValidator {
             val detail = when (mode) {
                 RequestedWithHeaderMode.ALLOW_LIST -> {
                     val allow = WebSettingsCompat.getRequestedWithHeaderOriginAllowList(webView.settings)
-                    "Allow-list(${allow.size})"
+                    val preview = allow.take(3).joinToString(",")
+                    "Allow-list(${allow.size}): $preview"
                 }
                 RequestedWithHeaderMode.ELIMINATED -> "Eliminated"
                 RequestedWithHeaderMode.UNKNOWN -> "Unknown"

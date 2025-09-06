@@ -78,12 +78,6 @@ public class DefaultNetworkProxy(
     public fun normalizeHeaders(incoming: Map<String, String>): Map<String, String> {
         val sanitized = incoming.toMutableMap()
 
-        if (config.suppressXRequestedWith) {
-            sanitized.keys
-                .filter { it.equals("x-requested-with", ignoreCase = true) }
-                .forEach { sanitized.remove(it) }
-        }
-
         listOf("sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform").forEach { k ->
             sanitized.keys
                 .firstOrNull { it.equals(k, ignoreCase = true) }
