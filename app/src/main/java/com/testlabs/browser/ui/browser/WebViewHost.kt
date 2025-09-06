@@ -437,15 +437,15 @@ private fun WebView.configureWebViewSafely(
 
         if (config.suppressXRequestedWith) {
             try {
-                try {
-                    val isSupported = WebViewFeature.isFeatureSupported("REQUESTED_WITH_HEADER_CONTROL")
-                    if (isSupported) {
-                        Log.d(TAG, "X-Requested-With suppression feature is supported")
-                    } else {
-                        Log.d(TAG, "X-Requested-With suppression feature not supported, relying on proxy")
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)) {
+                    try {
+                        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
+                        Log.d(TAG, "Cleared X-Requested-With allow list via WebView")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed clearing X-Requested-With allow list", e)
                     }
-                } catch (e: Exception) {
-                    Log.d(TAG, "X-Requested-With feature check failed, relying on proxy: ${e.message}")
+                } else {
+                    Log.d(TAG, "X-Requested-With suppression feature not supported, relying on proxy")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Could not suppress X-Requested-With via WebViewFeature, relying on proxy", e)
