@@ -11,7 +11,15 @@ import kotlinx.coroutines.flow.StateFlow
  */
 public interface UAProvider {
     /** Returns a full UA string matching Chrome Mobile for the device. */
-    public fun userAgent(desktop: Boolean = false): String
+    public fun userAgent(desktop: Boolean): String {
+        val chromeVersion = "139.0.0.0"
+        return if (desktop) {
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$chromeVersion Safari/537.36"
+        } else {
+            val model = Build.MODEL.replace(" ", "_")
+            "Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; $model) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$chromeVersion Mobile Safari/537.36"
+        }
+    }
 
     /** Baseline Accept-Language string in Chrome style. */
     public val acceptLanguage: StateFlow<String>

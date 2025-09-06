@@ -1,16 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-  <!-- Allow cleartext only for local development hosts -->
-  <domain-config cleartextTrafficPermitted="true">
-    <domain includeSubdomains="true">localhost</domain>
-    <domain includeSubdomains="true">10.0.2.2</domain>
-  </domain-config>
-
-  <!-- Default config: no cleartext, trust system + user CAs -->
   <base-config cleartextTrafficPermitted="false">
     <trust-anchors>
       <certificates src="system"/>
-      <certificates src="user"/>
     </trust-anchors>
   </base-config>
+
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="true">browserscan.net</domain>
+    <domain includeSubdomains="true">online-metrix.net</domain>
+    <domain includeSubdomains="true">aa.online-metrix.net</domain>
+    <domain includeSubdomains="true">doubleclick.net</domain>
+    <domain includeSubdomains="true">g.doubleclick.net</domain>
+    <domain includeSubdomains="true">mathtag.com</domain>
+    <domain includeSubdomains="true">inmobi.com</domain>
+    <domain includeSubdomains="true">mediago.io</domain>
+    <domain includeSubdomains="true">quantserve.com</domain>
+    <domain includeSubdomains="true">adkernel.com</domain>
+    <domain includeSubdomains="true">pangle-ads.com</domain>
+    <domain includeSubdomains="true">adsrvr.org</domain>
+    <domain includeSubdomains="true">travelaudience.com</domain>
+    <domain includeSubdomains="true">ipify.org</domain>
+    <domain includeSubdomains="true">ipinfo.io</domain>
+    <domain includeSubdomains="true">googletagmanager.com</domain>
+    <domain includeSubdomains="true">gstatic.com</domain>
+    <domain includeSubdomains="true">googlesyndication.com</domain>
+  </domain-config>
 </network-security-config>

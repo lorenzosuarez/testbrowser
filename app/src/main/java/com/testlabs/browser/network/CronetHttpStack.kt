@@ -13,7 +13,24 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Cronet-based HttpStack for Chrome-like JA3/ALPN behavior including HTTP/2 and QUIC when available.
+ * HTTP stack backed by a CronetEngine.
+ *
+ * Responsibilities:
+ * - Performs HTTP requests with ALPN negotiation (HTTP/1.1, HTTP/2, QUIC when available).
+ * - Streams response data via Cronet callbacks, buffering in-memory before exposure.
+ * - Preserves header ordering using a LinkedHashMap.
+ * - Normalizes request: filters hop-by-hop / forbidden headers and injects User-Agent / Accept-Language if absent.
+ * - Supports upload bodies for non-GET/HEAD methods using Cronet UploadDataProvider.
+ * - Integrates with Kotlin coroutines: cancellation propagates to the underlying Cronet request.
+ *
+ * Concurrency model:
+ * - A dedicated single-thread executor is created per request for Cronet callbacks.
+ *
+ * Error handling:
+ * - Propagates CronetException and cancellation as coroutine failures.
+ *
+ * Memory note:
+ * - Aggregates received ByteBuffer fragments into a single byte array before creating the InputStream.
  */
 public class CronetHttpStack(
     private val engine: CronetEngine,
@@ -55,25 +72,53 @@ public class CronetHttpStack(
                             body = ByteArrayInputStream(body)
                         )
                     )
+                    executor.shutdown()
                 }
                 override fun onFailed(req: UrlRequest, info: UrlResponseInfo?, error: org.chromium.net.CronetException) {
                     cont.resumeWithException(error)
+                    executor.shutdown()
                 }
                 override fun onCanceled(req: UrlRequest, info: UrlResponseInfo?) {
                     cont.resumeWithException(IllegalStateException("canceled"))
+                    executor.shutdown()
                 }
             }
-
             val builder: Builder = engine.newUrlRequestBuilder(request.url, callback, executor)
-            val hasBody = request.body != null && request.method.uppercase() !in setOf("GET", "HEAD")
             builder.setHttpMethod(request.method)
-            request.headers.forEach { (k, v) -> builder.addHeader(k, v) }
+            builder.disableCache()
+            val forbidden = setOf(
+                "host", "connection", "proxy-connection",
+                "transfer-encoding", "content-length",
+                "te", "trailer", "upgrade",
+                "accept-encoding"
+            )
+            request.headers.forEach { (k, v) ->
+                val lk = k.lowercase()
+                if (lk !in forbidden) {
+                    builder.addHeader(k, v)
+                }
+            }
+            if (request.headers.keys.none { it.equals("User-Agent", true) }) {
+                builder.addHeader("User-Agent", uaProvider.userAgent(false))
+            }
+            if (request.headers.keys.none { it.equals("Accept-Language", true) }) {
+                builder.addHeader("Accept-Language", "en-US,en;q=0.9")
+            }
+            val hasBody = request.body != null && request.method.uppercase() !in setOf("GET", "HEAD")
             if (hasBody) {
-                val provider = org.chromium.net.UploadDataProviders.create(request.body!!)
-                val contentType = request.headers.entries.firstOrNull { it.key.equals("Content-Type", true) }?.value ?: "application/octet-stream"
+                val provider = org.chromium.net.UploadDataProviders.create(request.body)
+                val contentType = request.headers.entries
+                    .firstOrNull { it.key.equals("Content-Type", true) }
+                    ?.value ?: "application/octet-stream"
                 builder.setUploadDataProvider(provider, executor)
                 builder.addHeader("Content-Type", contentType)
             }
-            builder.build().start()
+            val urlRequest = builder.build()
+            cont.invokeOnCancellation {
+                try { urlRequest.cancel() } catch (_: Throwable) {}
+                executor.shutdown()
+            }
+
+            urlRequest.start()
         }
 }

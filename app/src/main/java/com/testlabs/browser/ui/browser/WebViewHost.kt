@@ -41,17 +41,6 @@ import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "WebViewHost"
 
-/**
- * Compose host for a single-tab WebView that mirrors Chrome Mobile behavior.
- *
- * This host:
- * - Configures WebView for full browsing capabilities.
- * - Wires a WebViewClient that injects compat JS at `document_start` and proxies only
- *   subresources via NetworkProxy, leaving main-frame HTML to WebView.
- * - Exposes UI callbacks for progress, titles, navigation, and errors.
- * - Integrates file uploads through an ActivityResultLauncher<Intent>.
- * - Mirrors request headers and cookie behavior for fingerprinting parity.
- */
 @Composable
 public fun WebViewHost(
     modifier: Modifier = Modifier,
@@ -144,9 +133,6 @@ public fun WebViewHost(
     LaunchedEffect(progress) { onProgressChanged(progress / 100f) }
 }
 
-/**
- * Applies immutable defaults for a fresh WebView instance.
- */
 @SuppressLint("SetJavaScriptEnabled")
 private fun setupWebViewDefaults(webView: WebView) {
     val s = webView.settings
@@ -164,11 +150,11 @@ private fun setupWebViewDefaults(webView: WebView) {
     s.displayZoomControls = false
     s.useWideViewPort = true
     s.loadWithOverviewMode = true
+
+    CookieManager.getInstance().setAcceptCookie(true)
+    CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 }
 
-/**
- * Reconfigures a live WebView when configuration or networking changes.
- */
 private fun WebView.applyConfig(
     config: WebViewConfig,
     uaProvider: UAProvider,
@@ -191,24 +177,33 @@ private fun WebView.applyConfig(
         override fun script(): String = getDocStartScript(jsCompat)
     }
 
-    webViewClient = BrowserWebViewClient(
+    webViewClient = object : BrowserWebViewClient(
         proxy = networkProxy,
         jsBridge = jsBridge,
         uaProvider = uaProvider,
         acceptLanguage = acceptLanguage
-    )
+    ) {
+        override fun shouldInterceptRequest(
+            view: WebView,
+            request: WebResourceRequest
+        ): WebResourceResponse? {
+            if (request.isForMainFrame) return null
+            return super.shouldInterceptRequest(view, request)
+        }
+    }
 
     if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
         runCatching {
             val controller = ServiceWorkerControllerCompat.getInstance()
             controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
+                    if (request.isForMainFrame) return null
                     val uaNow = uaProvider.userAgent(desktop = false)
                     return networkProxy.interceptRequest(
                         request = request,
                         userAgent = uaNow,
                         acceptLanguage = acceptLanguage,
-                        proxyEnabled = true
+                        proxyEnabled = false // Cambia a true para activar el proxy aquí
                     )
                 }
             })
@@ -223,9 +218,6 @@ private fun WebView.applyConfig(
     }
 }
 
-/**
- * Installs full configuration, clients, document_start script and file upload handling.
- */
 @SuppressLint("SetJavaScriptEnabled")
 private fun applyFullWebViewConfiguration(
     webView: WebView,
@@ -265,6 +257,14 @@ private fun applyFullWebViewConfiguration(
         uaProvider = uaProvider,
         acceptLanguage = acceptLanguage
     ) {
+        override fun shouldInterceptRequest(
+            view: WebView,
+            request: WebResourceRequest
+        ): WebResourceResponse? {
+            if (request.isForMainFrame) return null
+            return super.shouldInterceptRequest(view, request)
+        }
+
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
             super.onPageStarted(view, url, favicon)
             onProgress(0)
@@ -295,6 +295,9 @@ private fun applyFullWebViewConfiguration(
         override fun onProgressChanged(view: WebView, newProgress: Int) {
             onProgress(newProgress)
         }
+        override fun onPermissionRequest(request: android.webkit.PermissionRequest) {
+            request.grant(request.resources)
+        }
         override fun onReceivedTitle(view: WebView, title: String?) {
             onTitle(title)
         }
@@ -309,11 +312,14 @@ private fun applyFullWebViewConfiguration(
                 type = "*/*"
             }
             return try {
-                filePickerLauncher?.launch(intent) ?: false
+                filePickerLauncher?.let {
+                    it.launch(intent)
+                    true
+                } ?: false
             } catch (_: ActivityNotFoundException) {
                 fileCallbackRef.getAndSet(null)?.onReceiveValue(null)
                 false
-            } as Boolean
+            }
         }
     }
 
@@ -336,12 +342,13 @@ private fun applyFullWebViewConfiguration(
             val controller = ServiceWorkerControllerCompat.getInstance()
             controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
+                    if (request.isForMainFrame) return null
                     val uaNow = uaProvider.userAgent(desktop = false)
                     return networkProxy.interceptRequest(
                         request = request,
                         userAgent = uaNow,
                         acceptLanguage = acceptLanguage,
-                        proxyEnabled = true
+                        proxyEnabled = false // Cambia a true para activar el proxy aquí
                     )
                 }
             })
@@ -349,9 +356,6 @@ private fun applyFullWebViewConfiguration(
     }
 }
 
-/**
- * Builds a Chrome-like Accept-Language header from device locales.
- */
 private fun buildDeviceAcceptLanguage(): String {
     val tags = runCatching {
         val locales = android.os.LocaleList.getDefault()
@@ -378,9 +382,6 @@ private fun buildDeviceAcceptLanguage(): String {
     }.joinToString(",")
 }
 
-/**
- * Tolerant extractor: returns the JS to inject at document_start from JsCompatScriptProvider.
- */
 private fun getDocStartScript(provider: JsCompatScriptProvider): String {
     val candidateNames = listOf("script", "provide", "source", "get", "value")
     val m = provider.javaClass.methods.firstOrNull {
@@ -393,18 +394,12 @@ private fun getDocStartScript(provider: JsCompatScriptProvider): String {
     }
 }
 
-/**
- * Forwards file chooser results back to the pending ValueCallback held in a static reference.
- */
 public fun onFileChooserResult(uris: Array<Uri>?) {
     fileCallbackRef.getAndSet(null)?.onReceiveValue(uris)
 }
 
 private val fileCallbackRef: AtomicReference<ValueCallback<Array<Uri>>?> = AtomicReference(null)
 
-/**
- * Real WebView controller implementation.
- */
 public class RealWebViewController(
     private val webView: WebView,
     private val proxy: NetworkProxy
@@ -431,9 +426,6 @@ public class RealWebViewController(
     override fun proxyStackName(): String = proxy.stackName
 }
 
-/**
- * Best-effort MIME type detection when the server type is missing.
- */
 private fun guessMimeType(url: String): String {
     val ext = MimeTypeMap.getFileExtensionFromUrl(url)
     return MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"

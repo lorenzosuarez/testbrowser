@@ -131,6 +131,7 @@ public class OkHttpEngine(
         val finalContentType = pickContentType(headers["Content-Type"], url)
         val (mime, charset) = splitMimeAndCharset(finalContentType)
         val web = WebResourceResponse(mime, charset, ByteArrayInputStream(decoded))
+
         web.responseHeaders = headers
         web.setStatusCodeAndReasonPhrase(response.code, response.message.ifBlank { " " })
         return web

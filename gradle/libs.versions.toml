@@ -38,6 +38,11 @@ zstd-jni = "1.5.5-1"
 
 [libraries]
 # AndroidX Core
+okhttp-bom = { module = "com.squareup.okhttp3:okhttp-bom", version.ref = "okhttp" }
+okhttp = { module = "com.squareup.okhttp3:okhttp" }
+okhttp-brotli = { module = "com.squareup.okhttp3:okhttp-brotli" }
+okhttp-dnsoverhttps = { module = "com.squareup.okhttp3:okhttp-dnsoverhttps" }
+logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor" }
 accompanist-swiperefresh = { module = "com.google.accompanist:accompanist-swiperefresh", version.ref = "accompanist-swiperefresh" }
 androidx-activity-compose-v1101 = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 androidx-animation = { module = "androidx.compose.animation:animation" }
@@ -77,10 +82,7 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-coroutines-android-v1102 = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines-android" }
 kotlinx-coroutines-test-v1102 = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines-test" }
-logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "logging-interceptor" }
 mockk-v1145 = { module = "io.mockk:mockk", version.ref = "mockk-version" }
-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
-okhttp-brotli = { module = "com.squareup.okhttp3:okhttp-brotli", version.ref = "okhttp-brotli" }
 turbine-v121 = { module = "app.cash.turbine:turbine", version.ref = "turbine-version" }
 cronet-embedded = { module = "org.chromium.net:cronet-embedded", version.ref = "cronet" }
 play-services-cronet = { module = "com.google.android.gms:play-services-cronet", version.ref = "play-services-cronet" }
