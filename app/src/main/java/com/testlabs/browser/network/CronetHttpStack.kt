@@ -2,6 +2,7 @@ package com.testlabs.browser.network
 
 import android.content.Context
 import android.util.Log
+import com.testlabs.browser.ui.browser.UAProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.chromium.net.CronetEngine
@@ -31,7 +32,7 @@ private val HOP_BY_HOP_HEADERS = setOf(
  */
 public class CronetHttpStack(
     private val context: Context,
-    private val userAgentProvider: UserAgentProvider,
+    private val uaProvider: UAProvider,
     private val uaChManager: UserAgentClientHintsManager,
     private val enableQuic: Boolean = false
 ) : HttpStack {
@@ -41,7 +42,7 @@ public class CronetHttpStack(
 
     private val cronetEngine: CronetEngine by lazy {
         CronetEngine.Builder(context)
-            .setUserAgent(userAgentProvider.getChromeStableMobileUA())
+            .setUserAgent(uaProvider.userAgent(desktop = false))
             .enableHttp2(true)
             .enableBrotli(true)
             .apply {
@@ -127,7 +128,7 @@ public class CronetHttpStack(
                 when {
                     lowerName == "x-requested-with" -> { /* Skip */ }
                     lowerName == "user-agent" -> {
-                        requestBuilder.addHeader("User-Agent", userAgentProvider.getChromeStableMobileUA())
+                        requestBuilder.addHeader("User-Agent", uaProvider.userAgent(desktop = false))
                     }
                     lowerName.startsWith("sec-ch-ua") -> {
                         addClientHintHeader(requestBuilder, lowerName, origin)
@@ -161,10 +162,13 @@ public class CronetHttpStack(
         hintName: String,
         origin: String
     ) {
+        val userAgent = uaProvider.userAgent(desktop = false)
+        val chromeVersion = extractChromeVersion(userAgent)
+
         when (hintName) {
             "sec-ch-ua" -> {
-                val brands = userAgentProvider.getChromeUserAgentDataBrands()
-                val brandString = brands.joinToString(", ") { """"${it.first}";v="${it.second}"""" }
+                val brands = generateChromeUserAgentDataBrands(chromeVersion)
+                val brandString = brands.joinToString(", ") { """"${it.brand}";v="${it.version}"""" }
                 requestBuilder.addHeader("Sec-CH-UA", brandString)
             }
             "sec-ch-ua-mobile" -> {
@@ -182,9 +186,9 @@ public class CronetHttpStack(
                         "sec-ch-ua-platform-version" ->
                             requestBuilder.addHeader("Sec-CH-UA-Platform-Version", "\"${android.os.Build.VERSION.RELEASE}\"")
                         "sec-ch-ua-full-version-list" -> {
-                            val brands = userAgentProvider.getChromeUserAgentDataBrands()
+                            val brands = generateChromeUserAgentDataBrands(chromeVersion)
                             val fullVersionList = brands.joinToString(", ") {
-                                """"${it.first}";v="${if (it.first.contains("Chrome")) userAgentProvider.getChromeStableFullVersion() else it.second}""""
+                                """"${it.brand}";v="${it.version}""""
                             }
                             requestBuilder.addHeader("Sec-CH-UA-Full-Version-List", fullVersionList)
                         }
@@ -195,6 +199,23 @@ public class CronetHttpStack(
             }
         }
     }
+
+    private fun extractChromeVersion(userAgent: String): String {
+        return runCatching {
+            val chromeRegex = Regex("""Chrome/(\d+)""")
+            chromeRegex.find(userAgent)?.groupValues?.get(1) ?: "119"
+        }.getOrElse { "119" }
+    }
+
+    private fun generateChromeUserAgentDataBrands(chromeVersion: String): List<BrandVersion> {
+        return listOf(
+            BrandVersion("Google Chrome", chromeVersion),
+            BrandVersion("Chromium", chromeVersion),
+            BrandVersion("Not=A?Brand", "24") // GREASE value
+        )
+    }
+
+    private data class BrandVersion(val brand: String, val version: String)
 
     private fun buildProxyResponse(info: UrlResponseInfo?, data: ByteArray): ProxyResponse {
         val headers = mutableMapOf<String, String>()

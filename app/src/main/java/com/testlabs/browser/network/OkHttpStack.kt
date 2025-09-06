@@ -1,13 +1,17 @@
 package com.testlabs.browser.network
 
+import android.util.Log
+import com.testlabs.browser.ui.browser.UAProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.CookieJar
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.brotli.BrotliInterceptor
+import java.io.ByteArrayInputStream
 import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -30,10 +34,17 @@ private val HOP_HEADERS = setOf(
 )
 
 public class OkHttpStack(
-    private val userAgentProvider: UserAgentProvider,
+    private val uaProvider: UAProvider,
     private val uaChManager: UserAgentClientHintsManager
 ) : HttpStack {
     override val name: String = "OkHttp"
+
+    // Dominios problemáticos que causan redirect loops
+    private val noisyDomains = setOf(
+        "bidr.io", "stackadapt.com", "online-metrix.net", "adsrvr.org",
+        "adnxs.com", "doubleclick.net", "google-analytics.com",
+        "googletagmanager.com", "facebook.com", "temu.com"
+    )
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -52,59 +63,44 @@ public class OkHttpStack(
             // Ensure HTTP/2 preference for deterministic tests
             chain.proceed(builder.build())
         }
-        .followRedirects(false)                // we handle redirects manually
-        .followSslRedirects(false)
+        .followRedirects(true)                // Let OkHttp handle redirects automatically
+        .followSslRedirects(true)             // Let OkHttp handle SSL redirects
+        .cookieJar(CookieJar.NO_COOKIES)      // Disable cookies to prevent some redirect loops
         .build()
 
     override suspend fun execute(request: ProxyRequest): ProxyResponse =
-        withContext(Dispatchers.IO) { executeInternal(buildRequest(request)) }
+        withContext(Dispatchers.IO) {
+            // Check if this is a problematic domain
+            val host = try {
+                java.net.URL(request.url).host.lowercase()
+            } catch (e: Exception) {
+                ""
+            }
+
+            if (noisyDomains.any { host.contains(it) }) {
+                Log.d("OkHttpStack", "Skipping problematic domain: $host")
+                // Return a minimal successful response to avoid breaking the page
+                return@withContext ProxyResponse(
+                    statusCode = 204,
+                    reasonPhrase = "No Content",
+                    headers = emptyMap(),
+                    body = ByteArrayInputStream(ByteArray(0))
+                )
+            }
+
+            executeInternal(buildRequest(request))
+        }
 
     private fun executeInternal(initial: Request): ProxyResponse {
-        var current = initial
-        var redirects = 0
-        while (true) {
-            val response = client.newCall(current).execute()
-            when (response.code) {
-                301, 302, 303, 307, 308 -> {
-                    val location = response.header("Location") ?: run {
-                        response.close()
-                        throw IOException("Redirect without Location")
-                    }
-                    if (++redirects > REDIRECT_LIMIT) {
-                        response.close()
-                        throw IOException("Too many redirects")
-                    }
-                    val target = current.url.resolve(location) ?: run {
-                        response.close()
-                        throw IOException("Bad redirect: $location")
-                    }
-                    val nextMethod = normalizeMethodForRedirect(response.code, current.method)
-                    val nextBody = if (nextMethod in SAFE_METHODS) null else current.body
+        // Let OkHttp handle redirects automatically - no manual redirect loop needed
+        val response = client.newCall(initial).execute()
 
-                    // Preserve sensitive headers across redirects
-                    val nextBuilder = current.newBuilder()
-                        .url(target)
-                        .method(nextMethod, nextBody)
-
-                    // Remove content headers if body is removed
-                    if (nextBody == null) {
-                        nextBuilder.removeHeader("Content-Length")
-                        nextBuilder.removeHeader("Content-Type")
-                    }
-
-                    response.close()
-                    current = nextBuilder.build()
-                }
-                else -> {
-                    // B. Response decoding normalization - OkHttp already handles decompression
-                    // Filter headers appropriately since content is already decompressed
-                    val filteredHeaders = response.headers.filterForWebView()
-                    val reason: String = response.message.ifBlank { defaultReason(response.code) }
-                    val stream: InputStream = ResponseBodyInputStream(response)
-                    return ProxyResponse(response.code, reason, filteredHeaders, stream)
-                }
-            }
-        }
+        // B. Response decoding normalization - OkHttp already handles decompression
+        // Filter headers appropriately since content is already decompressed
+        val filteredHeaders = response.headers.filterForWebView()
+        val reason: String = response.message.ifBlank { defaultReason(response.code) }
+        val stream: InputStream = ResponseBodyInputStream(response)
+        return ProxyResponse(response.code, reason, filteredHeaders, stream)
     }
 
     private suspend fun buildRequest(req: ProxyRequest): Request {
@@ -119,15 +115,15 @@ public class OkHttpStack(
                 lowerName == "x-requested-with" -> { /* Skip completely */ }
                 // Handle User-Agent with Chrome Stable mobile UA
                 lowerName == "user-agent" -> {
-                    builder.header("User-Agent", userAgentProvider.getChromeStableMobileUA())
+                    builder.header("User-Agent", uaProvider.userAgent(desktop = false))
                 }
                 // UA-CH (Client Hints) on requests
                 lowerName.startsWith("sec-ch-ua") -> {
                     when (lowerName) {
                         "sec-ch-ua" -> {
-                            // Always send low entropy: Sec-CH-UA with correct brands
-                            val brands = userAgentProvider.getChromeUserAgentDataBrands()
-                            val brandString = brands.joinToString(", ") { """"${it.first}";v="${it.second}"""" }
+                            // Generate realistic Chrome brands based on current UA
+                            val brands = generateChromeUserAgentDataBrands()
+                            val brandString = brands.joinToString(", ") { """"${it.brand}";v="${it.version}"""" }
                             builder.header("Sec-CH-UA", brandString)
                         }
                         "sec-ch-ua-mobile" -> {
@@ -147,9 +143,9 @@ public class OkHttpStack(
                                     "sec-ch-ua-model" -> builder.header("Sec-CH-UA-Model", "\"${android.os.Build.MODEL}\"")
                                     "sec-ch-ua-platform-version" -> builder.header("Sec-CH-UA-Platform-Version", "\"${android.os.Build.VERSION.RELEASE}\"")
                                     "sec-ch-ua-full-version-list" -> {
-                                        val brands = userAgentProvider.getChromeUserAgentDataBrands()
+                                        val brands = generateChromeUserAgentDataBrands()
                                         val fullVersionList = brands.joinToString(", ") {
-                                            """"${it.first}";v="${if (it.first.contains("Chrome")) userAgentProvider.getChromeStableFullVersion() else it.second}""""
+                                            """"${it.brand}";v="${it.version}""""
                                         }
                                         builder.header("Sec-CH-UA-Full-Version-List", fullVersionList)
                                     }
@@ -191,14 +187,28 @@ public class OkHttpStack(
 
         return builder.method(method, body).build()
     }
-}
 
-private fun normalizeMethodForRedirect(code: Int, current: String): String =
-    when {
-        code == 303 -> "GET"  // 303 always changes to GET
-        code in listOf(301, 302) && current.uppercase(Locale.US) !in SAFE_METHODS -> "GET"
-        else -> current  // 307, 308 preserve method and body
+    private fun generateChromeUserAgentDataBrands(): List<BrandVersion> {
+        // Extract Chrome version from current UA or use default
+        val userAgent = uaProvider.userAgent(desktop = false)
+        val chromeVersion = extractChromeVersion(userAgent)
+
+        return listOf(
+            BrandVersion("Google Chrome", chromeVersion),
+            BrandVersion("Chromium", chromeVersion),
+            BrandVersion("Not=A?Brand", "24") // GREASE value
+        )
     }
+
+    private fun extractChromeVersion(userAgent: String): String {
+        return runCatching {
+            val chromeRegex = Regex("""Chrome/(\d+)""")
+            chromeRegex.find(userAgent)?.groupValues?.get(1) ?: "119"
+        }.getOrElse { "119" }
+    }
+
+    private data class BrandVersion(val brand: String, val version: String)
+}
 
 private fun Headers.filterForWebView(): Map<String, String> {
     return toMultimap()

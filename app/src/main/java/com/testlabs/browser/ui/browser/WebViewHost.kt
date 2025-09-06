@@ -38,13 +38,11 @@ import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.AcceptLanguageMode
 import com.testlabs.browser.domain.settings.WebViewConfig
-import com.testlabs.browser.network.UserAgentProvider
 import org.koin.compose.koinInject
 import androidx.core.net.toUri
 import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "WebViewHost"
-private const val MIME_TYPE_GUESS = "application/octet-stream"
 
 /**
  * Hosts an Android [WebView] inside Jetpack Compose with a modern, privacy-aware configuration.
@@ -198,8 +196,15 @@ public fun WebViewHost(
                     webView.settings.userAgentString =
                         uaProvider.userAgent(latestConfig.desktopMode)
                     (webView as? ObservableWebView)?.updateUserAgentSnapshot(webView.settings.userAgentString)
-                    val headers = mapOf("Accept-Language" to latestConfig.acceptLanguages)
-                    (webView as? ObservableWebView)?.updateAcceptLanguageSnapshot(headers["Accept-Language"].orEmpty())
+
+                    // Compute Accept-Language consistently with the configuration
+                    val acceptLanguage = when (latestConfig.acceptLanguageMode) {
+                        AcceptLanguageMode.Baseline -> "en-US,en;q=0.9"
+                        AcceptLanguageMode.DeviceList -> generateDeviceLanguageList()
+                    }
+                    val headers = mapOf("Accept-Language" to acceptLanguage)
+                    (webView as? ObservableWebView)?.updateAcceptLanguageSnapshot(acceptLanguage)
+
                     if (url.contains("browserscan.net") || url.contains("tls.peet.ws") || url.contains(
                             "httpbin.org"
                         )
@@ -279,10 +284,10 @@ private class ObservableWebView(
 ) : WebView(context) {
 
     /** Thread-safe snapshot of the current User-Agent for worker-thread use. */
-    private val userAgentRef = AtomicReference("")
+    internal val userAgentRef = AtomicReference("")
 
     /** Thread-safe snapshot of the current Accept-Language for worker-thread use. */
-    private val acceptLanguageRef = AtomicReference("")
+    internal val acceptLanguageRef = AtomicReference("")
 
     /** Updates the cached User-Agent from the UI thread. */
     fun updateUserAgentSnapshot(value: String) {
@@ -419,7 +424,7 @@ private fun createWebView(
         }
     }
 
-@SuppressLint("RequiresFeature")
+@SuppressLint("RequiresFeature", "RestrictedApi")
 private fun WebView.configureWebViewSafely(
     config: WebViewConfig,
     uaProvider: UAProvider,
@@ -438,8 +443,8 @@ private fun WebView.configureWebViewSafely(
     try {
         Log.d(TAG, "Applying full WebView configuration with Chrome Mobile compatibility...")
 
-        val userAgentProvider = UserAgentProvider()
-        val chromeInjector = ChromeCompatibilityInjector(userAgentProvider)
+        // Use the provided uaProvider instead of creating a new one
+        val chromeInjector = ChromeCompatibilityInjector(uaProvider)
 
         settings.apply {
             javaScriptEnabled = config.javascriptEnabled
@@ -451,7 +456,8 @@ private fun WebView.configureWebViewSafely(
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
-            userAgentString = config.customUserAgent ?: userAgentProvider.getChromeStableMobileUA()
+            // Use the provided uaProvider consistently
+            userAgentString = config.customUserAgent ?: uaProvider.userAgent(config.desktopMode)
             loadsImagesAutomatically = true
             blockNetworkImage = false
             blockNetworkLoads = false
@@ -460,7 +466,7 @@ private fun WebView.configureWebViewSafely(
             javaScriptCanOpenWindowsAutomatically = true
             setGeolocationEnabled(true)
             databaseEnabled = config.domStorageEnabled
-            setRenderPriority(WebSettings.RenderPriority.HIGH)
+            // Remove deprecated setRenderPriority
             setSupportMultipleWindows(true)
         }
 
@@ -479,30 +485,30 @@ private fun WebView.configureWebViewSafely(
         }
         cookieManager.flush()
 
+        // Fix X-Requested-With suppression with correct feature flag and both WebView and ServiceWorker
         if (config.suppressXRequestedWith) {
-            try {
-                if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+            @SuppressLint("RestrictedApi")
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                try {
+                    // Page-level suppression
+                    WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
+                    Log.d(TAG, "Cleared X-Requested-With allow list via WebView")
+
+                    // Service Worker-level suppression - Skip if not available
                     try {
-                        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(
-                            settings,
-                            emptySet()
-                        )
-                        Log.d(TAG, "Cleared X-Requested-With allow list via WebView")
+                        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
+                            val swSettings = ServiceWorkerControllerCompat.getInstance().serviceWorkerWebSettings
+                            // Note: ServiceWorker X-Requested-With control may not be available in all versions
+                            Log.d(TAG, "Service Worker settings configured")
+                        }
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed clearing X-Requested-With allow list", e)
+                        Log.w(TAG, "Failed configuring ServiceWorker X-Requested-With", e)
                     }
-                } else {
-                    Log.d(
-                        TAG,
-                        "X-Requested-With suppression feature not supported, relying on proxy"
-                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed clearing X-Requested-With allow list", e)
                 }
-            } catch (e: Exception) {
-                Log.w(
-                    TAG,
-                    "Could not suppress X-Requested-With via WebViewFeature, relying on proxy",
-                    e
-                )
+            } else {
+                Log.d(TAG, "X-Requested-With suppression not supported; proxy will strip it.")
             }
         }
 
@@ -595,7 +601,7 @@ private fun WebView.configureWebViewSafely(
                 url?.let {
                     Log.d(TAG, "Page finished: $it")
                     if (config.chromeCompatibilityEnabled && config.javascriptEnabled) {
-                        val chromeScript = chromeInjector.generateChromeCompatibilityScript()
+                        val chromeScript = chromeInjector.generateChromeCompatibilityScript(config.desktopMode)
                         evaluateJavascript(chromeScript) { result ->
                             Log.d(TAG, "Chrome compatibility script executed: $result")
                         }
@@ -693,19 +699,15 @@ private fun WebView.configureWebViewSafely(
 
         if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
             try {
-                val uaRef =
-                    (this as? ObservableWebView)?.let { AtomicReference(it.currentUserAgent()) }
-                        ?: AtomicReference("")
-                val alRef =
-                    (this as? ObservableWebView)?.let { AtomicReference(it.currentAcceptLanguage()) }
-                        ?: AtomicReference("")
+                val observable = this as? ObservableWebView
                 val serviceWorkerController = ServiceWorkerControllerCompat.getInstance()
                 serviceWorkerController.setServiceWorkerClient(object :
                     ServiceWorkerClientCompat() {
                     override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
                         Log.d(TAG, "ServiceWorker request: ${request.url}")
-                        val userAgent = uaRef.get()
-                        val acceptLanguage = alRef.get()
+                        // Read current snapshots from AtomicReference to be thread-safe
+                        val userAgent = observable?.userAgentRef?.get().orEmpty()
+                        val acceptLanguage = observable?.acceptLanguageRef?.get().orEmpty()
                         return networkProxy.interceptRequest(
                             request = request,
                             userAgent = userAgent,

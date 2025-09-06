@@ -16,7 +16,6 @@ import com.testlabs.browser.ui.browser.VersionProvider
 import com.testlabs.browser.ui.browser.NetworkProxy
 import com.testlabs.browser.ui.browser.ChromeCompatibilityInjector
 import com.testlabs.browser.network.HttpStack
-import com.testlabs.browser.network.UserAgentProvider
 import com.testlabs.browser.network.UserAgentClientHintsManager
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
@@ -36,27 +35,26 @@ public val coreModule: Module =
         single { JsCompatScriptProvider(get()) }
 
         // Chrome Mobile compatibility components
-        single { UserAgentProvider() }
         single { UserAgentClientHintsManager(androidContext()) }
-        single { ChromeCompatibilityInjector(get<UserAgentProvider>()) }
+        single { ChromeCompatibilityInjector(get<UAProvider>()) }
 
         // Network stack with Chrome Mobile compatibility
         single<HttpStack> {
             try {
                 Log.d(TAG, "Creating enhanced HTTP stack with Chrome compatibility...")
-                val userAgentProvider = get<UserAgentProvider>()
+                val uaProvider = get<UAProvider>()
                 val uaChManager = get<UserAgentClientHintsManager>()
 
                 // For now, use OkHttp as default since we need to update HttpStackFactory
                 // TODO: Update based on WebViewConfig when available
-                val stack = com.testlabs.browser.network.OkHttpStack(userAgentProvider, uaChManager)
+                val stack = com.testlabs.browser.network.OkHttpStack(uaProvider, uaChManager)
 
                 Log.d(TAG, "HTTP stack created successfully: ${stack.name}")
                 stack
             } catch (e: Exception) {
                 Log.e(TAG, "Error creating HTTP stack", e)
                 // Fallback to basic OkHttp if enhanced version fails
-                com.testlabs.browser.network.OkHttpStack(get<UserAgentProvider>(), get<UserAgentClientHintsManager>())
+                com.testlabs.browser.network.OkHttpStack(get<UAProvider>(), get<UserAgentClientHintsManager>())
             }
         }
 

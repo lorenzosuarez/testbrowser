@@ -1,13 +1,14 @@
 package com.testlabs.browser.js
 
 import android.os.Build
-import com.testlabs.browser.network.UserAgentProvider
+import com.testlabs.browser.ui.browser.UAProvider
 
-public class JsBridge(private val ua: UserAgentProvider) {
+public class JsBridge(private val ua: UAProvider) {
     public fun script(): String {
-        val uaString = ua.get()
-        val major = ua.major()
-        val full = ua.fullVersion()
+        val uaString = ua.userAgent(desktop = false)
+        val chromeVersion = extractChromeVersion(uaString)
+        val fullVersion = "$chromeVersion.0.0.0"
+
         return """
             (() => {
                 Object.defineProperty(navigator, 'userAgent', {get: () => '$uaString'});
@@ -18,8 +19,8 @@ public class JsBridge(private val ua: UserAgentProvider) {
                 window.chrome = { app: {}, runtime: {} };
                 navigator.userAgentData = {
                     brands: [
-                        { brand: 'Chromium', version: '$major' },
-                        { brand: 'Google Chrome', version: '$major' }
+                        { brand: 'Chromium', version: '$chromeVersion' },
+                        { brand: 'Google Chrome', version: '$chromeVersion' }
                     ],
                     mobile: true,
                     platform: 'Android',
@@ -31,12 +32,19 @@ public class JsBridge(private val ua: UserAgentProvider) {
                         bitness: '64',
                         wow64: false,
                         fullVersionList: [
-                            { brand: 'Chromium', version: '$full' },
-                            { brand: 'Google Chrome', version: '$full' }
+                            { brand: 'Chromium', version: '$fullVersion' },
+                            { brand: 'Google Chrome', version: '$fullVersion' }
                         ]
                     })
                 };
             })();
         """.trimIndent()
+    }
+
+    private fun extractChromeVersion(userAgent: String): String {
+        return runCatching {
+            val chromeRegex = Regex("""Chrome/(\d+)""")
+            chromeRegex.find(userAgent)?.groupValues?.get(1) ?: "119"
+        }.getOrElse { "119" }
     }
 }

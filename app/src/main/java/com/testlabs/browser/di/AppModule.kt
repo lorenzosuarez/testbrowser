@@ -7,8 +7,8 @@ package com.testlabs.browser.di
 
 import com.testlabs.browser.presentation.browser.BrowserViewModel
 import com.testlabs.browser.settings.DeveloperSettings
-import com.testlabs.browser.network.UserAgentProvider
 import com.testlabs.browser.js.JsBridge
+import com.testlabs.browser.ui.browser.UAProvider
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -23,6 +23,5 @@ public val appModule: Module =
 
         // Core dependencies
         single { DeveloperSettings() }
-        single { UserAgentProvider() }
-        single { JsBridge(get()) }
+        single { JsBridge(get<UAProvider>()) }
     }

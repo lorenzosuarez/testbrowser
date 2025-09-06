@@ -3,6 +3,7 @@ package com.testlabs.browser.network
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import com.testlabs.browser.settings.DeveloperSettings
+import com.testlabs.browser.ui.browser.UAProvider
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
@@ -16,7 +17,7 @@ import java.util.zip.GZIPInputStream
 
 public class OkHttpEngine(
     private val settings: DeveloperSettings,
-    private val ua: UserAgentProvider
+    private val ua: UAProvider
 ) {
     private val client: OkHttpClient = OkHttpClient.Builder()
         .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
@@ -28,19 +29,28 @@ public class OkHttpEngine(
             .method(request.method, null)
 
         val acceptLanguage = if (settings.richAcceptLanguage.value) "en-US,en;q=0.9" else "en-US"
+        val userAgent = ua.userAgent(desktop = false)
+        val chromeVersion = extractChromeVersion(userAgent)
 
         builder
-            .header("User-Agent", ua.get())
+            .header("User-Agent", userAgent)
             .header("Accept-Language", acceptLanguage)
             .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
             .header("Accept-Encoding", "gzip, deflate, br, zstd")
-            .header("Sec-CH-UA", "\"Chromium\";v=\"${ua.major()}\", \"Google Chrome\";v=\"${ua.major()}\"")
+            .header("Sec-CH-UA", "\"Chromium\";v=\"$chromeVersion\", \"Google Chrome\";v=\"$chromeVersion\"")
             .header("Sec-CH-UA-Mobile", "?1")
             .header("Sec-CH-UA-Platform", "\"Android\"")
 
         return client.newCall(builder.build()).execute().use { response ->
             normalize(response)
         }
+    }
+
+    private fun extractChromeVersion(userAgent: String): String {
+        return runCatching {
+            val chromeRegex = Regex("""Chrome/(\d+)""")
+            chromeRegex.find(userAgent)?.groupValues?.get(1) ?: "119"
+        }.getOrElse { "119" }
     }
 
     private fun normalize(response: Response): WebResourceResponse {
