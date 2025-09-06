@@ -7,7 +7,6 @@ package com.testlabs.browser.ui.browser
 import android.content.Context
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
-import androidx.webkit.WebResourceResponseCompat
 import com.testlabs.browser.domain.settings.EngineMode
 import com.testlabs.browser.domain.settings.WebViewConfig
 import com.testlabs.browser.network.CronetHolder
