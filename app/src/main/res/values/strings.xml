@@ -39,4 +39,5 @@
   <string name="start_page_tls_title">TLS Configuration Test</string>
   <string name="start_page_tls_desc">Analyze TLS/SSL cipher suites, protocols, and connection security parameters.</string>
   <string name="start_page_open">Open</string>
+  <string name="browser_edit_url">edit</string>
 </resources>

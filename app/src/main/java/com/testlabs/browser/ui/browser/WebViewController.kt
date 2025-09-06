@@ -4,9 +4,6 @@
  */
 package com.testlabs.browser.ui.browser
 
-/**
- * Controller interface exposed to the UI layer.
- */
 public interface WebViewController {
     public fun loadUrl(url: String)
     public fun reload()
@@ -16,8 +13,4 @@ public interface WebViewController {
     public fun clearBrowsingData(done: () -> Unit)
     public fun requestedWithHeaderMode(): RequestedWithHeaderMode
     public fun proxyStackName(): String
-}
-
-public interface FileUploadHandlerOwner {
-    public fun attachFileUploadHandler(handler: FileUploadHandler)
 }

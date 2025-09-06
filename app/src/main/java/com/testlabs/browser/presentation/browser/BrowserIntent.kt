@@ -94,9 +94,11 @@ public sealed interface BrowserIntent {
     public data object ClearError : BrowserIntent
 
     /**
-     * User wants to open a new tab (clear current page and focus URL input).
+     * User wants to focus on the URL input field (clearing current page).
      */
-    public data object NewTab : BrowserIntent
+    public data object FocusUrlInput : BrowserIntent
+
+    public data class UrlInputEditing(val editing: Boolean) : BrowserIntent
 
     /**
      * User opened the settings dialog.

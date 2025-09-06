@@ -34,7 +34,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.testlabs.browser.R
 import com.testlabs.browser.core.ValidatedUrl
@@ -74,7 +73,6 @@ public fun BrowserScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
-    val userAgent = remember(uaProvider) { uaProvider.userAgent(desktop = false) }
 
     var webController by remember { mutableStateOf<WebViewController?>(null) }
     var pendingUrl by remember { mutableStateOf<String?>(null) }
@@ -108,7 +106,7 @@ public fun BrowserScreen(
                         controller.clearBrowsingData {
                             scope.launch {
                                 viewModel.handleIntent(BrowserIntent.CloseSettings)
-                                viewModel.handleIntent(BrowserIntent.NewTab)
+                                viewModel.handleIntent(BrowserIntent.FocusUrlInput)
                                 snackbarHostState.showSnackbar(context.getString(R.string.settings_clear_browsing_data_done))
                             }
                         }
@@ -123,12 +121,13 @@ public fun BrowserScreen(
         topBar = {
             Column {
                 BrowserTopBar(
-                    url = state.inputUrl,
+                    url = if (state.isUrlInputEditing) state.inputUrl else state.url.value,
                     onUrlChanged = { viewModel.handleIntent(BrowserIntent.UpdateInputUrl(it)) },
                     onSubmit = { viewModel.submitUrl(state.inputUrl) },
                     onMenuClick = { viewModel.handleIntent(BrowserIntent.OpenSettings) },
                     scrollBehavior = topScroll,
                     shouldFocusUrlInput = state.shouldFocusUrlInput,
+                    onEditingChange = { editing -> viewModel.handleIntent(BrowserIntent.UrlInputEditing(editing)) }
                 )
                 BrowserProgressIndicator(
                     progress = state.progress,
@@ -143,7 +142,7 @@ public fun BrowserScreen(
                 onBackClick = { viewModel.handleIntent(BrowserIntent.GoBack) },
                 onForwardClick = { viewModel.handleIntent(BrowserIntent.GoForward) },
                 onReloadClick = { viewModel.handleIntent(BrowserIntent.Reload) },
-                onNewTabClick = { viewModel.handleIntent(BrowserIntent.NewTab) },
+                onEditUrlClick = { viewModel.handleIntent(BrowserIntent.FocusUrlInput) },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -201,7 +200,7 @@ public fun BrowserScreen(
             val mode = webController?.requestedWithHeaderMode() ?: RequestedWithHeaderMode.UNKNOWN
             val proxyStack = webController?.proxyStackName() ?: "Disabled"
 
-            
+
             val currentUserAgent = state.settingsDraft.customUserAgent
                 ?: uaProvider.userAgent(desktop = state.settingsDraft.desktopMode)
 

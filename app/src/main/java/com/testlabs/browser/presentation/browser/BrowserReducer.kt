@@ -4,8 +4,6 @@
  */
 package com.testlabs.browser.presentation.browser
 
-import com.testlabs.browser.core.ValidatedUrl
-
 /**
  * Pure reducer function that handles state transitions for browser intents.
  * This function is side-effect free and deterministic.
@@ -20,11 +18,14 @@ public object BrowserReducer {
     ): Pair<BrowserState, BrowserEffect?> =
         when (intent) {
             is BrowserIntent.NavigateToUrl -> {
+                val incoming = intent.url.value
+                val nextInput = if (state.isUrlInputEditing && state.inputUrl != state.url.value) state.inputUrl else incoming
                 state.copy(
                     url = intent.url,
-                    inputUrl = intent.url.value,
+                    inputUrl = nextInput,
                     errorMessage = null,
                     isPullToRefresh = false,
+                    shouldFocusUrlInput = false,
                 ) to BrowserEffect.LoadUrl(intent.url)
             }
 
@@ -47,10 +48,9 @@ public object BrowserReducer {
                     state.copy(
                         errorMessage = null,
                         isPullToRefresh = false,
+                        shouldFocusUrlInput = false,
                     ) to BrowserEffect.NavigateBack
-                } else {
-                    state to null
-                }
+                } else state to null
             }
 
             BrowserIntent.GoForward -> {
@@ -58,10 +58,9 @@ public object BrowserReducer {
                     state.copy(
                         errorMessage = null,
                         isPullToRefresh = false,
+                        shouldFocusUrlInput = false,
                     ) to BrowserEffect.NavigateForward
-                } else {
-                    state to null
-                }
+                } else state to null
             }
 
             is BrowserIntent.UpdateInputUrl -> {
@@ -72,9 +71,11 @@ public object BrowserReducer {
             }
 
             is BrowserIntent.PageStarted -> {
+                val incoming = intent.url.value
+                val nextInput = if (state.isUrlInputEditing && state.inputUrl != state.url.value) state.inputUrl else incoming
                 state.copy(
                     url = intent.url,
-                    inputUrl = intent.url.value,
+                    inputUrl = nextInput,
                     isLoading = true,
                     progress = 0f,
                     errorMessage = null,
@@ -82,96 +83,81 @@ public object BrowserReducer {
             }
 
             is BrowserIntent.PageFinished -> {
+                val incoming = intent.url.value
+                val nextInput = if (state.isUrlInputEditing && state.inputUrl != state.url.value) state.inputUrl else incoming
                 state.copy(
                     url = intent.url,
-                    inputUrl = intent.url.value,
+                    inputUrl = nextInput,
                     isLoading = false,
                     isPullToRefresh = false,
                     progress = 1f,
                 ) to null
             }
 
-            is BrowserIntent.ProgressChanged -> {
-                state.copy(progress = intent.progress) to null
+            is BrowserIntent.ProgressChanged -> state.copy(progress = intent.progress) to null
+
+            is BrowserIntent.TitleChanged -> state.copy(title = intent.title) to null
+
+            is BrowserIntent.NavigationStateChanged -> state.copy(
+                canGoBack = intent.canGoBack,
+                canGoForward = intent.canGoForward,
+            ) to null
+
+            is BrowserIntent.NavigationError -> state.copy(
+                isLoading = false,
+                isPullToRefresh = false,
+                errorMessage = intent.message,
+            ) to BrowserEffect.ShowMessage(intent.message)
+
+            BrowserIntent.ClearError -> state.copy(errorMessage = null) to null
+
+            BrowserIntent.FocusUrlInput -> state.copy(
+                inputUrl = state.url.value,
+                shouldFocusUrlInput = true,
+                isUrlInputEditing = true,
+            ) to null
+
+            is BrowserIntent.UrlInputEditing -> {
+                if (intent.editing) {
+                    state.copy(isUrlInputEditing = true, shouldFocusUrlInput = false)
+                } else {
+                    state.copy(
+                        isUrlInputEditing = false,
+                        shouldFocusUrlInput = false,
+                        inputUrl = state.url.value,
+                    )
+                } to null
             }
 
-            is BrowserIntent.TitleChanged -> {
-                state.copy(title = intent.title) to null
-            }
+            BrowserIntent.OpenSettings -> state.copy(
+                isSettingsDialogVisible = true,
+                settingsDraft = state.settingsCurrent,
+            ) to null
 
-            is BrowserIntent.NavigationStateChanged -> {
-                state.copy(
-                    canGoBack = intent.canGoBack,
-                    canGoForward = intent.canGoForward,
-                ) to null
-            }
+            BrowserIntent.CloseSettings -> state.copy(isSettingsDialogVisible = false) to null
 
-            is BrowserIntent.NavigationError -> {
-                state.copy(
-                    isLoading = false,
-                    isPullToRefresh = false,
-                    errorMessage = intent.message,
-                ) to BrowserEffect.ShowMessage(intent.message)
-            }
+            is BrowserIntent.UpdateSettings -> state.copy(settingsDraft = intent.config) to null
 
-            BrowserIntent.ClearError -> {
-                state.copy(errorMessage = null) to null
-            }
+            is BrowserIntent.ApplySettingsAndRestart -> state.copy(
+                settingsCurrent = intent.config,
+                settingsDraft = intent.config,
+                isSettingsDialogVisible = false,
+            ) to BrowserEffect.RecreateWebView
 
-            BrowserIntent.NewTab -> {
-                state.copy(
-                    url = ValidatedUrl.fromInput("about:blank"),
-                    inputUrl = "",
-                    title = "",
-                    progress = 0f,
-                    isLoading = true,
-                    isPullToRefresh = false,
-                    canGoBack = false,
-                    canGoForward = false,
-                    errorMessage = null,
-                    shouldFocusUrlInput = true,
-                ) to BrowserEffect.LoadUrl(ValidatedUrl.fromInput("about:blank"))
-            }
-
-            BrowserIntent.OpenSettings -> {
-                state.copy(
-                    isSettingsDialogVisible = true,
-                    settingsDraft = state.settingsCurrent,
-                ) to null
-            }
-
-            BrowserIntent.CloseSettings -> {
-                state.copy(isSettingsDialogVisible = false) to null
-            }
-
-            is BrowserIntent.UpdateSettings -> {
-                state.copy(settingsDraft = intent.config) to null
-            }
-
-            is BrowserIntent.ApplySettingsAndRestart -> {
-                state.copy(
-                    settingsCurrent = intent.config,
-                    settingsDraft = intent.config,
-                    isSettingsDialogVisible = false,
-                ) to BrowserEffect.RecreateWebView
-            }
-
-            BrowserIntent.ApplySettings -> {
-                state.copy(
-                    settingsCurrent = state.settingsDraft,
-                    isSettingsDialogVisible = false,
-                ) to null
-            }
+            BrowserIntent.ApplySettings -> state.copy(
+                settingsCurrent = state.settingsDraft,
+                isSettingsDialogVisible = false,
+            ) to null
 
             is BrowserIntent.UrlChanged -> {
+                val incoming = intent.url.value
+                val nextInput = if (state.isUrlInputEditing && state.inputUrl != state.url.value) state.inputUrl else incoming
                 state.copy(
                     url = intent.url,
-                    inputUrl = intent.url.value,
+                    inputUrl = nextInput,
                 ) to null
             }
 
-            BrowserIntent.ClearBrowsingData -> {
-                state to BrowserEffect.ClearBrowsingData
-            }
+            BrowserIntent.ClearBrowsingData -> state to BrowserEffect.ClearBrowsingData
         }
 }

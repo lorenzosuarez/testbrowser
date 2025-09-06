@@ -9,8 +9,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
 import com.testlabs.browser.js.JsBridge
 import com.testlabs.browser.ui.browser.NetworkProxy
 import com.testlabs.browser.ui.browser.UAProvider
@@ -38,14 +36,10 @@ public open class BrowserWebViewClient(
 
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
-        if (!startScriptInstalled &&
-            WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
-        ) {
-            WebViewCompat.addDocumentStartJavaScript(
-                view,
-                jsBridge.script(),
-                setOf("*")
-            )
+        if (!startScriptInstalled) {
+            url?.let {
+                jsBridge.injectScript(view, it)
+            }
             startScriptInstalled = true
         }
     }
@@ -68,7 +62,6 @@ public open class BrowserWebViewClient(
             )
         }
 
-        
         return if (proxyInterceptEnabled) {
             val ua = uaProvider.userAgent(desktop = desktopMode)
             proxy.interceptRequest(

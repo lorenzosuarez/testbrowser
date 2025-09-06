@@ -20,4 +20,9 @@ public class DeveloperSettings {
     public fun setUseCronet(value: Boolean): Unit { _useCronet.value = value }
     public fun setEnableQuic(value: Boolean): Unit { _enableQuic.value = value }
     public fun setRichAcceptLanguage(value: Boolean): Unit { _richAcceptLanguage.value = value }
+
+    public val debugLoggingEnabled: Boolean = false
+    public val performanceMonitoringEnabled: Boolean = false
+    public val networkInterceptionLogging: Boolean = false
+    public val javascriptErrorReporting: Boolean = true
 }

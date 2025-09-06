@@ -33,13 +33,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -57,35 +60,54 @@ public fun BrowserTopBar(
     onMenuClick: () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior,
     shouldFocusUrlInput: Boolean = false,
+    onEditingChange: (Boolean) -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
-    var shouldRequestFocus by remember { mutableStateOf(false) }
+    var textFieldValue by remember { mutableStateOf(TextFieldValue(url)) }
+    var lastFocusState by remember { mutableStateOf(false) }
     val barColors = BrowserThemeTokens.barColors()
     val omni = BrowserThemeTokens.omniboxColors()
 
-    LaunchedEffect(shouldFocusUrlInput, shouldRequestFocus) {
-        if (shouldFocusUrlInput || shouldRequestFocus) {
+    LaunchedEffect(url) {
+        if (textFieldValue.text != url) {
+            textFieldValue = TextFieldValue(url)
+        }
+    }
+
+    LaunchedEffect(shouldFocusUrlInput) {
+        if (shouldFocusUrlInput) {
+            textFieldValue = TextFieldValue(
+                text = url,
+                selection = TextRange(0, url.length)
+            )
             focusRequester.requestFocus()
-            shouldRequestFocus = false
         }
     }
 
     val handleSubmit = {
         onSubmit()
+        onEditingChange(false)
         focusManager.clearFocus()
     }
+
     val handleClear: () -> Unit = {
+        textFieldValue = TextFieldValue("")
         onUrlChanged("")
-        shouldRequestFocus = true
+        focusRequester.requestFocus()
+    }
+
+    val handleValueChange = { newValue: TextFieldValue ->
+        textFieldValue = newValue
+        onUrlChanged(newValue.text)
     }
 
     TopAppBar(
         modifier = modifier,
         title = {
             OutlinedTextField(
-                value = url,
-                onValueChange = onUrlChanged,
+                value = textFieldValue,
+                onValueChange = handleValueChange,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(dimensionResource(R.dimen.browser_topbar_height))
@@ -95,7 +117,16 @@ public fun BrowserTopBar(
                         bottom = dimensionResource(id = R.dimen.browser_topbar_vertical_padding),
                         end = dimensionResource(id = R.dimen.browser_topbar_horizontal_padding)
                     )
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { f ->
+                        if (f.isFocused != lastFocusState) {
+                            lastFocusState = f.isFocused
+                            onEditingChange(f.isFocused)
+                            if (f.isFocused) {
+                                textFieldValue = TextFieldValue(textFieldValue.text, selection = TextRange(0, textFieldValue.text.length))
+                            }
+                        }
+                    },
                 placeholder = {
                     Text(
                         text = stringResource(id = R.string.browser_url_placeholder),
@@ -116,7 +147,7 @@ public fun BrowserTopBar(
                     }
                 },
                 trailingIcon = {
-                    if (url.isNotEmpty()) {
+                    if (textFieldValue.text.isNotEmpty()) {
                         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                             IconButton(
                                 onClick = handleClear,
@@ -176,7 +207,8 @@ private fun BrowserTopBarPreview() {
             onSubmit = {},
             onMenuClick = {},
             scrollBehavior = behavior,
-            shouldFocusUrlInput = false
+            shouldFocusUrlInput = false,
+            onEditingChange = {}
         )
     }
 }

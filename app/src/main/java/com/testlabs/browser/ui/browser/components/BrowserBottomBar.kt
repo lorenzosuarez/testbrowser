@@ -7,15 +7,17 @@ package com.testlabs.browser.ui.browser.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.testlabs.browser.R
 import com.testlabs.browser.ui.theme.BrowserThemeTokens
 
@@ -30,7 +32,7 @@ public fun BrowserBottomBar(
     onBackClick: () -> Unit,
     onForwardClick: () -> Unit,
     onReloadClick: () -> Unit,
-    onNewTabClick: () -> Unit,
+    onEditUrlClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val barColors = BrowserThemeTokens.barColors()
@@ -76,10 +78,18 @@ public fun BrowserBottomBar(
             }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNewTabClick) {
+            FloatingActionButton(
+                onClick = onEditUrlClick,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp,
+                    focusedElevation = 0.dp,
+                    hoveredElevation = 0.dp
+                )
+            ) {
                 Icon(
-                    Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.browser_new_tab),
+                    Icons.Filled.Edit,
+                    contentDescription = stringResource(R.string.browser_edit_url),
                 )
             }
         },

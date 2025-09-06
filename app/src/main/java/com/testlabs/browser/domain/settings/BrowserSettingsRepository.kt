@@ -21,4 +21,9 @@ public interface BrowserSettingsRepository {
      * Persists the supplied configuration.
      */
     public suspend fun save(config: WebViewConfig)
+
+    /**
+     * Resets the configuration to default values.
+     */
+    public suspend fun reset()
 }

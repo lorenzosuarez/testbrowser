@@ -5,12 +5,10 @@
 package com.testlabs.browser.ui.browser
 
 import android.annotation.SuppressLint
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.webkit.CookieManager
-import android.webkit.DownloadListener
 import android.webkit.MimeTypeMap
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -29,7 +27,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.core.net.toUri
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebSettingsCompat
@@ -270,7 +267,6 @@ private fun applyFullWebViewConfiguration(
 ) {
     val s = webView.settings
 
-    
     s.javaScriptEnabled = config.javascriptEnabled
     s.domStorageEnabled = config.domStorageEnabled
     s.allowFileAccess = config.fileAccessEnabled
@@ -286,131 +282,77 @@ private fun applyFullWebViewConfiguration(
     cookieManager.setAcceptCookie(true)
     cookieManager.setAcceptThirdPartyCookies(webView, config.enableThirdPartyCookies)
 
-    
     val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
     s.userAgentString = ua
 
-    
     val acceptLanguage = when (config.acceptLanguageMode) {
         AcceptLanguageMode.Baseline -> config.acceptLanguages
         AcceptLanguageMode.DeviceList -> buildDeviceAcceptLanguage()
     }
 
-    val jsBridge: JsBridge = object : JsBridge(ua = uaProvider) {
-        override fun script(): String = if (config.jsCompatibilityMode) {
-            getDocStartScript(jsCompat)
-        } else {
-            ""
-        }
-    }
-
-    webView.webViewClient = object : BrowserWebViewClient(
-        proxy = networkProxy,
-        jsBridge = jsBridge,
-        uaProvider = uaProvider,
-        acceptLanguage = acceptLanguage,
-        desktopMode = config.desktopMode,
-        proxyInterceptEnabled = config.proxyInterceptEnabled 
-    ) {
-        override fun shouldInterceptRequest(
-            view: WebView,
-            request: WebResourceRequest
-        ): WebResourceResponse? {
-            if (request.isForMainFrame) return null
-            return super.shouldInterceptRequest(view, request)
-        }
-
-        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+    webView.webViewClient = object : WebViewClient() {
+        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             super.onPageStarted(view, url, favicon)
-            onProgress(0)
             url?.let {
-                onUrlChange(it)
                 onPageStarted(it)
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
             }
         }
 
-        override fun onPageFinished(view: WebView, url: String?) {
+        override fun onPageFinished(view: WebView?, url: String?) {
             super.onPageFinished(view, url)
-            onProgress(100)
-            onTitle(view.title)
-            onNavState(view.canGoBack(), view.canGoForward())
-            url?.let { onPageFinished(it) }
+            url?.let {
+                onPageFinished(it)
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+            }
         }
 
-        override fun onReceivedError(
-            view: WebView,
-            request: WebResourceRequest,
-            error: android.webkit.WebResourceError
-        ) {
-            onError("${error.errorCode}:${error.description}")
+        override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+            super.doUpdateVisitedHistory(view, url, isReload)
+            url?.let {
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+            }
+        }
+
+        override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
+            super.onReceivedError(view, errorCode, description, failingUrl)
+            onError("Error $errorCode: $description")
+        }
+
+        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+            if (request?.isForMainFrame == true) {
+                request.url?.toString()?.let { url ->
+                    onUrlChange(url)
+                }
+            }
+            return try {
+                networkProxy.interceptRequest(
+                    request = request ?: return null,
+                    userAgent = ua,
+                    acceptLanguage = acceptLanguage,
+                    proxyEnabled = config.proxyEnabled
+                )
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 
     webView.webChromeClient = object : WebChromeClient() {
-        override fun onProgressChanged(view: WebView, newProgress: Int) {
+        override fun onProgressChanged(view: WebView?, newProgress: Int) {
+            super.onProgressChanged(view, newProgress)
             onProgress(newProgress)
         }
-        override fun onPermissionRequest(request: android.webkit.PermissionRequest) {
-            request.grant(request.resources)
-        }
-        override fun onReceivedTitle(view: WebView, title: String?) {
+
+        override fun onReceivedTitle(view: WebView?, title: String?) {
+            super.onReceivedTitle(view, title)
             onTitle(title)
         }
-        override fun onShowFileChooser(
-            webView: WebView?,
-            filePathCallback: ValueCallback<Array<Uri>>?,
-            fileChooserParams: FileChooserParams?
-        ): Boolean {
-            fileCallbackRef.set(filePathCallback)
-            val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE)
-                type = "*/*"
-            }
-            return try {
-                filePickerLauncher?.let {
-                    it.launch(intent)
-                    true
-                } ?: false
-            } catch (_: ActivityNotFoundException) {
-                fileCallbackRef.getAndSet(null)?.onReceiveValue(null)
-                false
-            }
-        }
     }
 
-    webView.setDownloadListener(
-        DownloadListener { url, _, _, mimetype, _ ->
-            try {
-                val uri = url?.toUri() ?: return@DownloadListener
-                val mt = mimetype ?: guessMimeType(uri.toString())
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(uri, mt)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                webView.context.startActivity(intent)
-            } catch (_: ActivityNotFoundException) {}
-        }
-    )
-
-    if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
-        runCatching {
-            val controller = ServiceWorkerControllerCompat.getInstance()
-            controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
-                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
-                    if (request.isForMainFrame) return null
-                    val uaNow = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
-                    return networkProxy.interceptRequest(
-                        request = request,
-                        userAgent = uaNow,
-                        acceptLanguage = acceptLanguage,
-                        proxyEnabled = config.proxyEnabled
-                    )
-                }
-            })
-        }
-    }
-
-    
     if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
         WebSettingsCompat.setForceDark(
             s,
@@ -418,50 +360,6 @@ private fun applyFullWebViewConfiguration(
         )
     }
 }
-
-private fun buildDeviceAcceptLanguage(): String {
-    val tags = runCatching {
-        val locales = android.os.LocaleList.getDefault()
-        (0 until locales.size()).map { locales[it].toLanguageTag() }.filter { it.isNotBlank() }
-    }.getOrElse { listOf(Locale.getDefault().toLanguageTag()) }
-    if (tags.isEmpty()) return "en-US,en;q=0.9"
-
-    val uniq = LinkedHashSet<String>()
-    tags.forEach { tag ->
-        val norm = tag.ifBlank { "en-US" }
-        uniq.add(norm)
-        val base = norm.substringBefore('-', norm)
-        if (base.isNotBlank()) uniq.add(base)
-    }
-    val ordered = uniq.take(4)
-    return ordered.mapIndexed { idx, t ->
-        val q = when (idx) {
-            0 -> null
-            1 -> "0.9"
-            2 -> "0.8"
-            else -> "0.7"
-        }
-        if (q == null) t else "$t;q=$q"
-    }.joinToString(",")
-}
-
-private fun getDocStartScript(provider: JsCompatScriptProvider): String {
-    val candidateNames = listOf("script", "provide", "source", "get", "value")
-    val m = provider.javaClass.methods.firstOrNull {
-        it.parameterTypes.isEmpty() && it.returnType == String::class.java && it.name in candidateNames
-    }
-    return try {
-        (m?.invoke(provider) as? String)?.trim().orEmpty()
-    } catch (_: Throwable) {
-        ""
-    }
-}
-
-public fun onFileChooserResult(uris: Array<Uri>?) {
-    fileCallbackRef.getAndSet(null)?.onReceiveValue(uris)
-}
-
-private val fileCallbackRef: AtomicReference<ValueCallback<Array<Uri>>?> = AtomicReference(null)
 
 public class RealWebViewController(
     private val webView: WebView,
@@ -480,28 +378,15 @@ public class RealWebViewController(
         if (webView.canGoForward()) webView.goForward()
     }
     override fun recreateWebView() {
-        
         val currentUrl = webView.url
-
-        
         webView.stopLoading()
-
-        
         webView.clearCache(true)
         webView.clearHistory()
         webView.clearFormData()
-
-        
         CookieManager.getInstance().removeAllCookies(null)
-
-        
-        
         webView.loadUrl("about:blank")
-
-        
         currentUrl?.let { url ->
             if (url != "about:blank" && url.isNotEmpty()) {
-                
                 webView.postDelayed({
                     webView.loadUrl(url)
                 }, 100)
@@ -517,7 +402,54 @@ public class RealWebViewController(
     override fun proxyStackName(): String = proxy.stackName
 }
 
-private fun guessMimeType(url: String): String {
-    val ext = MimeTypeMap.getFileExtensionFromUrl(url)
-    return MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
+private fun extractFileName(contentDisposition: String?, url: String, mimeType: String?): String {
+    var fileName: String? = null
+
+    if (contentDisposition != null) {
+        val index = contentDisposition.indexOf("filename=")
+        if (index >= 0) {
+            fileName = contentDisposition.substring(index + 9)
+            fileName = fileName.replace("\"", "")
+        }
+    }
+
+    if (fileName == null) {
+        fileName = url.substringAfterLast("/")
+        if (fileName.isEmpty()) {
+            fileName = "download"
+        }
+    }
+
+    if (!fileName.contains('.') && mimeType != null) {
+        val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
+        if (extension != null) {
+            fileName += ".$extension"
+        }
+    }
+
+    return fileName
 }
+
+private fun buildDeviceAcceptLanguage(): String {
+    val locales = mutableListOf<Locale>()
+
+    val localeList = android.content.res.Resources.getSystem().configuration.locales
+    for (i in 0 until localeList.size()) {
+        locales.add(localeList[i])
+    }
+
+    return locales.mapIndexed { index, locale ->
+        val quality = 1.0 - (index * 0.1)
+        "${locale.language}-${locale.country};q=${"%.1f".format(quality)}"
+    }.joinToString(",")
+}
+
+private fun getDocStartScript(jsCompat: JsCompatScriptProvider): String {
+    return jsCompat.getCompatibilityScript()
+}
+
+public fun onFileChooserResult(uris: Array<Uri>?) {
+    fileCallbackRef.getAndSet(null)?.onReceiveValue(uris)
+}
+
+private val fileCallbackRef: AtomicReference<ValueCallback<Array<Uri>>?> = AtomicReference(null)

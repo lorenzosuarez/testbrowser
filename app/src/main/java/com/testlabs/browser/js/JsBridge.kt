@@ -63,6 +63,10 @@ public open class JsBridge(private val ua: UAProvider) {
         """.trimIndent()
     }
 
+    public fun injectScript(webView: android.webkit.WebView?, url: String) {
+        webView?.evaluateJavascript(script(), null)
+    }
+
     private fun extractChromeVersion(userAgent: String): String {
         return runCatching {
             val chromeRegex = Regex("""Chrome/(\d+)""")

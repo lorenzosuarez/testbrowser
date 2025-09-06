@@ -26,4 +26,5 @@ public data class BrowserState(
     val isSettingsDialogVisible: Boolean = false,
     val settingsCurrent: WebViewConfig = WebViewConfig(),
     val settingsDraft: WebViewConfig = WebViewConfig(),
+    val isUrlInputEditing: Boolean = false,
 )
