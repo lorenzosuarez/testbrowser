@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser.ui.browser
 
 /**
@@ -263,11 +267,11 @@ public class ChromeCompatibilityInjector(
     private fun generateUserAgentDataBrands(chromeVersion: String): String {
         val majorVersion = chromeVersion.toIntOrNull() ?: DEFAULT_CHROME_VERSION.toInt()
 
-        // Generate realistic brand list with proper GREASE values
+        
         val brands = listOf(
             mapOf("brand" to "Google Chrome", "version" to majorVersion.toString()),
             mapOf("brand" to "Chromium", "version" to majorVersion.toString()),
-            mapOf("brand" to "Not=A?Brand", "version" to "24") // GREASE value
+            mapOf("brand" to "Not=A?Brand", "version" to "24") 
         )
 
         return brands.joinToString(", ", "[", "]") { brand ->

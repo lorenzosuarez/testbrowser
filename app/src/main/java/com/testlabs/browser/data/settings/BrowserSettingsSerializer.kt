@@ -1,7 +1,8 @@
-/*
- * @author Lorenzo Suarez
- * @date 09/04//2025
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
  */
+
 
 package com.testlabs.browser.data.settings
 

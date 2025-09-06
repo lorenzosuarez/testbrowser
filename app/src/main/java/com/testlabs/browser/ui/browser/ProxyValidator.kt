@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser.ui.browser
 
 import android.util.Log
@@ -21,7 +25,7 @@ public object ProxyValidator {
             Log.d(TAG, "✅ JavaScript enabled: ${settings.javaScriptEnabled}")
             Log.d(TAG, "✅ DOM storage enabled: ${settings.domStorageEnabled}")
 
-            // Check X-Requested-With suppression
+            
             val headerMode = requestedWithHeaderModeOf(webView)
             Log.d(TAG, "✅ X-Requested-With mode: $headerMode")
 

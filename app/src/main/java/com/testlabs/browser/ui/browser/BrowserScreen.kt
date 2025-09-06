@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser.ui.browser
 
 import android.content.ClipData
@@ -197,7 +201,7 @@ public fun BrowserScreen(
             val mode = webController?.requestedWithHeaderMode() ?: RequestedWithHeaderMode.UNKNOWN
             val proxyStack = webController?.proxyStackName() ?: "Disabled"
 
-            // Dynamic User Agent based on current draft settings
+            
             val currentUserAgent = state.settingsDraft.customUserAgent
                 ?: uaProvider.userAgent(desktop = state.settingsDraft.desktopMode)
 

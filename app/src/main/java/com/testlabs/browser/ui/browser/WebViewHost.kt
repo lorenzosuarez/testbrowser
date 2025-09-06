@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser.ui.browser
 
 import android.annotation.SuppressLint
@@ -99,7 +103,7 @@ public fun WebViewHost(
             wv
         },
         update = { webView ->
-            // MEJORADO: Forzar reconfiguración completa cuando cambia config
+            
             webView.applyConfig(
                 config = config,
                 uaProvider = uaProvider,
@@ -107,7 +111,7 @@ public fun WebViewHost(
                 networkProxy = networkProxy
             )
 
-            // CRÍTICO: Forzar aplicación inmediata del User Agent
+            
             val newUserAgent = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
             if (webView.settings.userAgentString != newUserAgent) {
                 webView.settings.userAgentString = newUserAgent
@@ -171,7 +175,7 @@ private fun WebView.applyConfig(
 ) {
     val s = settings
 
-    // Apply all WebViewConfig settings
+    
     s.javaScriptEnabled = config.javascriptEnabled
     s.domStorageEnabled = config.domStorageEnabled
     s.allowFileAccess = config.fileAccessEnabled
@@ -183,17 +187,17 @@ private fun WebView.applyConfig(
         WebSettings.MIXED_CONTENT_NEVER_ALLOW
     }
 
-    // Apply User Agent - FIXED: Desktop Mode should work correctly
+    
     val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
     s.userAgentString = ua
 
-    // Apply Accept-Language
+    
     val acceptLanguage = when (config.acceptLanguageMode) {
         AcceptLanguageMode.Baseline -> config.acceptLanguages
         AcceptLanguageMode.DeviceList -> buildDeviceAcceptLanguage()
     }
 
-    // Apply cookie settings
+    
     CookieManager.getInstance().setAcceptCookie(true)
     CookieManager.getInstance().setAcceptThirdPartyCookies(this, config.enableThirdPartyCookies)
 
@@ -211,7 +215,7 @@ private fun WebView.applyConfig(
         uaProvider = uaProvider,
         acceptLanguage = acceptLanguage,
         desktopMode = config.desktopMode,
-        proxyInterceptEnabled = config.proxyInterceptEnabled // AGREGADO: Control de proxy intercept
+        proxyInterceptEnabled = config.proxyInterceptEnabled 
     ) {
         override fun shouldInterceptRequest(
             view: WebView,
@@ -266,7 +270,7 @@ private fun applyFullWebViewConfiguration(
 ) {
     val s = webView.settings
 
-    // Apply all WebViewConfig settings
+    
     s.javaScriptEnabled = config.javascriptEnabled
     s.domStorageEnabled = config.domStorageEnabled
     s.allowFileAccess = config.fileAccessEnabled
@@ -282,11 +286,11 @@ private fun applyFullWebViewConfiguration(
     cookieManager.setAcceptCookie(true)
     cookieManager.setAcceptThirdPartyCookies(webView, config.enableThirdPartyCookies)
 
-    // Apply User Agent
+    
     val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
     s.userAgentString = ua
 
-    // Apply Accept-Language
+    
     val acceptLanguage = when (config.acceptLanguageMode) {
         AcceptLanguageMode.Baseline -> config.acceptLanguages
         AcceptLanguageMode.DeviceList -> buildDeviceAcceptLanguage()
@@ -306,7 +310,7 @@ private fun applyFullWebViewConfiguration(
         uaProvider = uaProvider,
         acceptLanguage = acceptLanguage,
         desktopMode = config.desktopMode,
-        proxyInterceptEnabled = config.proxyInterceptEnabled // AGREGADO: Control de proxy intercept
+        proxyInterceptEnabled = config.proxyInterceptEnabled 
     ) {
         override fun shouldInterceptRequest(
             view: WebView,
@@ -406,7 +410,7 @@ private fun applyFullWebViewConfiguration(
         }
     }
 
-    // Apply dark mode if supported
+    
     if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
         WebSettingsCompat.setForceDark(
             s,
@@ -476,28 +480,28 @@ public class RealWebViewController(
         if (webView.canGoForward()) webView.goForward()
     }
     override fun recreateWebView() {
-        // Store current state
+        
         val currentUrl = webView.url
 
-        // Stop all activity
+        
         webView.stopLoading()
 
-        // Clear all caches and data to force fresh configuration
+        
         webView.clearCache(true)
         webView.clearHistory()
         webView.clearFormData()
 
-        // Clear all website data
+        
         CookieManager.getInstance().removeAllCookies(null)
 
-        // Force a complete reset of the WebView settings
-        // This will trigger the update{} block in AndroidView which applies new config
+        
+        
         webView.loadUrl("about:blank")
 
-        // After clearing, reload the original URL if it exists
+        
         currentUrl?.let { url ->
             if (url != "about:blank" && url.isNotEmpty()) {
-                // Small delay to ensure the clearing is complete
+                
                 webView.postDelayed({
                     webView.loadUrl(url)
                 }, 100)

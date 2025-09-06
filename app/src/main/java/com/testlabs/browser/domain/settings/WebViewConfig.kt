@@ -1,7 +1,8 @@
-/*
- * @author Lorenzo Suarez
- * @date 09/04//2025
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
  */
+
 
 package com.testlabs.browser.domain.settings
 
@@ -25,27 +26,27 @@ public data class WebViewConfig(
     val acceptLanguages: String = "en-US,en;q=0.9",
     val jsCompatibilityMode: Boolean = true,
     val proxyEnabled: Boolean = true,
-    val proxyInterceptEnabled: Boolean = false, // NUEVO: Control específico para intercept
+    val proxyInterceptEnabled: Boolean = false, 
     val customUserAgent: String? = null,
 
-    // 4) Feature toggles (in-app developer section)
-    // F. TLS/ALPN strategy
+    
+    
     val engineMode: EngineMode = EngineMode.OkHttp,
     val enableQuic: Boolean = false,
 
-    // Accept-Language policy
+    
     val acceptLanguageMode: AcceptLanguageMode = AcceptLanguageMode.Baseline,
 
-    // UA auto-update policy
+    
     val uaUpdateMode: UaUpdateMode = UaUpdateMode.Manual,
 
-    // Chrome compatibility injection
+    
     val chromeCompatibilityEnabled: Boolean = true,
 
-    // D. Platform-level X-Requested-With suppression
+    
     val suppressXRequestedWith: Boolean = true,
 
-    // E. Cookies - third-party cookie support
+    
     val enableThirdPartyCookies: Boolean = true,
 )
 
@@ -55,11 +56,11 @@ public enum class EngineMode {
 }
 
 public enum class AcceptLanguageMode {
-    Baseline,      // en-US,en;q=0.9
-    DeviceList     // full device list with Chrome-like weighting
+    Baseline,      
+    DeviceList     
 }
 
 public enum class UaUpdateMode {
-    Manual,        // manual UA string
-    AutoUpdate     // VersionHistory-driven UA (cache on DataStore)
+    Manual,        
+    AutoUpdate     
 }

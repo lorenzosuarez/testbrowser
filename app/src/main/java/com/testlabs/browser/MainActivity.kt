@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser
 
 import android.os.Bundle
@@ -29,7 +33,7 @@ public class MainActivity : ComponentActivity() {
         val filePickerLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult()
         ) { result ->
-            // Handle file picker result if needed
+            
         }
 
         BrowserScreen(
