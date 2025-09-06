@@ -7,7 +7,9 @@ package com.testlabs.browser.ui.browser.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,7 +61,11 @@ internal fun StartPage(
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
-        Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -143,13 +149,19 @@ private fun RecommendationCard(
     target: RecommendedTarget,
     onOpenUrl: (String) -> Unit,
 ) {
+    val isDarkTheme = isSystemInDarkTheme()
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .semantics { contentDescription = "start-recommendation-${target.title}" }
             .clickable { onOpenUrl(target.url) },
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)
+            containerColor = if (isDarkTheme) {
+                MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.9f)
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)
+            }
         ),
         elevation = CardDefaults.elevatedCardElevation(
             defaultElevation = dimensionResource(R.dimen.start_page_card_elevation)
@@ -188,7 +200,11 @@ private fun RecommendationCard(
 
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = dimensionResource(R.dimen.start_page_divider_margin)),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                color = if (isDarkTheme) {
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                }
             )
 
             Row(

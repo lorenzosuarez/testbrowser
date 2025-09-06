@@ -59,11 +59,15 @@ public val BrowserOnErrorDark: Color = Color(0xFF690005)
 public val BrowserOnErrorContainerDark: Color = Color(0xFFFFDAD6)
 
 public val BrowserBackgroundDark: Color = Color(0xFF17120F)
-public val BrowserOnBackgroundDark: Color = Color(0xFFEDE0DB)
 public val BrowserSurfaceDark: Color = Color(0xFF17120F)
-public val BrowserOnSurfaceDark: Color = Color(0xFFEDE0DB)
+public val BrowserOnSurfaceDark: Color = Color(0xFFFFFFFF)
+public val BrowserOnBackgroundDark: Color = Color(0xFFFFFFFF)
+public val BrowserOnSurfaceVariantDark: Color = Color(0xFFE6E1E5)
 public val BrowserSurfaceVariantDark: Color = Color(0xFF52443C)
-public val BrowserOnSurfaceVariantDark: Color = Color(0xFFD7C2B8)
 public val BrowserOutlineDark: Color = Color(0xFF9F8D83)
 
 public val BrowserTopBarBackgroundDark: Color = Color(0xFF2A2A2A)
+
+public val BrowserTextFieldContainer: Color = Color(0xFFE7E5E6)
+
+public val BrowserTextFieldContainerDark: Color = Color(0xFF3A3A3A)
