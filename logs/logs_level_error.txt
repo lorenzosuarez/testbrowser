@@ -1,0 +1,52 @@
+2025-09-05 21:38:47.731 10090-10171 chromium                com.testlabs.browser.debug           E  [ERROR:services/network/p2p/socket_manager.cc:137] Failed to resolve address for aa.online-metrix.net., errorcode: -105
+2025-09-05 21:38:47.732 10090-10171 chromium                com.testlabs.browser.debug           E  [ERROR:services/network/p2p/socket_manager.cc:137] Failed to resolve address for aa.online-metrix.net., errorcode: -105
+2025-09-05 21:38:47.732 10090-10171 chromium                com.testlabs.browser.debug           E  [ERROR:services/network/p2p/socket_manager.cc:137] Failed to resolve address for aa.online-metrix.net., errorcode: -105
+2025-09-05 21:38:47.732 10090-10171 chromium                com.testlabs.browser.debug           E  [ERROR:services/network/p2p/socket_manager.cc:137] Failed to resolve address for aa.online-metrix.net., errorcode: -105
+2025-09-05 21:38:47.732 10090-10171 chromium                com.testlabs.browser.debug           E  [ERROR:services/network/p2p/socket_manager.cc:137] Failed to resolve address for aa.online-metrix.net., errorcode: -105
+2025-09-05 21:38:47.732 10090-10171 chromium                com.testlabs.browser.debug           E  [ERROR:services/network/p2p/socket_manager.cc:137] Failed to resolve address for aa.online-metrix.net., errorcode: -105
+2025-09-05 21:38:48.973 10090-10090 WebConsole              com.testlabs.browser.debug           E  [https://www.browserscan.net/dist/JX1dUlze.js:1] Uncaught (in promise) FetchError: [POST] "/api/2d598d0b": 500 Internal Server Error
+2025-09-05 21:38:59.228 10090-10090 WebConsole              com.testlabs.browser.debug           E  [https://imasdk.googleapis.com/formats/outstream/versioned/prod2/outstream_web_client_20250428_RC00/outstream.min.js:457] Permissions policy violation: accelerometer is not allowed in this document.
+2025-09-05 21:39:02.499 10090-10267 NetworkProxy            com.testlabs.browser.debug           E  💥 ERROR proxying request: https://match.prod.bidr.io/cookie-sync/adx?google_gid=CAESEDW0nKUkuCqIwZgHDSFb-5w&google_cver=1&google_push=AXcoOmRYULHIpGpqQpGwdi3ny7SRmoVhutdNhhP9Gc7oJZ3KZzybkpvREQ0pM9yfG07pF0iuizLTu3ZCJEZutJZrvrq1F5FIV6BjTj4p (Ask Gemini)
+                                                                                                    java.io.IOException: Too many redirects
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack.executeInternal(OkHttpStack.kt:75)
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack.access$executeInternal(OkHttpStack.kt:32)
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack$execute$2.invokeSuspend(OkHttpStack.kt:60)
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack$execute$2.invoke(Unknown Source:8)
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack$execute$2.invoke(Unknown Source:4)
+                                                                                                    	at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndspatched(Undispatched.kt:66)
+                                                                                                    	at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatchedOrReturn(Undispatched.kt:43)
+                                                                                                    	at kotlinx.coroutines.BuildersKt__Builders_commonKt.withContext(Builders.common.kt:165)
+                                                                                                    	at kotlinx.coroutines.BuildersKt.withContext(Unknown Source:1)
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack.execute(OkHttpStack.kt:60)
+                                                                                                    	at com.testlabs.browser.ui.browser.NetworkProxy$interceptRequest$1.invokeSuspend(NetworkProxy.kt:70)
+                                                                                                    	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+                                                                                                    	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+                                                                                                    	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+                                                                                                    	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+2025-09-05 21:39:02.499 10090-10267 NetworkProxy            com.testlabs.browser.debug           E  Creating error response for: Too many redirects
+2025-09-05 21:39:06.897 10090-10271 NetworkProxy            com.testlabs.browser.debug           E  💥 ERROR proxying request: https://sync.srv.stackadapt.com/sync?nid=154&google_gid=CAESEHfZHpCVz1F_QVxj6GI_bpk&google_cver=1&google_push=AXcoOmQyLMesF3hotk3mK3EAsEGp4ydhBZuX8Iya7UCnfMf42r2m2QvQQAWmJwbp7Tq5iA5sRKdvC0FvkWy4W3fauLTI7pC5YaqBahk- (Ask Gemini)
+                                                                                                    java.io.IOException: Too many redirects
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack.executeInternal(OkHttpStack.kt:75)
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack.access$executeInternal(OkHttpStack.kt:32)
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack$execute$2.invokeSuspend(OkHttpStack.kt:60)
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack$execute$2.invoke(Unknown Source:8)
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack$execute$2.invoke(Unknown Source:4)
+                                                                                                    	at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndspatched(Undispatched.kt:66)
+                                                                                                    	at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatchedOrReturn(Undispatched.kt:43)
+                                                                                                    	at kotlinx.coroutines.BuildersKt__Builders_commonKt.withContext(Builders.common.kt:165)
+                                                                                                    	at kotlinx.coroutines.BuildersKt.withContext(Unknown Source:1)
+                                                                                                    	at com.testlabs.browser.network.OkHttpStack.execute(OkHttpStack.kt:60)
+                                                                                                    	at com.testlabs.browser.ui.browser.NetworkProxy$interceptRequest$1.invokeSuspend(NetworkProxy.kt:70)
+                                                                                                    	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+                                                                                                    	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+                                                                                                    	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+                                                                                                    	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+2025-09-05 21:39:06.897 10090-10271 NetworkProxy            com.testlabs.browser.debug           E  Creating error response for: Too many redirects
