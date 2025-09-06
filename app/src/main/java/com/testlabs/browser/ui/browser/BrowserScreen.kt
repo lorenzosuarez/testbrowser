@@ -35,6 +35,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.testlabs.browser.R
 import com.testlabs.browser.core.ValidatedUrl
@@ -74,6 +75,7 @@ public fun BrowserScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
+    val keyboard = LocalSoftwareKeyboardController.current
 
     var webController by remember { mutableStateOf<WebViewController?>(null) }
     val focusRequester = remember { FocusRequester() }
@@ -92,6 +94,7 @@ public fun BrowserScreen(
                 is BrowserEffect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
                 BrowserEffect.FocusUrlEditor -> {
                     focusRequester.requestFocus()
+                    keyboard?.show()
                     topScroll.state.heightOffset = 0f
                 }
                 BrowserEffect.ClearBrowsingData -> {
@@ -213,7 +216,9 @@ public fun BrowserScreen(
                 onConfigChange = { viewModel.handleIntent(BrowserIntent.UpdateSettings(it)) },
                 onDismiss = { viewModel.handleIntent(BrowserIntent.CloseSettings) },
                 onConfirm = { viewModel.handleIntent(BrowserIntent.ApplySettings) },
-                onApplyAndRestart = { viewModel.handleIntent(BrowserIntent.ApplySettingsAndRestartWebView(state.settingsDraft)) },
+                onApplyAndRestart = { config ->
+                    viewModel.handleIntent(BrowserIntent.ApplySettingsAndRestartWebView(config))
+                },
                 onClearBrowsingData = { viewModel.handleIntent(BrowserIntent.ClearBrowsingData) },
                 userAgent = currentUserAgent,
                 acceptLanguages = state.settingsDraft.acceptLanguages,

@@ -8,8 +8,11 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Message
 import android.webkit.CookieManager
 import android.webkit.MimeTypeMap
+import android.webkit.JsPromptResult
+import android.webkit.JsResult
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -162,6 +165,13 @@ private fun setupWebViewDefaults(webView: WebView) {
     s.displayZoomControls = false
     s.useWideViewPort = true
     s.loadWithOverviewMode = true
+    s.supportMultipleWindows = true
+    s.javaScriptCanOpenWindowsAutomatically = true
+
+    webView.isVerticalScrollBarEnabled = true
+    webView.isClickable = true
+    webView.isFocusable = true
+    webView.isFocusableInTouchMode = true
 
     CookieManager.getInstance().setAcceptCookie(true)
     CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
@@ -231,6 +241,14 @@ private fun WebView.applyConfig(
 
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
             super.doUpdateVisitedHistory(view, url, isReload)
+            url?.let {
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+            }
+        }
+
+        override fun onPageCommitVisible(view: WebView?, url: String?) {
+            super.onPageCommitVisible(view, url)
             url?.let {
                 onUrlChange(it)
                 onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
@@ -353,6 +371,14 @@ private fun applyFullWebViewConfiguration(
             }
         }
 
+        override fun onPageCommitVisible(view: WebView?, url: String?) {
+            super.onPageCommitVisible(view, url)
+            url?.let {
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+            }
+        }
+
         override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
             super.onReceivedError(view, errorCode, description, failingUrl)
             onError("Error $errorCode: $description")
@@ -386,6 +412,65 @@ private fun applyFullWebViewConfiguration(
         override fun onReceivedTitle(view: WebView?, title: String?) {
             super.onReceivedTitle(view, title)
             onTitle(title)
+        }
+
+        override fun onCreateWindow(
+            view: WebView?,
+            isDialog: Boolean,
+            isUserGesture: Boolean,
+            resultMsg: Message?
+        ): Boolean {
+            return false
+        }
+
+        override fun onCloseWindow(window: WebView?) {}
+
+        override fun onJsAlert(
+            view: WebView?,
+            url: String?,
+            message: String?,
+            result: JsResult?
+        ): Boolean {
+            return super.onJsAlert(view, url, message, result)
+        }
+
+        override fun onJsConfirm(
+            view: WebView?,
+            url: String?,
+            message: String?,
+            result: JsResult?
+        ): Boolean {
+            return super.onJsConfirm(view, url, message, result)
+        }
+
+        override fun onJsPrompt(
+            view: WebView?,
+            url: String?,
+            message: String?,
+            defaultValue: String?,
+            result: JsPromptResult?
+        ): Boolean {
+            return super.onJsPrompt(view, url, message, defaultValue, result)
+        }
+
+        override fun onShowFileChooser(
+            webView: WebView?,
+            filePathCallback: ValueCallback<Array<Uri>>?,
+            fileChooserParams: FileChooserParams?
+        ): Boolean {
+            val launcher = filePickerLauncher
+            return if (launcher != null && filePathCallback != null) {
+                fileCallbackRef.set(filePathCallback)
+                val intent = fileChooserParams?.createIntent()
+                if (intent != null) {
+                    launcher.launch(intent)
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
         }
     }
 
