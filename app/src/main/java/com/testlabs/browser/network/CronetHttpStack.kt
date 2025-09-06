@@ -1,19 +1,21 @@
 package com.testlabs.browser.network
 
+import android.content.Context
 import android.util.Log
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.IOException
-import java.nio.ByteBuffer
-import java.util.Locale
-import java.util.concurrent.Executors
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.chromium.net.CronetEngine
 import org.chromium.net.CronetException
 import org.chromium.net.UrlRequest
 import org.chromium.net.UrlResponseInfo
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 private const val TAG = "CronetHttpStack"
 private const val REDIRECT_LIMIT = 10
@@ -23,230 +25,212 @@ private val HOP_BY_HOP_HEADERS = setOf(
     "te", "trailers", "transfer-encoding", "upgrade"
 )
 
+/**
+ * F. TLS/ALPN strategy - Cronet mode for closer TLS/JA3/JA4 to Chrome
+ * Enable HTTP/2 and QUIC; Brotli on. Note Cronet may not expose zstd.
+ */
 public class CronetHttpStack(
-    private val engine: CronetEngine,
+    private val context: Context,
+    private val userAgentProvider: UserAgentProvider,
+    private val uaChManager: UserAgentClientHintsManager,
+    private val enableQuic: Boolean = false
 ) : HttpStack {
-    override val name: String = "Cronet"
-    private val executor = Executors.newCachedThreadPool()
+    override val name: String = "Cronet${if (enableQuic) "+QUIC" else ""}"
 
-    override suspend fun execute(request: ProxyRequest): ProxyResponse = suspendCancellableCoroutine { cont ->
-        // Use ByteArrayOutputStream to collect all data first, then create InputStream
-        val responseData = ByteArrayOutputStream()
-        var urlRequest: UrlRequest?
+    private val executor: Executor = Executors.newCachedThreadPool()
 
-        Log.d(TAG, "Executing Cronet request: ${request.method} ${request.url}")
-
-        val callback = object : UrlRequest.Callback() {
-            var status = 0
-            var reason = ""
-            var headers: Map<String, String> = emptyMap()
-            var redirectCount = 0
-            var currentMethod = request.method
-
-            override fun onRedirectReceived(req: UrlRequest, info: UrlResponseInfo, newLocationUrl: String) {
-                if (++redirectCount > REDIRECT_LIMIT) {
-                    Log.w(TAG, "Too many redirects ($redirectCount) for ${request.url}")
-                    req.cancel()
-                    cont.resumeWithException(IOException("Too many redirects"))
-                    return
+    private val cronetEngine: CronetEngine by lazy {
+        CronetEngine.Builder(context)
+            .setUserAgent(userAgentProvider.getChromeStableMobileUA())
+            .enableHttp2(true)
+            .enableBrotli(true)
+            .apply {
+                if (enableQuic) {
+                    enableQuic(true)
+                    // Add QUIC hints for common domains
+                    addQuicHint("www.google.com", 443, 443)
+                    addQuicHint("accounts.google.com", 443, 443)
+                    addQuicHint("apis.google.com", 443, 443)
                 }
-
-                // Handle method changes for redirects according to HTTP specs
-                val statusCode = info.httpStatusCode
-                currentMethod = when {
-                    statusCode == 303 -> "GET" // Always change to GET for 303
-                    statusCode in listOf(301, 302) && currentMethod.uppercase(Locale.US) !in SAFE_METHODS -> "GET"
-                    else -> currentMethod // Keep original method for 307, 308 and safe methods
-                }
-
-                Log.d(TAG, "Following redirect $redirectCount: $statusCode -> $newLocationUrl (method: $currentMethod)")
-                req.followRedirect()
             }
+            .build()
+    }
 
-            override fun onResponseStarted(req: UrlRequest, info: UrlResponseInfo) {
-                status = info.httpStatusCode
-                reason = info.httpStatusText ?: getDefaultStatusText(status)
-
-                // Filter headers properly - remove hop-by-hop and compression headers
-                // since Cronet automatically decompresses content
-                headers = info.allHeaders
-                    .filterKeys { key ->
-                        val lowerKey = key.lowercase(Locale.US)
-                        lowerKey !in HOP_BY_HOP_HEADERS &&
-                        lowerKey !in setOf("content-encoding", "content-length")
-                    }
-                    .mapValues { it.value.joinToString(", ") }
-
-                Log.d(TAG, "Response started: $status $reason")
-                Log.d(TAG, "Content-Type: ${headers["content-type"] ?: "not specified"}")
-                Log.d(TAG, "Filtered headers count: ${headers.size}")
-
-                req.read(ByteBuffer.allocateDirect(32 * 1024))
-            }
-
-            override fun onReadCompleted(req: UrlRequest, info: UrlResponseInfo, buffer: ByteBuffer) {
-                buffer.flip()
-                val bytes = ByteArray(buffer.remaining())
-                buffer.get(bytes)
-
-                Log.d(TAG, "Read ${bytes.size} bytes from response")
-
-                try {
-                    responseData.write(bytes)
-                } catch (e: IOException) {
-                    Log.w(TAG, "Error writing response data", e)
-                    req.cancel()
-                    return
-                }
-
-                buffer.clear()
-                req.read(buffer)
-            }
-
-            override fun onSucceeded(req: UrlRequest, info: UrlResponseInfo) {
-                val totalBytes = responseData.size()
-                Log.d(TAG, "Request completed successfully: ${request.url}")
-                Log.d(TAG, "Final response details:")
-                Log.d(TAG, "  - Status: $status $reason")
-                Log.d(TAG, "  - HTTP version: ${info.httpStatusText}")
-                Log.d(TAG, "  - Total bytes downloaded: $totalBytes")
-                Log.d(TAG, "  - All headers: ${info.allHeaders}")
-
-                // Create ByteArrayInputStream from collected data
-                val inputStream = ByteArrayInputStream(responseData.toByteArray())
-
-                // Log first few bytes for debugging (HTML content)
-                if (totalBytes > 0) {
-                    val preview = responseData.toByteArray().take(200)
-                    val previewText = String(preview.toByteArray(), Charsets.UTF_8)
-                    Log.d(TAG, "Response preview (first 200 chars): $previewText")
-                }
-
-                cont.resume(ProxyResponse(status, reason, headers, inputStream))
-            }
-
-            override fun onFailed(req: UrlRequest, info: UrlResponseInfo?, error: CronetException) {
-                Log.e(TAG, "Request failed: ${request.url}", error)
-                cont.resumeWithException(IOException("Cronet error: ${error.message}"))
-            }
-
-            override fun onCanceled(req: UrlRequest, info: UrlResponseInfo?) {
-                Log.d(TAG, "Request canceled: ${request.url}")
-                cont.resumeWithException(IOException("Request canceled"))
-            }
+    override suspend fun execute(request: ProxyRequest): ProxyResponse =
+        withContext(Dispatchers.IO) {
+            executeInternal(request)
         }
 
-        try {
-            val builder = engine.newUrlRequestBuilder(request.url, callback, executor)
-                .setHttpMethod(request.method)
-                .setPriority(UrlRequest.Builder.REQUEST_PRIORITY_MEDIUM)
+    private suspend fun executeInternal(request: ProxyRequest): ProxyResponse =
+        suspendCoroutine { continuation ->
+            val requestBuilder = cronetEngine.newUrlRequestBuilder(
+                request.url,
+                object : UrlRequest.Callback() {
+                    private val responseData = ByteArrayOutputStream()
+                    private var responseInfo: UrlResponseInfo? = null
 
-            // Add all headers from the request, ensuring no X-Requested-With is added
-            request.headers.forEach { (key, value) ->
-                if (key.lowercase(Locale.US) != "x-requested-with") {
-                    builder.addHeader(key, value)
+                    override fun onRedirectReceived(
+                        request: UrlRequest?,
+                        info: UrlResponseInfo?,
+                        newLocationUrl: String?
+                    ) {
+                        request?.followRedirect()
+                    }
+
+                    override fun onResponseStarted(request: UrlRequest?, info: UrlResponseInfo?) {
+                        responseInfo = info
+                        request?.read(ByteBuffer.allocateDirect(32 * 1024))
+                    }
+
+                    override fun onReadCompleted(
+                        request: UrlRequest?,
+                        info: UrlResponseInfo?,
+                        byteBuffer: ByteBuffer?
+                    ) {
+                        byteBuffer?.flip()
+                        if (byteBuffer?.hasRemaining() == true) {
+                            val bytes = ByteArray(byteBuffer.remaining())
+                            byteBuffer.get(bytes)
+                            responseData.write(bytes)
+                        }
+                        byteBuffer?.clear()
+                        request?.read(byteBuffer)
+                    }
+
+                    override fun onSucceeded(request: UrlRequest?, info: UrlResponseInfo?) {
+                        val response = buildProxyResponse(info, responseData.toByteArray())
+                        continuation.resume(response)
+                    }
+
+                    override fun onFailed(
+                        request: UrlRequest,
+                        info: UrlResponseInfo,
+                        error: CronetException
+                    ) {
+                        continuation.resumeWithException(
+                            error
+                        )
+                    }
+                },
+                executor
+            )
+
+            // Set HTTP method
+            if (request.method.uppercase() != "GET") {
+                requestBuilder.setHttpMethod(request.method)
+            }
+
+            // Add headers with proper UA-CH support
+            val origin = request.url.substringBefore("/", request.url.substringAfter("://"))
+            request.headers.forEach { (name, value) ->
+                val lowerName = name.lowercase()
+                when {
+                    lowerName == "x-requested-with" -> { /* Skip */ }
+                    lowerName == "user-agent" -> {
+                        requestBuilder.addHeader("User-Agent", userAgentProvider.getChromeStableMobileUA())
+                    }
+                    lowerName.startsWith("sec-ch-ua") -> {
+                        addClientHintHeader(requestBuilder, lowerName, origin)
+                    }
+                    lowerName == "accept" && value.contains("text/html") -> {
+                        requestBuilder.addHeader(
+                            "Accept",
+                            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+                        )
+                    }
+                    else -> requestBuilder.addHeader(name, value)
                 }
             }
 
             // Add request body if present
-            request.body?.let { body ->
-                builder.setUploadDataProvider(
-                    object : org.chromium.net.UploadDataProvider() {
-                        private var position = 0
-
-                        override fun getLength(): Long = body.size.toLong()
-
-                        override fun read(uploadDataSink: org.chromium.net.UploadDataSink, byteBuffer: ByteBuffer) {
-                            val remaining = body.size - position
-                            if (remaining <= 0) {
-                                uploadDataSink.onReadSucceeded(true) // EOF
-                                return
-                            }
-
-                            val toRead = minOf(remaining, byteBuffer.remaining())
-                            byteBuffer.put(body, position, toRead)
-                            position += toRead
-                            uploadDataSink.onReadSucceeded(false)
-                        }
-
-                        override fun rewind(uploadDataSink: org.chromium.net.UploadDataSink) {
-                            position = 0
-                            uploadDataSink.onRewindSucceeded()
-                        }
-                    },
-                    executor
-                )
+            if (request.body != null && request.body.isNotEmpty()) {
+                val uploadDataProvider = ByteArrayUploadDataProvider(request.body)
+                requestBuilder.setUploadDataProvider(uploadDataProvider, executor)
             }
 
-            urlRequest = builder.build()
-            urlRequest?.start()
-
-            cont.invokeOnCancellation {
-                urlRequest?.cancel()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error creating Cronet request for ${request.url}", e)
-            cont.resumeWithException(e)
+            requestBuilder.build().start()
         }
-    }
 
-    private fun checkForBotChallenge(url: String, contentType: String, statusCode: Int, body: ByteArrayInputStream) {
-        try {
-            if ((url.endsWith(".js") || url.endsWith(".mjs") || url.contains("type=module")) &&
-                contentType.startsWith("text/html") && statusCode == 200) {
-
-                Log.w(TAG, "BOT_CHALLENGE_SUSPECT detected for $url - Content-Type: $contentType, Status: $statusCode")
-
-                // Read first 1KB for debugging without consuming the stream
-                val available = body.available()
-                if (available > 0) {
-                    val debugSize = minOf(1024, available)
-                    Log.w(TAG, "First $debugSize bytes available for debugging $url")
+    /**
+     * Adds UA-CH headers to the Cronet request builder. This method is thread-safe and
+     * does not perform any blocking or suspending work; it only derives deterministic
+     * header values from the current environment and providers.
+     */
+    private fun addClientHintHeader(
+        requestBuilder: UrlRequest.Builder,
+        hintName: String,
+        origin: String
+    ) {
+        when (hintName) {
+            "sec-ch-ua" -> {
+                val brands = userAgentProvider.getChromeUserAgentDataBrands()
+                val brandString = brands.joinToString(", ") { """"${it.first}";v="${it.second}"""" }
+                requestBuilder.addHeader("Sec-CH-UA", brandString)
+            }
+            "sec-ch-ua-mobile" -> {
+                requestBuilder.addHeader("Sec-CH-UA-Mobile", "?1")
+            }
+            "sec-ch-ua-platform" -> {
+                requestBuilder.addHeader("Sec-CH-UA-Platform", "\"Android\"")
+            }
+            else -> {
+                try {
+                    when (hintName) {
+                        "sec-ch-ua-arch" -> requestBuilder.addHeader("Sec-CH-UA-Arch", "\"arm\"")
+                        "sec-ch-ua-bitness" -> requestBuilder.addHeader("Sec-CH-UA-Bitness", "\"64\"")
+                        "sec-ch-ua-model" -> requestBuilder.addHeader("Sec-CH-UA-Model", "\"${android.os.Build.MODEL}\"")
+                        "sec-ch-ua-platform-version" ->
+                            requestBuilder.addHeader("Sec-CH-UA-Platform-Version", "\"${android.os.Build.VERSION.RELEASE}\"")
+                        "sec-ch-ua-full-version-list" -> {
+                            val brands = userAgentProvider.getChromeUserAgentDataBrands()
+                            val fullVersionList = brands.joinToString(", ") {
+                                """"${it.first}";v="${if (it.first.contains("Chrome")) userAgentProvider.getChromeStableFullVersion() else it.second}""""
+                            }
+                            requestBuilder.addHeader("Sec-CH-UA-Full-Version-List", fullVersionList)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w("CronetHttpStack", "Error setting UA-CH header $hintName", e)
                 }
             }
-        } catch (e: Exception) {
-            Log.d(TAG, "Error checking bot challenge for $url", e)
         }
     }
-}
 
-private fun getDefaultStatusText(statusCode: Int): String = when (statusCode) {
-    100 -> "Continue"
-    101 -> "Switching Protocols"
-    200 -> "OK"
-    201 -> "Created"
-    202 -> "Accepted"
-    204 -> "No Content"
-    205 -> "Reset Content"
-    206 -> "Partial Content"
-    300 -> "Multiple Choices"
-    301 -> "Moved Permanently"
-    302 -> "Found"
-    303 -> "See Other"
-    304 -> "Not Modified"
-    307 -> "Temporary Redirect"
-    308 -> "Permanent Redirect"
-    400 -> "Bad Request"
-    401 -> "Unauthorized"
-    403 -> "Forbidden"
-    404 -> "Not Found"
-    405 -> "Method Not Allowed"
-    406 -> "Not Acceptable"
-    408 -> "Request Timeout"
-    409 -> "Conflict"
-    410 -> "Gone"
-    411 -> "Length Required"
-    413 -> "Payload Too Large"
-    414 -> "URI Too Long"
-    415 -> "Unsupported Media Type"
-    418 -> "I'm a teapot"
-    421 -> "Misdirected Request"
-    422 -> "Unprocessable Entity"
-    429 -> "Too Many Requests"
-    500 -> "Internal Server Error"
-    501 -> "Not Implemented"
-    502 -> "Bad Gateway"
-    503 -> "Service Unavailable"
-    504 -> "Gateway Timeout"
-    else -> "Unknown"
+    private fun buildProxyResponse(info: UrlResponseInfo?, data: ByteArray): ProxyResponse {
+        val headers = mutableMapOf<String, String>()
+
+        info?.allHeaders?.forEach { (name, values) ->
+            val lowerName = name.lowercase()
+            // Cronet already handles decompression, so remove encoding headers
+            if (lowerName !in setOf("content-encoding", "content-length", "transfer-encoding")) {
+                headers[name] = values.joinToString(", ")
+            }
+        }
+
+        return ProxyResponse(
+            statusCode = info?.httpStatusCode ?: 200,
+            reasonPhrase = info?.httpStatusText ?: "OK",
+            headers = headers,
+            body = ByteArrayInputStream(data)
+        )
+    }
+
+    private class ByteArrayUploadDataProvider(private val data: ByteArray) :
+        org.chromium.net.UploadDataProvider() {
+
+        override fun getLength(): Long = data.size.toLong()
+
+        override fun read(uploadDataSink: org.chromium.net.UploadDataSink?, byteBuffer: ByteBuffer?) {
+            byteBuffer?.put(data)
+            uploadDataSink?.onReadSucceeded(false)
+        }
+
+        override fun rewind(uploadDataSink: org.chromium.net.UploadDataSink?) {
+            uploadDataSink?.onRewindSucceeded()
+        }
+    }
+
+    public fun shutdown() {
+        cronetEngine.shutdown()
+    }
 }

@@ -29,7 +29,10 @@ private val HOP_HEADERS = setOf(
     "upgrade",
 )
 
-public class OkHttpStack : HttpStack {
+public class OkHttpStack(
+    private val userAgentProvider: UserAgentProvider,
+    private val uaChManager: UserAgentClientHintsManager
+) : HttpStack {
     override val name: String = "OkHttp"
 
     private val client = OkHttpClient.Builder()
@@ -37,8 +40,18 @@ public class OkHttpStack : HttpStack {
         .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .addInterceptor(BrotliInterceptor)     // adds "br" and auto-decompresses
-        // Note: Zstd support might not be available in current OkHttp version
-        // .addInterceptor(ZstdInterceptor)    // would add "zstd" and auto-decompress
+        .addInterceptor { chain ->
+            val request = chain.request()
+            val builder = request.newBuilder()
+
+            // F. TLS/ALP strategy - maximal header control and Accept-Encoding parity
+            if (!request.headers.names().contains("Accept-Encoding")) {
+                builder.header("Accept-Encoding", "gzip, deflate, br, zstd")
+            }
+
+            // Ensure HTTP/2 preference for deterministic tests
+            chain.proceed(builder.build())
+        }
         .followRedirects(false)                // we handle redirects manually
         .followSslRedirects(false)
         .build()
@@ -83,7 +96,8 @@ public class OkHttpStack : HttpStack {
                     current = nextBuilder.build()
                 }
                 else -> {
-                    // Filter headers and remove compression-related ones since OkHttp decompresses
+                    // B. Response decoding normalization - OkHttp already handles decompression
+                    // Filter headers appropriately since content is already decompressed
                     val filteredHeaders = response.headers.filterForWebView()
                     val reason: String = response.message.ifBlank { defaultReason(response.code) }
                     val stream: InputStream = ResponseBodyInputStream(response)
@@ -93,27 +107,76 @@ public class OkHttpStack : HttpStack {
         }
     }
 
-    private fun buildRequest(req: ProxyRequest): Request {
+    private suspend fun buildRequest(req: ProxyRequest): Request {
         val builder = Request.Builder().url(req.url)
+        val origin = req.url.substringBefore("/", req.url.substringAfter("://"))
 
-        // Copy headers 1:1 from WebResourceRequest, preserving all important ones
+        // Copy headers and implement C. Request header parity
         req.headers.forEach { (name, value) ->
             val lowerName = name.lowercase(Locale.US)
             when {
-                // Don't manually set Accept-Encoding - let OkHttp + interceptors handle it
-                lowerName == "accept-encoding" -> { /* Skip - OkHttp will add gzip/br */ }
                 // Never add X-Requested-With
                 lowerName == "x-requested-with" -> { /* Skip completely */ }
+                // Handle User-Agent with Chrome Stable mobile UA
+                lowerName == "user-agent" -> {
+                    builder.header("User-Agent", userAgentProvider.getChromeStableMobileUA())
+                }
+                // UA-CH (Client Hints) on requests
+                lowerName.startsWith("sec-ch-ua") -> {
+                    when (lowerName) {
+                        "sec-ch-ua" -> {
+                            // Always send low entropy: Sec-CH-UA with correct brands
+                            val brands = userAgentProvider.getChromeUserAgentDataBrands()
+                            val brandString = brands.joinToString(", ") { """"${it.first}";v="${it.second}"""" }
+                            builder.header("Sec-CH-UA", brandString)
+                        }
+                        "sec-ch-ua-mobile" -> {
+                            // Always send low entropy: mobile=?1 for mobile
+                            builder.header("Sec-CH-UA-Mobile", "?1")
+                        }
+                        "sec-ch-ua-platform" -> {
+                            // Always send low entropy: platform="Android"
+                            builder.header("Sec-CH-UA-Platform", "\"Android\"")
+                        }
+                        else -> {
+                            // Send high-entropy hints only to origins that previously advertised them via Accept-CH
+                            if (uaChManager.isHighEntropyAllowed(origin, lowerName)) {
+                                when (lowerName) {
+                                    "sec-ch-ua-arch" -> builder.header("Sec-CH-UA-Arch", "\"arm\"")
+                                    "sec-ch-ua-bitness" -> builder.header("Sec-CH-UA-Bitness", "\"64\"")
+                                    "sec-ch-ua-model" -> builder.header("Sec-CH-UA-Model", "\"${android.os.Build.MODEL}\"")
+                                    "sec-ch-ua-platform-version" -> builder.header("Sec-CH-UA-Platform-Version", "\"${android.os.Build.VERSION.RELEASE}\"")
+                                    "sec-ch-ua-full-version-list" -> {
+                                        val brands = userAgentProvider.getChromeUserAgentDataBrands()
+                                        val fullVersionList = brands.joinToString(", ") {
+                                            """"${it.first}";v="${if (it.first.contains("Chrome")) userAgentProvider.getChromeStableFullVersion() else it.second}""""
+                                        }
+                                        builder.header("Sec-CH-UA-Full-Version-List", fullVersionList)
+                                    }
+                                    else -> builder.header(name, value)
+                                }
+                            }
+                        }
+                    }
+                }
+                // Set navigation-style Accept for main HTML fetches
+                lowerName == "accept" && value.contains("text/html") -> {
+                    // Chrome-like Accept header with SXG support
+                    builder.header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                }
                 else -> builder.header(name, value)
             }
         }
 
+        // Process Accept-CH response headers for future requests
+        // This would be called after getting the response, but we'll handle it in the response processing
+
         val method = req.method.uppercase(Locale.US)
 
         // Handle request body properly - POST/PUT/PATCH can have empty bodies
-        val body = when {
-            method in SAFE_METHODS -> null // GET, HEAD never have bodies
-            method in METHODS_WITH_BODY -> {
+        val body = when (method) {
+            in SAFE_METHODS -> null // GET, HEAD never have bodies
+            in METHODS_WITH_BODY -> {
                 // For POST/PUT/PATCH, use the provided body or create an empty one
                 if (req.body != null && req.body.isNotEmpty()) {
                     req.body.toRequestBody()
@@ -122,6 +185,7 @@ public class OkHttpStack : HttpStack {
                     ByteArray(0).toRequestBody()
                 }
             }
+
             else -> null // Other methods (OPTIONS, TRACE, etc.)
         }
 
@@ -141,7 +205,8 @@ private fun Headers.filterForWebView(): Map<String, String> {
         .asSequence()
         .filter { (name, _) ->
             val lowerName = name.lowercase(Locale.US)
-            // Remove hop-by-hop headers and compression headers (content is already decompressed)
+            // B. Response decoding normalization - remove encoding headers since OkHttp decompresses
+            // Remove hop-by-hop headers
             lowerName !in HOP_HEADERS &&
             lowerName !in setOf("content-encoding", "content-length")
         }

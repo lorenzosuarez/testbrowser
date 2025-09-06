@@ -5,6 +5,7 @@ agp = "8.11.1"
 androidx-compose-bom = "2025.08.01"
 core = "1.7.0"
 core-ktx = "1.17.0"
+datastore-preferences = "1.1.7"
 espresso-core = "3.7.0"
 junit-version = "1.3.0"
 koin-android = "4.1.1"
@@ -33,6 +34,7 @@ cronet = "119.6045.31"
 play-services-cronet = "18.1.0"
 brotli = "0.1.2"
 zstd = "1.5.5-9"
+zstd-jni = "1.5.5-1"
 
 [libraries]
 # AndroidX Core
@@ -41,6 +43,7 @@ androidx-activity-compose-v1101 = { module = "androidx.activity:activity-compose
 androidx-animation = { module = "androidx.compose.animation:animation" }
 androidx-core-ktx-v1170 = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 androidx-core-v170 = { module = "androidx.test:core", version.ref = "core" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore-preferences" }
 androidx-espresso-core-v370 = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso-core" }
 androidx-junit-v130 = { module = "androidx.test.ext:junit", version.ref = "junit-version" }
 androidx-lifecycle-runtime-ktx-v293 = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle-runtime-ktx" }
@@ -83,6 +86,7 @@ cronet-embedded = { module = "org.chromium.net:cronet-embedded", version.ref = "
 play-services-cronet = { module = "com.google.android.gms:play-services-cronet", version.ref = "play-services-cronet" }
 brotli-dec = { module = "org.brotli:dec", version.ref = "brotli" }
 zstd-jni = { module = "com.github.luben:zstd-jni", version.ref = "zstd" }
+zstd-jni-v1551 = { module = "com.github.luben:zstd-jni", version.ref = "zstd-jni" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -3,7 +3,10 @@ package com.testlabs.browser.network
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import com.testlabs.browser.settings.DeveloperSettings
-import okhttp3.*
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
 import org.brotli.dec.BrotliInputStream
 import com.github.luben.zstd.ZstdInputStream
 import java.io.ByteArrayInputStream
@@ -20,8 +23,9 @@ public class OkHttpEngine(
         .build()
 
     public fun execute(request: WebResourceRequest): WebResourceResponse? {
-        val url = request.url.toString()
-        val builder = Request.Builder().url(url).method(request.method, null)
+        val builder = Request.Builder()
+            .url(request.url.toString())
+            .method(request.method, null)
 
         val acceptLanguage = if (settings.richAcceptLanguage.value) "en-US,en;q=0.9" else "en-US"
 
@@ -34,44 +38,53 @@ public class OkHttpEngine(
             .header("Sec-CH-UA-Mobile", "?1")
             .header("Sec-CH-UA-Platform", "\"Android\"")
 
-        val response = client.newCall(builder.build()).execute()
-        return normalize(response)
+        return client.newCall(builder.build()).execute().use { response ->
+            normalize(response)
+        }
     }
 
     private fun normalize(response: Response): WebResourceResponse {
-        val bodyBytes = response.body?.bytes() ?: ByteArray(0)
+        val bodyBytes = response.body.bytes()
         val encoding = response.header("Content-Encoding")
         val decoded = decode(bodyBytes, encoding)
 
-        val headers = response.headers.toMutableMap()
-        headers.remove("Content-Encoding")
-        headers.remove("Content-Length")
+        val headers: MutableMap<String, String> =
+            response.headers.toMultimap().mapValues { it.value.joinToString(",") }.toMutableMap()
+
+        headers.keys
+            .filter { it.equals("Content-Encoding", true) || it.equals("Content-Length", true) }
+            .forEach { headers.remove(it) }
 
         val contentType = response.header("Content-Type") ?: "application/octet-stream"
-        val mime = contentType.substringBefore(";", "application/octet-stream").lowercase(Locale.getDefault())
-        val charset = contentType.substringAfter("charset=", "utf-8")
+        val mime = contentType.substringBefore(";").lowercase(Locale.ROOT).ifBlank { "application/octet-stream" }
+        val charset = Regex("(?i)charset=([\\w-]+)").find(contentType)?.groupValues?.get(1) ?: "utf-8"
 
         val web = WebResourceResponse(mime, charset, ByteArrayInputStream(decoded))
         web.responseHeaders = headers
-        web.statusCode = response.code
-        web.reasonPhrase = response.message
+        web.setStatusCodeAndReasonPhrase(response.code, response.message.ifBlank { " " })
         return web
     }
 
     private fun decode(bytes: ByteArray, encoding: String?): ByteArray {
         val stream: InputStream = when {
-            encoding?.contains("br", true) == true -> BrotliInputStream(ByteArrayInputStream(bytes))
-            encoding?.contains("zstd", true) == true || isZstd(bytes) -> ZstdInputStream(ByteArrayInputStream(bytes))
-            encoding?.contains("gzip", true) == true || isGzip(bytes) -> GZIPInputStream(ByteArrayInputStream(bytes))
+            encoding?.contains("br", true) == true ->
+                BrotliInputStream(ByteArrayInputStream(bytes))
+            encoding?.contains("zstd", true) == true || isZstd(bytes) ->
+                ZstdInputStream(ByteArrayInputStream(bytes))
+            encoding?.contains("gzip", true) == true || isGzip(bytes) ->
+                GZIPInputStream(ByteArrayInputStream(bytes))
             else -> return bytes
         }
-        return stream.readBytes()
+        return stream.use { it.readBytes() }
     }
 
     private fun isGzip(bytes: ByteArray): Boolean =
         bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte()
 
     private fun isZstd(bytes: ByteArray): Boolean =
-        bytes.size >= 4 && bytes[0] == 0x28.toByte() && bytes[1] == 0xb5.toByte() &&
-            bytes[2] == 0x2f.toByte() && bytes[3] == 0xfd.toByte()
+        bytes.size >= 4 &&
+                bytes[0] == 0x28.toByte() &&
+                bytes[1] == 0xb5.toByte() &&
+                bytes[2] == 0x2f.toByte() &&
+                bytes[3] == 0xfd.toByte()
 }

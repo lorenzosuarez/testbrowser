@@ -18,7 +18,11 @@ public class BrowserWebViewClient(
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?): Unit {
         super.onPageStarted(view, url, favicon)
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-            WebViewCompat.addDocumentStartJavaScript(view, js.script(), listOf("*"))
+            WebViewCompat.addDocumentStartJavaScript(
+                view,
+                js.script(),
+                setOf("*")
+            )
         }
     }
 

@@ -7,8 +7,12 @@ import com.testlabs.browser.network.HttpStack
 import com.testlabs.browser.network.ProxyRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.util.Locale
+import java.util.zip.GZIPInputStream
+import java.util.zip.InflaterInputStream
+import com.github.luben.zstd.ZstdInputStream
 
 private const val TAG = "NetworkProxy"
 
@@ -26,10 +30,17 @@ public class NetworkProxy(
     ): WebResourceResponse? {
         val url = request.url.toString()
 
+        // A. Main-frame policy: Do not intercept top-level document navigations
+        if (request.isForMainFrame && isHtmlRequest(request, url)) {
+            Log.d(TAG, "❌ Bypassing main-frame HTML navigation: $url")
+            return null
+        }
+
         // Enhanced logging for all requests
         Log.d(TAG, "=== REQUEST ANALYSIS ===")
         Log.d(TAG, "URL: $url")
         Log.d(TAG, "Method: ${request.method}")
+        Log.d(TAG, "Main frame: ${request.isForMainFrame}")
         Log.d(TAG, "Proxy enabled: $proxyEnabled")
         Log.d(TAG, "Request headers: ${request.requestHeaders.keys}")
 
@@ -45,18 +56,12 @@ public class NetworkProxy(
         }
 
         // Log specific resource types for debugging
-        val resourceType = when {
-            url.endsWith(".js") || url.endsWith(".mjs") -> "JavaScript"
-            url.endsWith(".css") -> "CSS"
-            url.endsWith(".html") || url.endsWith("/") -> "HTML"
-            url.contains("api") -> "API"
-            else -> "Other"
-        }
+        val resourceType = getResourceType(url)
         Log.d(TAG, "✅ Intercepting $resourceType: ${request.method} $url")
 
         return try {
             runBlocking(Dispatchers.IO) {
-                // Build fresh request for this specific URL - clone headers 1:1
+                // C. Request header parity (proxy layer)
                 val headers = buildRequestHeaders(request, userAgent, acceptLanguage, url)
                 val body = extractRequestBody(request)
                 val proxyRequest = ProxyRequest(url, request.method, headers, body)
@@ -66,8 +71,10 @@ public class NetworkProxy(
 
                 // Enhanced response logging
                 val contentType = response.headers["Content-Type"] ?: response.headers["content-type"] ?: ""
+                val contentEncoding = response.headers["Content-Encoding"] ?: response.headers["content-encoding"]
                 Log.d(TAG, "📥 Response ${response.statusCode} ${response.reasonPhrase}")
                 Log.d(TAG, "📥 Content-Type: $contentType")
+                Log.d(TAG, "📥 Content-Encoding: $contentEncoding")
                 Log.d(TAG, "📥 Headers: ${response.headers.keys}")
 
                 // Check for potential bot challenges
@@ -77,11 +84,12 @@ public class NetworkProxy(
                     Log.e(TAG, "🚨 This indicates CDN bot detection!")
                 }
 
-                // Handle cookies from response
+                // E. Cookies: Handle cookies from response
                 handleSetCookies(url, response.headers)
 
-                val webResponse = createWebResourceResponse(response, url)
-                Log.d(TAG, "✅ Successfully created WebResourceResponse for $url")
+                // B. Response decoding normalization (critical)
+                val webResponse = createNormalizedWebResourceResponse(response, url)
+                Log.d(TAG, "✅ Successfully created normalized WebResourceResponse for $url")
                 webResponse
             }
         } catch (e: Exception) {
@@ -90,11 +98,31 @@ public class NetworkProxy(
         }
     }
 
+    private fun isHtmlRequest(request: WebResourceRequest, url: String): Boolean {
+        val acceptHeader = request.requestHeaders["Accept"] ?: ""
+        return acceptHeader.contains("text/html") ||
+               url.endsWith(".html") ||
+               url.endsWith("/") ||
+               (!url.contains(".") && !url.contains("api"))
+    }
+
+    private fun getResourceType(url: String): String = when {
+        url.endsWith(".js") || url.endsWith(".mjs") -> "JavaScript"
+        url.endsWith(".css") -> "CSS"
+        url.endsWith(".html") || url.endsWith("/") -> "HTML"
+        url.contains("api") -> "API"
+        url.endsWith(".json") -> "JSON"
+        url.endsWith(".woff") || url.endsWith(".woff2") || url.endsWith(".ttf") -> "Font"
+        url.endsWith(".png") || url.endsWith(".jpg") || url.endsWith(".jpeg") || url.endsWith(".gif") || url.endsWith(".webp") -> "Image"
+        else -> "Other"
+    }
+
     private fun shouldProxy(url: String): Boolean {
         val scheme = url.substringBefore(':').lowercase(Locale.US)
         return scheme in setOf("http", "https")
     }
 
+    // C. Request header parity (proxy layer)
     private fun buildRequestHeaders(
         request: WebResourceRequest,
         userAgent: String,
@@ -103,13 +131,23 @@ public class NetworkProxy(
     ): Map<String, String> {
         val headers = mutableMapOf<String, String>()
 
-        // Copy all headers from WebResourceRequest 1:1, preserving important ones
+        // Forward all headers from WebResourceRequest unmodified, except specific ones
         request.requestHeaders.forEach { (name, value) ->
             val lowerName = name.lowercase(Locale.US)
             when (lowerName) {
                 "x-requested-with" -> {
-                    // Never add X-Requested-With - suppress completely
+                    // Remove X-Requested-With everywhere
                     Log.d(TAG, "Suppressing X-Requested-With header")
+                }
+                "user-agent" -> {
+                    // Overwrite User-Agent with exact Chrome Stable mobile UA
+                    headers["User-Agent"] = userAgent
+                    Log.d(TAG, "Set User-Agent: $userAgent")
+                }
+                "accept-language" -> {
+                    // Ensure Accept-Language follows device locales with Chrome-like weighting
+                    headers["Accept-Language"] = acceptLanguage
+                    Log.d(TAG, "Set Accept-Language: $acceptLanguage")
                 }
                 else -> {
                     // Copy all other headers including Accept, Referer, Sec-*, Cache-Control, etc.
@@ -118,7 +156,7 @@ public class NetworkProxy(
             }
         }
 
-        // Ensure User-Agent and Accept-Language are set
+        // Ensure required headers are set
         if (!headers.containsKey("User-Agent")) {
             headers["User-Agent"] = userAgent
         }
@@ -126,7 +164,7 @@ public class NetworkProxy(
             headers["Accept-Language"] = acceptLanguage
         }
 
-        // Add cookies from CookieManager for synchronization
+        // E. Cookies: read cookies from CookieManager and attach to proxied requests
         try {
             val cookies = cookieManager.getCookie(url)
             if (!cookies.isNullOrBlank()) {
@@ -137,9 +175,7 @@ public class NetworkProxy(
             Log.w(TAG, "Error getting cookies for $url", e)
         }
 
-        // Don't manually set Accept-Encoding - let OkHttp + interceptors handle it
-
-        Log.d(TAG, "Request headers for $url: ${headers.keys}")
+        Log.d(TAG, "Final request headers for $url: ${headers.keys}")
         return headers
     }
 
@@ -149,6 +185,7 @@ public class NetworkProxy(
         return null
     }
 
+    // E. Cookies: capture all Set-Cookie headers and write into CookieManager
     private fun handleSetCookies(url: String, headers: Map<String, String>) {
         headers.forEach { (name, value) ->
             if (name.equals("Set-Cookie", ignoreCase = true)) {
@@ -169,151 +206,191 @@ public class NetworkProxy(
         }
     }
 
-    private fun createWebResourceResponse(
+    // B. Response decoding normalization (critical)
+    private fun createNormalizedWebResourceResponse(
         response: com.testlabs.browser.network.ProxyResponse,
         url: String
     ): WebResourceResponse {
-        // Parse Content-Type into mimeType + charset
+        // Read Content-Type exactly; derive mime and charset
         val contentTypeHeader = response.headers["Content-Type"] ?: response.headers["content-type"] ?: "application/octet-stream"
         val (mimeType, charset) = parseContentType(contentTypeHeader)
 
-        // Check for bot challenge before creating response
-        checkForBotChallenge(url, contentTypeHeader, response.statusCode)
+        Log.d(TAG, "📋 Normalizing response for $url")
+        Log.d(TAG, "📋 Original Content-Type: $contentTypeHeader")
+        Log.d(TAG, "📋 Parsed MIME: $mimeType, Charset: $charset")
+
+        // Determine if the response body is encoded or decoded
+        val contentEncoding = response.headers["Content-Encoding"] ?: response.headers["content-encoding"]
+        val transferEncoding = response.headers["Transfer-Encoding"] ?: response.headers["transfer-encoding"]
+        val contentLength = response.headers["Content-Length"] ?: response.headers["content-length"]
+
+        Log.d(TAG, "📋 Original Content-Encoding: $contentEncoding")
+        Log.d(TAG, "📋 Original Content-Length: $contentLength")
+
+        // Read the response body
+        val originalBody = response.body.readBytes()
+
+        // Determine if body is actually encoded by checking magic bytes
+        val bodyEncoding = detectBodyEncoding(originalBody)
+        Log.d(TAG, "📋 Detected body encoding: $bodyEncoding")
+
+        val (finalBody, normalizedHeaders) = when {
+            // If headers say encoded but body is already decoded: strip encoding headers
+            contentEncoding != null && bodyEncoding == null -> {
+                Log.d(TAG, "📋 Body already decoded, stripping encoding headers")
+                val headers = response.headers.toMutableMap()
+                headers.remove("Content-Encoding")
+                headers.remove("content-encoding")
+                headers.remove("Transfer-Encoding")
+                headers.remove("transfer-encoding")
+                headers.remove("Content-Length")
+                headers.remove("content-length")
+                Pair(originalBody, headers)
+            }
+            // If headers say encoded and body is still encoded: decode transparently
+            contentEncoding != null && bodyEncoding != null -> {
+                Log.d(TAG, "📋 Body is encoded, decoding transparently")
+                val decodedBody = decodeBody(originalBody, bodyEncoding)
+                val headers = response.headers.toMutableMap()
+                headers.remove("Content-Encoding")
+                headers.remove("content-encoding")
+                headers.remove("Transfer-Encoding")
+                headers.remove("transfer-encoding")
+                headers.remove("Content-Length")
+                headers.remove("content-length")
+                Pair(decodedBody, headers)
+            }
+            // Body is not encoded: pass through unchanged
+            else -> {
+                Log.d(TAG, "📋 Body not encoded, passing through")
+                Pair(originalBody, response.headers)
+            }
+        }
+
+        // Filter hop-by-hop headers and never synthesize CORS headers
+        val filteredHeaders = filterResponseHeaders(normalizedHeaders)
+
+        Log.d(TAG, "📋 Final normalized headers: ${filteredHeaders.keys}")
 
         // Handle special status codes
-        when (response.statusCode) {
+        return when (response.statusCode) {
             304 -> {
-                // Not Modified - return with empty body and caching headers
                 Log.d(TAG, "Not modified response for $url")
-                return WebResourceResponse(
+                WebResourceResponse(
                     null, null,
                     response.statusCode,
                     response.reasonPhrase.ifBlank { getDefaultStatusText(response.statusCode) },
-                    filterHopByHopHeaders(response.headers),
-                    "".byteInputStream()
+                    filteredHeaders,
+                    ByteArrayInputStream(ByteArray(0))
                 )
             }
             204, 205 -> {
-                // No Content/Reset Content - return empty body
                 Log.d(TAG, "No content response ${response.statusCode} for $url")
-                return WebResourceResponse(
-                    "text/plain", "UTF-8",
+                WebResourceResponse(
+                    "text/plain", charset,
                     response.statusCode,
                     response.reasonPhrase.ifBlank { getDefaultStatusText(response.statusCode) },
-                    filterHopByHopHeaders(response.headers),
-                    "".byteInputStream()
+                    filteredHeaders,
+                    ByteArrayInputStream(ByteArray(0))
+                )
+            }
+            else -> {
+                WebResourceResponse(
+                    mimeType, charset,
+                    response.statusCode,
+                    response.reasonPhrase.ifBlank { getDefaultStatusText(response.statusCode) },
+                    filteredHeaders,
+                    ByteArrayInputStream(finalBody)
                 )
             }
         }
-
-        // Filter hop-by-hop headers and content-encoding/length (already decoded by Cronet)
-        val filteredHeaders = filterHopByHopHeaders(response.headers)
-
-        val statusText = response.reasonPhrase.ifBlank { getDefaultStatusText(response.statusCode) }
-
-        return WebResourceResponse(
-            mimeType,
-            charset,
-            response.statusCode,
-            statusText,
-            filteredHeaders,
-            response.body
-        )
     }
 
-    private fun filterHopByHopHeaders(headers: Map<String, String>): Map<String, String> {
+    // Recognize encodings via magic bytes
+    private fun detectBodyEncoding(body: ByteArray): String? {
+        if (body.size < 4) return null
+
+        return when {
+            // gzip → 1F 8B
+            body[0] == 0x1F.toByte() && body[1] == 0x8B.toByte() -> "gzip"
+            // zstd → 28 B5 2F FD
+            body[0] == 0x28.toByte() && body[1] == 0xB5.toByte() &&
+            body[2] == 0x2F.toByte() && body[3] == 0xFD.toByte() -> "zstd"
+            // brotli has no clear magic bytes, assume encoded if header says so
+            else -> null
+        }
+    }
+
+    private fun decodeBody(body: ByteArray, encoding: String): ByteArray {
+        return try {
+            when (encoding.lowercase()) {
+                "gzip" -> GZIPInputStream(ByteArrayInputStream(body)).readBytes()
+                "deflate" -> InflaterInputStream(ByteArrayInputStream(body)).readBytes()
+                "zstd" -> ZstdInputStream(ByteArrayInputStream(body)).readBytes()
+                // For brotli, we'd need a brotli decoder library
+                "br", "brotli" -> {
+                    Log.w(TAG, "Brotli decoding not implemented, returning raw bytes")
+                    body
+                }
+                else -> {
+                    Log.w(TAG, "Unknown encoding: $encoding, returning raw bytes")
+                    body
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error decoding body with $encoding", e)
+            body
+        }
+    }
+
+    private fun parseContentType(contentType: String): Pair<String, String> {
+        val parts = contentType.split(';').map { it.trim() }
+        val mimeType = parts.firstOrNull() ?: "application/octet-stream"
+
+        val charset = parts
+            .find { it.startsWith("charset=", ignoreCase = true) }
+            ?.substringAfter('=')
+            ?.trim('"', ' ')
+            ?: "UTF-8"  // Default to UTF-8 if no charset
+
+        return Pair(mimeType, charset)
+    }
+
+    // Never synthesize CORS headers. Forward server CORS headers exactly as received.
+    private fun filterResponseHeaders(headers: Map<String, String>): Map<String, String> {
         val hopByHopHeaders = setOf(
-            "connection", "transfer-encoding", "keep-alive", "proxy-authenticate",
-            "proxy-authorization", "te", "trailer", "content-encoding", "content-length"
+            "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
+            "te", "trailers", "transfer-encoding", "upgrade"
         )
 
         return headers.filterKeys { key ->
-            key.lowercase(Locale.US) !in hopByHopHeaders
+            key.lowercase() !in hopByHopHeaders
         }
     }
 
-    private fun parseContentType(contentType: String): Pair<String, String?> {
-        val parts = contentType.split(';', limit = 2)
-        val mimeType = parts[0].trim()
-
-        val charset = if (parts.size > 1) {
-            val charsetPart = parts[1].trim()
-            if (charsetPart.startsWith("charset=", ignoreCase = true)) {
-                charsetPart.substring(8).trim()
-            } else null
-        } else null
-
-        // Default charset for text types
-        val finalCharset = when {
-            charset != null -> charset
-            mimeType.startsWith("text/") -> "UTF-8"
-            else -> null
-        }
-
-        return mimeType to finalCharset
-    }
-
-    private fun checkForBotChallenge(url: String, contentType: String, statusCode: Int) {
-        try {
-            if ((url.endsWith(".js") || url.endsWith(".mjs") || url.contains("type=module")) &&
-                contentType.startsWith("text/html") && statusCode == 200) {
-
-                Log.w(TAG, "BOT_CHALLENGE_SUSPECT detected for $url")
-                Log.w(TAG, "  - Content-Type: $contentType")
-                Log.w(TAG, "  - Status: $statusCode")
-                Log.w(TAG, "  - URL pattern: JS module served as HTML")
-            }
-        } catch (e: Exception) {
-            Log.d(TAG, "Error checking bot challenge for $url", e)
-        }
-    }
-
-    private fun createErrorResponse(error: Exception): WebResourceResponse {
-        Log.e(TAG, "Creating error response", error)
-        return WebResourceResponse(
-            "text/plain", "UTF-8", 500, "Internal Server Error",
-            emptyMap(), "Network error: ${error.message}".byteInputStream()
-        )
-    }
-
-    private fun getDefaultStatusText(statusCode: Int): String = when (statusCode) {
-        100 -> "Continue"
-        101 -> "Switching Protocols"
+    private fun getDefaultStatusText(code: Int): String = when (code) {
         200 -> "OK"
         201 -> "Created"
-        202 -> "Accepted"
         204 -> "No Content"
-        205 -> "Reset Content"
-        206 -> "Partial Content"
-        300 -> "Multiple Choices"
         301 -> "Moved Permanently"
         302 -> "Found"
-        303 -> "See Other"
         304 -> "Not Modified"
-        307 -> "Temporary Redirect"
-        308 -> "Permanent Redirect"
         400 -> "Bad Request"
         401 -> "Unauthorized"
         403 -> "Forbidden"
         404 -> "Not Found"
-        405 -> "Method Not Allowed"
-        406 -> "Not Acceptable"
-        408 -> "Request Timeout"
-        409 -> "Conflict"
-        410 -> "Gone"
-        411 -> "Length Required"
-        413 -> "Payload Too Large"
-        414 -> "URI Too Long"
-        415 -> "Unsupported Media Type"
-        418 -> "I'm a teapot"
-        421 -> "Misdirected Request"
-        422 -> "Unprocessable Entity"
-        429 -> "Too Many Requests"
         500 -> "Internal Server Error"
-        501 -> "Not Implemented"
         502 -> "Bad Gateway"
         503 -> "Service Unavailable"
-        504 -> "Gateway Timeout"
         else -> "Unknown"
+    }
+
+    private fun createErrorResponse(error: Exception): WebResourceResponse {
+        Log.e(TAG, "Creating error response for: ${error.message}")
+        return WebResourceResponse(
+            "text/plain", "UTF-8", 502, "Bad Gateway",
+            emptyMap(),
+            "Network error: ${error.message}".byteInputStream()
+        )
     }
 }

@@ -1,0 +1,115 @@
+package com.testlabs.browser.network
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * UA-CH (Client Hints) management
+ * Send high-entropy hints only to origins that previously advertised them via Accept-CH.
+ * Persist per-origin flags in DataStore.
+ */
+public class UserAgentClientHintsManager(private val context: Context) {
+
+    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "ua_ch_prefs")
+
+    // In-memory cache for fast lookups
+    private val allowedHints = ConcurrentHashMap<String, Set<String>>()
+
+    public companion object {
+        private val ACCEPT_CH_KEY = stringSetPreferencesKey("accept_ch_origins")
+
+        // High-entropy UA-CH headers that require explicit permission
+        private val HIGH_ENTROPY_HINTS = setOf(
+            "sec-ch-ua-arch",
+            "sec-ch-ua-bitness",
+            "sec-ch-ua-model",
+            "sec-ch-ua-platform-version",
+            "sec-ch-ua-full-version-list"
+        )
+    }
+
+    /**
+     * Check if a high-entropy hint is allowed for the given origin
+     */
+    public suspend fun isHighEntropyAllowed(origin: String, hintName: String): Boolean {
+        if (hintName.lowercase() !in HIGH_ENTROPY_HINTS) {
+            return true // Low entropy hints are always allowed
+        }
+
+        // Check cache first
+        val cachedHints = allowedHints[origin]
+        if (cachedHints != null) {
+            return hintName.lowercase() in cachedHints
+        }
+
+        // Load from DataStore
+        val allowedForOrigin = loadAllowedHints(origin)
+        allowedHints[origin] = allowedForOrigin
+
+        return hintName.lowercase() in allowedForOrigin
+    }
+
+    /**
+     * Process Accept-CH header from response and update allowed hints for origin
+     */
+    public suspend fun processAcceptCH(origin: String, acceptChHeader: String?) {
+        if (acceptChHeader.isNullOrBlank()) return
+
+        val requestedHints = acceptChHeader
+            .split(",")
+            .map { it.trim().lowercase() }
+            .filter { it in HIGH_ENTROPY_HINTS }
+            .toSet()
+
+        if (requestedHints.isNotEmpty()) {
+            // Update cache
+            allowedHints[origin] = requestedHints
+
+            // Persist to DataStore
+            saveAllowedHints(origin, requestedHints)
+        }
+    }
+
+    private suspend fun loadAllowedHints(origin: String): Set<String> {
+        return try {
+            val originKey = stringSetPreferencesKey("hints_$origin")
+            context.dataStore.data.map { preferences ->
+                preferences[originKey] ?: emptySet()
+            }.first()
+        } catch (e: Exception) {
+            emptySet()
+        }
+    }
+
+    private suspend fun saveAllowedHints(origin: String, hints: Set<String>) {
+        try {
+            val originKey = stringSetPreferencesKey("hints_$origin")
+            context.dataStore.edit { preferences ->
+                preferences[originKey] = hints
+            }
+        } catch (e: Exception) {
+            // Log error but don't fail the request
+        }
+    }
+
+    /**
+     * Clear all stored UA-CH permissions (for debugging/reset)
+     */
+    public suspend fun clearAllHints() {
+        try {
+            context.dataStore.edit { preferences ->
+                preferences.clear()
+            }
+            allowedHints.clear()
+        } catch (e: Exception) {
+            // Log error
+        }
+    }
+}
