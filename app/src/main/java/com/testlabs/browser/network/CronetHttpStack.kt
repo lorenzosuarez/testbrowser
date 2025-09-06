@@ -98,17 +98,16 @@ public class CronetHttpStack(
                 "accept-encoding"
             )
 
-            val headers = request.headers.toMutableMap()
-            headers.keys.filter { it.equals("x-requested-with", true) }.forEach { headers.remove(it) }
+            val headers = request.headers.toMutableMap().apply {
+                keys.filter { it.equals("x-requested-with", true) }.forEach { remove(it) }
+                listOf("sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform").forEach { h ->
+                    keys.firstOrNull { it.equals(h, true) }?.let { remove(it) }
+                }
+            }
             val ua = uaProvider.userAgent(false)
             headers["User-Agent"] = ua
             val acceptLang = headers["Accept-Language"] ?: "en-US,en;q=0.9"
             headers["Accept-Language"] = acceptLang
-            val major = Regex("Chrome/(\\d+)").find(ua)?.groupValues?.get(1) ?: "99"
-            val hints = chManager.lowEntropyUaHints(major)
-            headers["Sec-CH-UA"] = hints["sec-ch-ua"]!!
-            headers["Sec-CH-UA-Mobile"] = hints["sec-ch-ua-mobile"]!!
-            headers["Sec-CH-UA-Platform"] = hints["sec-ch-ua-platform"]!!
 
             headers.forEach { (k, v) ->
                 val lk = k.lowercase()
@@ -116,6 +115,9 @@ public class CronetHttpStack(
                     builder.addHeader(k, v)
                 }
             }
+
+            // Canonical UA-CH
+            chManager.asMap(isMobile = true).forEach { (k, v) -> builder.addHeader(k, v) }
             val hasBody = request.body != null && request.method.uppercase() !in setOf("GET", "HEAD")
             if (hasBody) {
                 val provider = org.chromium.net.UploadDataProviders.create(request.body)

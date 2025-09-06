@@ -17,7 +17,9 @@ public class AndroidVersionProvider(private val context: Context) : VersionProvi
         return packageVersion("com.google.android.webview") ?: "0.0.0.0"
     }
 
-    override fun chromeMajor(): Int = chromeFullVersion().substringBefore('.').toIntOrNull() ?: 0
+    private val major: Int by lazy { chromeFullVersion().substringBefore('.').toIntOrNull() ?: 0 }
+
+    override fun chromeMajor(): Int = major
 
     override fun deviceModel(): String = Build.MODEL ?: "Android"
 

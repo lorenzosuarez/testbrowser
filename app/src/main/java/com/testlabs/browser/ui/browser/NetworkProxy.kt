@@ -15,7 +15,6 @@ import com.testlabs.browser.network.OkHttpStack
 import com.testlabs.browser.network.ProxyRequest
 import com.testlabs.browser.network.UserAgentClientHintsManager
 import kotlinx.coroutines.runBlocking
-import java.util.Locale
 
 public interface NetworkProxy {
     public val stackName: String
@@ -52,25 +51,9 @@ public class DefaultNetworkProxy(
     ): WebResourceResponse? {
         if (!proxyEnabled) return null
 
-        val headers = LinkedHashMap<String, String>()
-        request.requestHeaders.forEach { (k, v) ->
-            val lk = k.lowercase(Locale.US)
-            if (config.suppressXRequestedWith && lk == "x-requested-with") return@forEach
-            when (lk) {
-                "user-agent" -> headers["User-Agent"] = userAgent
-                "accept-language" -> headers["Accept-Language"] = acceptLanguage
-                "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform" -> {}
-                else -> headers[k] = v
-            }
-        }
+        val headers = normalizeHeaders(request.requestHeaders).toMutableMap()
         headers["User-Agent"] = userAgent
         headers["Accept-Language"] = acceptLanguage
-
-        val major = Regex("Chrome/(\\d+)").find(userAgent)?.groupValues?.get(1) ?: "99"
-        val hints = chManager.lowEntropyUaHints(major)
-        headers["Sec-CH-UA"] = hints["sec-ch-ua"]!!
-        headers["Sec-CH-UA-Mobile"] = hints["sec-ch-ua-mobile"]!!
-        headers["Sec-CH-UA-Platform"] = hints["sec-ch-ua-platform"]!!
 
         val proxyReq = ProxyRequest(
             url = request.url.toString(),
@@ -89,5 +72,28 @@ public class DefaultNetworkProxy(
         webResp.responseHeaders = headerMap.toMutableMap()
         webResp.setStatusCodeAndReasonPhrase(resp.statusCode, resp.reasonPhrase.ifBlank { " " })
         return webResp
+}
+
+    /** Normalize outbound headers from WebView prior to hitting HttpStack */
+    fun normalizeHeaders(incoming: Map<String, String>): Map<String, String> {
+        val sanitized = incoming.toMutableMap()
+
+        if (config.suppressXRequestedWith) {
+            sanitized.keys
+                .filter { it.equals("x-requested-with", ignoreCase = true) }
+                .forEach { sanitized.remove(it) }
+        }
+
+        listOf("sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform").forEach { k ->
+            sanitized.keys
+                .firstOrNull { it.equals(k, ignoreCase = true) }
+                ?.let { sanitized.remove(it) }
+        }
+
+        sanitized["sec-ch-ua"] = chManager.secChUa()
+        sanitized["sec-ch-ua-mobile"] = chManager.secChUaMobile(true)
+        sanitized["sec-ch-ua-platform"] = chManager.secChUaPlatform()
+
+        return sanitized
     }
 }
