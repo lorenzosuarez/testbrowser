@@ -132,21 +132,15 @@ public fun BrowserSettingsDialog(
                         )
 
                         SettingRow(
-                            label = "File Access",
-                            checked = tempConfig.fileAccessEnabled,
-                            onCheckedChange = { tempConfig = tempConfig.copy(fileAccessEnabled = it) }
-                        )
-
-                        SettingRow(
-                            label = "Media Autoplay",
-                            checked = tempConfig.mediaAutoplayEnabled,
-                            onCheckedChange = { tempConfig = tempConfig.copy(mediaAutoplayEnabled = it) }
-                        )
-
-                        SettingRow(
                             label = stringResource(id = R.string.settings_js_compat),
                             checked = tempConfig.jsCompatibilityMode,
                             onCheckedChange = { tempConfig = tempConfig.copy(jsCompatibilityMode = it) }
+                        )
+
+                        SettingRow(
+                            label = "Third-Party Cookies",
+                            checked = tempConfig.enableThirdPartyCookies,
+                            onCheckedChange = { tempConfig = tempConfig.copy(enableThirdPartyCookies = it) }
                         )
                     }
                 }
@@ -173,6 +167,19 @@ public fun BrowserSettingsDialog(
                             )
                             Text(
                                 text = "Required to eliminate X-Requested-With header on all requests",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Column {
+                            SettingRow(
+                                label = "Proxy Intercept Requests",
+                                checked = tempConfig.proxyInterceptEnabled,
+                                onCheckedChange = { tempConfig = tempConfig.copy(proxyInterceptEnabled = it) }
+                            )
+                            Text(
+                                text = "Intercept and modify network requests through proxy (starts disabled)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

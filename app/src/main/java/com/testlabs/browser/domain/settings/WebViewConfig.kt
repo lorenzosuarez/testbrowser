@@ -25,6 +25,7 @@ public data class WebViewConfig(
     val acceptLanguages: String = "en-US,en;q=0.9",
     val jsCompatibilityMode: Boolean = true,
     val proxyEnabled: Boolean = true,
+    val proxyInterceptEnabled: Boolean = false, // NUEVO: Control específico para intercept
     val customUserAgent: String? = null,
 
     // 4) Feature toggles (in-app developer section)

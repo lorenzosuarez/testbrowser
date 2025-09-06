@@ -17,7 +17,9 @@ public open class BrowserWebViewClient(
     private val proxy: NetworkProxy,
     private val jsBridge: JsBridge,
     private val uaProvider: UAProvider,
-    private val acceptLanguage: String
+    private val acceptLanguage: String,
+    private val desktopMode: Boolean = false, // AGREGADO: Desktop Mode
+    private val proxyInterceptEnabled: Boolean = false // NUEVO: Control de proxy intercept
 ) : WebViewClient() {
 
     private val blockedHosts: Set<String> = setOf(
@@ -62,13 +64,17 @@ public open class BrowserWebViewClient(
             )
         }
 
-        val ua = uaProvider.userAgent(desktop = false)
-        return null
-        // return proxy.interceptRequest(
-        //     request = request,
-        //     userAgent = ua,
-        //     acceptLanguage = acceptLanguage,
-        //     proxyEnabled = true
-        // )
+        // CORREGIDO: Usar configuración de proxy intercept
+        return if (proxyInterceptEnabled) {
+            val ua = uaProvider.userAgent(desktop = desktopMode)
+            proxy.interceptRequest(
+                request = request,
+                userAgent = ua,
+                acceptLanguage = acceptLanguage,
+                proxyEnabled = true
+            )
+        } else {
+            null // Default: no intercept
+        }
     }
 }

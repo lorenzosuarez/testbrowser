@@ -99,12 +99,20 @@ public fun WebViewHost(
             wv
         },
         update = { webView ->
+            // MEJORADO: Forzar reconfiguración completa cuando cambia config
             webView.applyConfig(
                 config = config,
                 uaProvider = uaProvider,
                 jsCompat = jsCompat,
                 networkProxy = networkProxy
             )
+
+            // CRÍTICO: Forzar aplicación inmediata del User Agent
+            val newUserAgent = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
+            if (webView.settings.userAgentString != newUserAgent) {
+                webView.settings.userAgentString = newUserAgent
+            }
+
             onNavigationStateChanged(webView.canGoBack(), webView.canGoForward())
         },
         onRelease = { webView ->
@@ -162,26 +170,48 @@ private fun WebView.applyConfig(
     networkProxy: NetworkProxy
 ) {
     val s = settings
-    val ua = uaProvider.userAgent(desktop = false)
+
+    // Apply all WebViewConfig settings
+    s.javaScriptEnabled = config.javascriptEnabled
+    s.domStorageEnabled = config.domStorageEnabled
+    s.allowFileAccess = config.fileAccessEnabled
+    s.allowContentAccess = config.fileAccessEnabled
+    s.mediaPlaybackRequiresUserGesture = !config.mediaAutoplayEnabled
+    s.mixedContentMode = if (config.mixedContentAllowed) {
+        WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+    } else {
+        WebSettings.MIXED_CONTENT_NEVER_ALLOW
+    }
+
+    // Apply User Agent - FIXED: Desktop Mode should work correctly
+    val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
     s.userAgentString = ua
 
+    // Apply Accept-Language
     val acceptLanguage = when (config.acceptLanguageMode) {
-        AcceptLanguageMode.Baseline -> "en-US,en;q=0.9"
+        AcceptLanguageMode.Baseline -> config.acceptLanguages
         AcceptLanguageMode.DeviceList -> buildDeviceAcceptLanguage()
     }
 
+    // Apply cookie settings
     CookieManager.getInstance().setAcceptCookie(true)
     CookieManager.getInstance().setAcceptThirdPartyCookies(this, config.enableThirdPartyCookies)
 
     val jsBridge: JsBridge = object : JsBridge(ua = uaProvider) {
-        override fun script(): String = getDocStartScript(jsCompat)
+        override fun script(): String = if (config.jsCompatibilityMode) {
+            getDocStartScript(jsCompat)
+        } else {
+            ""
+        }
     }
 
     webViewClient = object : BrowserWebViewClient(
         proxy = networkProxy,
         jsBridge = jsBridge,
         uaProvider = uaProvider,
-        acceptLanguage = acceptLanguage
+        acceptLanguage = acceptLanguage,
+        desktopMode = config.desktopMode,
+        proxyInterceptEnabled = config.proxyInterceptEnabled // AGREGADO: Control de proxy intercept
     ) {
         override fun shouldInterceptRequest(
             view: WebView,
@@ -198,12 +228,12 @@ private fun WebView.applyConfig(
             controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
                     if (request.isForMainFrame) return null
-                    val uaNow = uaProvider.userAgent(desktop = false)
+                    val uaNow = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
                     return networkProxy.interceptRequest(
                         request = request,
                         userAgent = uaNow,
                         acceptLanguage = acceptLanguage,
-                        proxyEnabled = false // Cambia a true para activar el proxy aquí
+                        proxyEnabled = config.proxyEnabled
                     )
                 }
             })
@@ -235,27 +265,48 @@ private fun applyFullWebViewConfiguration(
     filePickerLauncher: ActivityResultLauncher<Intent>?
 ) {
     val s = webView.settings
+
+    // Apply all WebViewConfig settings
+    s.javaScriptEnabled = config.javascriptEnabled
+    s.domStorageEnabled = config.domStorageEnabled
+    s.allowFileAccess = config.fileAccessEnabled
+    s.allowContentAccess = config.fileAccessEnabled
+    s.mediaPlaybackRequiresUserGesture = !config.mediaAutoplayEnabled
+    s.mixedContentMode = if (config.mixedContentAllowed) {
+        WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+    } else {
+        WebSettings.MIXED_CONTENT_NEVER_ALLOW
+    }
+
     val cookieManager = CookieManager.getInstance()
     cookieManager.setAcceptCookie(true)
     cookieManager.setAcceptThirdPartyCookies(webView, config.enableThirdPartyCookies)
 
-    val ua = uaProvider.userAgent(desktop = false)
+    // Apply User Agent
+    val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
     s.userAgentString = ua
 
+    // Apply Accept-Language
     val acceptLanguage = when (config.acceptLanguageMode) {
-        AcceptLanguageMode.Baseline -> "en-US,en;q=0.9"
+        AcceptLanguageMode.Baseline -> config.acceptLanguages
         AcceptLanguageMode.DeviceList -> buildDeviceAcceptLanguage()
     }
 
     val jsBridge: JsBridge = object : JsBridge(ua = uaProvider) {
-        override fun script(): String = getDocStartScript(jsCompat)
+        override fun script(): String = if (config.jsCompatibilityMode) {
+            getDocStartScript(jsCompat)
+        } else {
+            ""
+        }
     }
 
     webView.webViewClient = object : BrowserWebViewClient(
         proxy = networkProxy,
         jsBridge = jsBridge,
         uaProvider = uaProvider,
-        acceptLanguage = acceptLanguage
+        acceptLanguage = acceptLanguage,
+        desktopMode = config.desktopMode,
+        proxyInterceptEnabled = config.proxyInterceptEnabled // AGREGADO: Control de proxy intercept
     ) {
         override fun shouldInterceptRequest(
             view: WebView,
@@ -343,16 +394,24 @@ private fun applyFullWebViewConfiguration(
             controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
                     if (request.isForMainFrame) return null
-                    val uaNow = uaProvider.userAgent(desktop = false)
+                    val uaNow = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
                     return networkProxy.interceptRequest(
                         request = request,
                         userAgent = uaNow,
                         acceptLanguage = acceptLanguage,
-                        proxyEnabled = false // Cambia a true para activar el proxy aquí
+                        proxyEnabled = config.proxyEnabled
                     )
                 }
             })
         }
+    }
+
+    // Apply dark mode if supported
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+        WebSettingsCompat.setForceDark(
+            s,
+            if (config.forceDarkMode) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+        )
     }
 }
 
@@ -416,7 +475,35 @@ public class RealWebViewController(
     override fun goForward() {
         if (webView.canGoForward()) webView.goForward()
     }
-    override fun recreateWebView() {}
+    override fun recreateWebView() {
+        // Store current state
+        val currentUrl = webView.url
+
+        // Stop all activity
+        webView.stopLoading()
+
+        // Clear all caches and data to force fresh configuration
+        webView.clearCache(true)
+        webView.clearHistory()
+        webView.clearFormData()
+
+        // Clear all website data
+        CookieManager.getInstance().removeAllCookies(null)
+
+        // Force a complete reset of the WebView settings
+        // This will trigger the update{} block in AndroidView which applies new config
+        webView.loadUrl("about:blank")
+
+        // After clearing, reload the original URL if it exists
+        currentUrl?.let { url ->
+            if (url != "about:blank" && url.isNotEmpty()) {
+                // Small delay to ensure the clearing is complete
+                webView.postDelayed({
+                    webView.loadUrl(url)
+                }, 100)
+            }
+        }
+    }
     override fun clearBrowsingData(done: () -> Unit) {
         CookieManager.getInstance().removeAllCookies { done() }
         webView.clearCache(true)
