@@ -5,11 +5,17 @@
 
 package com.testlabs.browser.ui.theme
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val DarkColorScheme =
     darkColorScheme(
@@ -68,7 +74,7 @@ private val LightColorScheme =
 /**
  * Material 3 theme for TestBrowser application.
  * Automatically adapts to system dark mode preference and provides
- * consistent theming across the application.
+ * consistent theming across the application with transparent status bar.
  *
  * @param darkTheme Whether to use dark theme colors
  * @param content The content to be themed
@@ -78,15 +84,27 @@ public fun TestBrowserTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val colorScheme =
-        when {
-            darkTheme -> DarkColorScheme
-            else -> LightColorScheme
-        }
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val view = LocalView.current
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content,
-    )
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+
+            window.statusBarColor = Color.Transparent.toArgb()
+            window.navigationBarColor = Color.Transparent.toArgb()
+
+            val controller = WindowCompat.getInsetsController(window, view)
+            controller.isAppearanceLightStatusBars = !darkTheme
+            controller.isAppearanceLightNavigationBars = !darkTheme
+
+            WindowCompat.getInsetsController(window, view)
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
+    }
+
+    MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
 }
