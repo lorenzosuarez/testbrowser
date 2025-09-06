@@ -26,9 +26,10 @@ import java.util.zip.InflaterInputStream
 public class OkHttpEngine(
     private val settings: DeveloperSettings,
     private val ua: UAProvider,
+    private val chManager: UserAgentClientHintsManager,
     private val cookieManager: CookieManager = CookieManager.getInstance()
 ) {
-    private val client: OkHttpClient = OkHttpClientProvider.client
+    private val client: OkHttpClient = OkHttpClientProvider.client(chManager)
 
     /**
      * Intercepts a WebResourceRequest and returns a normalized WebResourceResponse, or null to bypass.
@@ -45,7 +46,6 @@ public class OkHttpEngine(
 
             val acceptLanguage = if (settings.richAcceptLanguage.value) "en-US,en;q=0.9" else "en-US"
             val userAgent = ua.userAgent(desktop = false)
-            val major = extractChromeMajor(userAgent)
 
             val headers = mutableMapOf<String, String>()
             request.requestHeaders.forEach { (name, value) ->
@@ -59,16 +59,17 @@ public class OkHttpEngine(
             headers.putIfAbsent("User-Agent", userAgent)
             headers.putIfAbsent("Accept-Language", acceptLanguage)
             headers["Accept-Encoding"] = "gzip, deflate, br, zstd"
-            headers.putIfAbsent("Sec-CH-UA", "\"Chromium\";v=\"$major\", \"Google Chrome\";v=\"$major\"")
-            headers.putIfAbsent("Sec-CH-UA-Mobile", "?1")
-            headers.putIfAbsent("Sec-CH-UA-Platform", "\"Android\"")
+            val hints = chManager.asMap(isMobile = true)
+            headers.putIfAbsent("Sec-CH-UA", hints["sec-ch-ua"]!!)
+            headers.putIfAbsent("Sec-CH-UA-Mobile", hints["sec-ch-ua-mobile"]!!)
+            headers.putIfAbsent("Sec-CH-UA-Platform", hints["sec-ch-ua-platform"]!!)
             try {
                 val cookies = cookieManager.getCookie(url)
                 if (!cookies.isNullOrBlank()) headers["Cookie"] = cookies
             } catch (_: Exception) {}
             headers.forEach { (k, v) -> builder.header(k, v) }
 
-            var resp = OkHttpClientProvider.client.newCall(builder.build()).execute()
+            var resp = client.newCall(builder.build()).execute()
             var hops = 0
             while (resp.code in 300..399 && hops < 5) {
                 val loc = resp.header("Location") ?: break
@@ -79,7 +80,7 @@ public class OkHttpEngine(
                     .get()
                     .apply { headers.forEach { (k, v) -> header(k, v) } }
                     .build()
-                resp = OkHttpClientProvider.client.newCall(nextReq).execute()
+                resp = client.newCall(nextReq).execute()
                 hops++
             }
 
@@ -100,10 +101,6 @@ public class OkHttpEngine(
                 path.endsWith(".gif") || path.endsWith(".webp") || path.endsWith(".svg") ||
                 path.endsWith(".ico") || path.endsWith(".xml") ||
                 path.endsWith(".woff2") || path.endsWith(".woff") || path.endsWith(".ttf")
-    }
-
-    private fun extractChromeMajor(userAgent: String): String {
-        return Regex("Chrome/(\\d+)").find(userAgent)?.groupValues?.get(1) ?: "99"
     }
 
     private fun isHtmlRequest(request: WebResourceRequest, url: String): Boolean {

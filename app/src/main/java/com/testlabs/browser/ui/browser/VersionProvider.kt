@@ -15,4 +15,7 @@ public interface VersionProvider {
 
     /** Device model reported in the UA string. */
     public fun deviceModel(): String
+
+    /** Chrome major version as a string for convenience. */
+    public fun major(): String = chromeMajor().toString()
 }

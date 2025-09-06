@@ -19,5 +19,5 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 public val coreModule: Module = module {
     single { androidContext().dataStore }
     single { DeveloperSettings() }
-    single { UserAgentClientHintsManager(androidContext()) }
+    single { UserAgentClientHintsManager(get()) }
 }

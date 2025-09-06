@@ -53,10 +53,19 @@ public object CronetHolder {
 
     private fun createEngine(context: Context, userAgent: String): CronetEngine? {
         fun createBuilder(): CronetEngine.Builder {
+            val experimental =
+                """{
+                  "disable_certificate_compression": false,
+                  "enable_certificate_compression_brotli": true,
+                  "enable_encrypted_client_hello": false,
+                  "enable_tls13_early_data": false,
+                  "enable_tls13_kyber": false
+                }""".trimIndent()
             return CronetEngine.Builder(context)
                 .enableHttp2(true)
                 .enableQuic(false)
                 .enableBrotli(true)
+                .setExperimentalOptions(experimental)
                 .apply {
                     
                     try {
@@ -70,7 +79,7 @@ public object CronetHolder {
                         Log.d(TAG, "ZSTD compression not available: ${e.javaClass.simpleName}")
                     }
                 }
-                .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_IN_MEMORY, 20L * 1024 * 1024) 
+                .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_IN_MEMORY, 20L * 1024 * 1024)
                 .setUserAgent(userAgent)
                 .setThreadPriority(Thread.NORM_PRIORITY)
         }
