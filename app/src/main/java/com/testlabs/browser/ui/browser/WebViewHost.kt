@@ -84,22 +84,31 @@ private const val MIME_TYPE_GUESS = "application/octet-stream"
 public interface WebViewController {
     /** Loads the given [url] with current headers. */
     public fun loadUrl(url: String)
+
     /** Reloads the current page. */
     public fun reload()
+
     /** Navigates back in history if possible. */
     public fun goBack()
+
     /** Navigates forward in history if possible. */
     public fun goForward()
+
     /** Returns whether back navigation is possible. */
     public fun canGoBack(): Boolean
+
     /** Returns whether forward navigation is possible. */
     public fun canGoForward(): Boolean
+
     /** Clears cache, history, WebStorage, and all cookies. Invokes [onComplete] when finished. */
     public fun clearBrowsingData(onComplete: () -> Unit)
+
     /** Schedules a full [WebView] recreation to apply configuration changes that require a new instance. */
     public fun recreateWebView()
+
     /** Returns the current `X-Requested-With` header suppression mode detected for this engine. */
     public fun requestedWithHeaderMode(): RequestedWithHeaderMode
+
     /** Returns the name of the active proxy stack. */
     public fun proxyStackName(): String
 }
@@ -186,21 +195,29 @@ public fun WebViewHost(
         val controller =
             object : WebViewController {
                 override fun loadUrl(url: String) {
-                    webView.settings.userAgentString = uaProvider.userAgent(latestConfig.desktopMode)
+                    webView.settings.userAgentString =
+                        uaProvider.userAgent(latestConfig.desktopMode)
                     (webView as? ObservableWebView)?.updateUserAgentSnapshot(webView.settings.userAgentString)
                     val headers = mapOf("Accept-Language" to latestConfig.acceptLanguages)
                     (webView as? ObservableWebView)?.updateAcceptLanguageSnapshot(headers["Accept-Language"].orEmpty())
-                    if (url.contains("browserscan.net") || url.contains("tls.peet.ws") || url.contains("httpbin.org")) {
+                    if (url.contains("browserscan.net") || url.contains("tls.peet.ws") || url.contains(
+                            "httpbin.org"
+                        )
+                    ) {
                         ProxyValidator.validateProxyHealth(webView)
                     }
                     webView.loadUrl(url, headers)
                 }
+
                 override fun reload() = webView.reload()
                 override fun goBack() = webView.goBack()
                 override fun goForward() = webView.goForward()
                 override fun canGoBack(): Boolean = webView.canGoBack()
                 override fun canGoForward(): Boolean = webView.canGoForward()
-                override fun recreateWebView() { webViewKey++ }
+                override fun recreateWebView() {
+                    webViewKey++
+                }
+
                 override fun clearBrowsingData(onComplete: () -> Unit) {
                     runCatching {
                         webView.clearCache(true)
@@ -213,7 +230,10 @@ public fun WebViewHost(
                         onComplete()
                     }
                 }
-                override fun requestedWithHeaderMode(): RequestedWithHeaderMode = requestedWithHeaderModeOf(webView)
+
+                override fun requestedWithHeaderMode(): RequestedWithHeaderMode =
+                    requestedWithHeaderModeOf(webView)
+
                 override fun proxyStackName(): String = networkProxy.stackName
             }
 
@@ -260,14 +280,19 @@ private class ObservableWebView(
 
     /** Thread-safe snapshot of the current User-Agent for worker-thread use. */
     private val userAgentRef = AtomicReference("")
+
     /** Thread-safe snapshot of the current Accept-Language for worker-thread use. */
     private val acceptLanguageRef = AtomicReference("")
 
     /** Updates the cached User-Agent from the UI thread. */
-    fun updateUserAgentSnapshot(value: String) { userAgentRef.set(value) }
+    fun updateUserAgentSnapshot(value: String) {
+        userAgentRef.set(value)
+    }
 
     /** Updates the cached Accept-Language from the UI thread. */
-    fun updateAcceptLanguageSnapshot(value: String) { acceptLanguageRef.set(value) }
+    fun updateAcceptLanguageSnapshot(value: String) {
+        acceptLanguageRef.set(value)
+    }
 
     /** Returns the cached User-Agent safe for worker-thread access. */
     fun currentUserAgent(): String = userAgentRef.get()
@@ -341,7 +366,21 @@ private fun createWebView(
                             Log.d(TAG, "WebView renderer initialized successfully")
                             post {
                                 try {
-                                    configureWebViewSafely(config, uaProvider, jsCompat, onProgressChanged, onPageStarted, onPageFinished, onTitleChanged, onNavigationStateChanged, onError, onUrlChanged, downloadHandler, fileUploadHandler, networkProxy)
+                                    configureWebViewSafely(
+                                        config,
+                                        uaProvider,
+                                        jsCompat,
+                                        onProgressChanged,
+                                        onPageStarted,
+                                        onPageFinished,
+                                        onTitleChanged,
+                                        onNavigationStateChanged,
+                                        onError,
+                                        onUrlChanged,
+                                        downloadHandler,
+                                        fileUploadHandler,
+                                        networkProxy
+                                    )
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Error during full WebView configuration", e)
                                     onError("WebView configuration failed: ${e.message}")
@@ -350,7 +389,11 @@ private fun createWebView(
                         }
                     }
 
-                    override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                    override fun onReceivedError(
+                        view: WebView?,
+                        request: WebResourceRequest?,
+                        error: WebResourceError?
+                    ) {
                         Log.w(TAG, "WebView error during initialization: ${error?.description}")
                         if (request?.isForMainFrame == true) {
                             onError("WebView initialization error: ${error?.description}")
@@ -403,7 +446,8 @@ private fun WebView.configureWebViewSafely(
             domStorageEnabled = config.domStorageEnabled
             allowFileAccess = config.fileAccessEnabled
             allowContentAccess = config.fileAccessEnabled
-            mixedContentMode = if (config.mixedContentAllowed) WebSettings.MIXED_CONTENT_ALWAYS_ALLOW else WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            mixedContentMode =
+                if (config.mixedContentAllowed) WebSettings.MIXED_CONTENT_ALWAYS_ALLOW else WebSettings.MIXED_CONTENT_NEVER_ALLOW
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
@@ -437,18 +481,28 @@ private fun WebView.configureWebViewSafely(
 
         if (config.suppressXRequestedWith) {
             try {
-                if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)) {
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
                     try {
-                        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
+                        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(
+                            settings,
+                            emptySet()
+                        )
                         Log.d(TAG, "Cleared X-Requested-With allow list via WebView")
                     } catch (e: Exception) {
                         Log.w(TAG, "Failed clearing X-Requested-With allow list", e)
                     }
                 } else {
-                    Log.d(TAG, "X-Requested-With suppression feature not supported, relying on proxy")
+                    Log.d(
+                        TAG,
+                        "X-Requested-With suppression feature not supported, relying on proxy"
+                    )
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Could not suppress X-Requested-With via WebViewFeature, relying on proxy", e)
+                Log.w(
+                    TAG,
+                    "Could not suppress X-Requested-With via WebViewFeature, relying on proxy",
+                    e
+                )
             }
         }
 
@@ -476,7 +530,11 @@ private fun WebView.configureWebViewSafely(
                 filePathCallback: ValueCallback<Array<Uri>>?,
                 fileChooserParams: FileChooserParams?
             ): Boolean {
-                return fileUploadHandler.onShowFileChooser(webView, filePathCallback, fileChooserParams)
+                return fileUploadHandler.onShowFileChooser(
+                    webView,
+                    filePathCallback,
+                    fileChooserParams
+                )
             }
 
             override fun onCreateWindow(
@@ -512,7 +570,8 @@ private fun WebView.configureWebViewSafely(
                     val message = msg.message()
                     if (message.contains("ERR_CONTENT_DECODING_FAILED", true) ||
                         message.contains("IP acquisition failed", true) ||
-                        message.contains("fetch", true) && message.contains("failed", true)) {
+                        message.contains("fetch", true) && message.contains("failed", true)
+                    ) {
                         Log.e(TAG, "🚨 CRITICAL: ${msg.message()}")
                     }
                 }
@@ -558,8 +617,12 @@ private fun WebView.configureWebViewSafely(
                 Log.d(TAG, "IsMainFrame: ${request.isForMainFrame}")
                 Log.d(TAG, "Headers: ${request.requestHeaders.keys}")
 
-                val userAgent = (this@configureWebViewSafely as? ObservableWebView)?.currentUserAgent().orEmpty()
-                val acceptLanguage = (this@configureWebViewSafely as? ObservableWebView)?.currentAcceptLanguage().orEmpty()
+                val userAgent =
+                    (this@configureWebViewSafely as? ObservableWebView)?.currentUserAgent()
+                        .orEmpty()
+                val acceptLanguage =
+                    (this@configureWebViewSafely as? ObservableWebView)?.currentAcceptLanguage()
+                        .orEmpty()
 
                 return networkProxy.interceptRequest(
                     request = request,
@@ -582,7 +645,11 @@ private fun WebView.configureWebViewSafely(
                 }
             }
 
-            override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
+            override fun onReceivedSslError(
+                view: WebView?,
+                handler: SslErrorHandler?,
+                error: SslError?
+            ) {
                 Log.w(TAG, "SSL Error: ${error?.toString()}")
                 handler?.cancel()
                 if (error != null) {
@@ -599,7 +666,10 @@ private fun WebView.configureWebViewSafely(
                 }
             }
 
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): Boolean {
                 val url = request?.url?.toString() ?: return false
                 when {
                     url.startsWith("mailto:") || url.startsWith("tel:") || url.startsWith("sms:") -> {
@@ -611,6 +681,7 @@ private fun WebView.configureWebViewSafely(
                             Log.w(TAG, "Could not handle external scheme: $url", e)
                         }
                     }
+
                     url.startsWith("blob:") -> {
                         downloadHandler.handleBlobDownload(url)
                         return true
@@ -622,10 +693,15 @@ private fun WebView.configureWebViewSafely(
 
         if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
             try {
-                val uaRef = (this as? ObservableWebView)?.let { AtomicReference(it.currentUserAgent()) } ?: AtomicReference("")
-                val alRef = (this as? ObservableWebView)?.let { AtomicReference(it.currentAcceptLanguage()) } ?: AtomicReference("")
+                val uaRef =
+                    (this as? ObservableWebView)?.let { AtomicReference(it.currentUserAgent()) }
+                        ?: AtomicReference("")
+                val alRef =
+                    (this as? ObservableWebView)?.let { AtomicReference(it.currentAcceptLanguage()) }
+                        ?: AtomicReference("")
                 val serviceWorkerController = ServiceWorkerControllerCompat.getInstance()
-                serviceWorkerController.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
+                serviceWorkerController.setServiceWorkerClient(object :
+                    ServiceWorkerClientCompat() {
                     override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
                         Log.d(TAG, "ServiceWorker request: ${request.url}")
                         val userAgent = uaRef.get()
@@ -644,7 +720,13 @@ private fun WebView.configureWebViewSafely(
         }
 
         setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
-            downloadHandler.handleDownload(url, userAgent, contentDisposition, mimeType, contentLength)
+            downloadHandler.handleDownload(
+                url,
+                userAgent,
+                contentDisposition,
+                mimeType,
+                contentLength
+            )
         }
 
         Log.d(TAG, "WebView configuration completed successfully")
