@@ -33,7 +33,7 @@ public object ProxyValidator {
                     "Allow-list(${allow.size}): $preview"
                 }
                 RequestedWithHeaderMode.ELIMINATED -> "Eliminated"
-                RequestedWithHeaderMode.UNKNOWN -> "Unknown"
+                RequestedWithHeaderMode.UNSUPPORTED -> "Unsupported"
             }
             Log.d(TAG, "✅ X-Requested-With mode: $detail")
 

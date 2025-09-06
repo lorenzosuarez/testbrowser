@@ -26,9 +26,9 @@ public fun dumpWebViewConfig(webView: WebView, config: WebViewConfig): String {
 
     val headerInfo = if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
         val allow = WebSettingsCompat.getRequestedWithHeaderOriginAllowList(s)
-        if (allow.isEmpty()) "Eliminated" else "Allow-list(${allow.size}): ${allow.take(3).joinToString(",")}"
+        if (allow.isEmpty()) "Eliminated" else "Allow-list(${allow.size}): ${allow.take(3).joinToString(",")}" 
     } else {
-        "Unknown"
+        "Unsupported"
     }
     obj.put("xRequestedWithMode", headerInfo)
     return obj.toString()

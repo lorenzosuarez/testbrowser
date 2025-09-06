@@ -38,6 +38,7 @@ import com.testlabs.browser.ui.browser.components.BrowserProgressIndicator
 import com.testlabs.browser.ui.browser.components.BrowserSettingsDialog
 import com.testlabs.browser.ui.browser.components.BrowserTopBar
 import com.testlabs.browser.ui.browser.components.StartPage
+import com.testlabs.browser.ui.browser.RequestedWithHeaderMode
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -163,17 +164,17 @@ public fun BrowserScreen(
         }
 
         if (state.isSettingsDialogVisible) {
-            val mode = webController?.requestedWithHeaderMode() ?: RequestedWithHeaderMode.UNKNOWN
+            val mode = webController?.config()?.requestedWithHeaderMode ?: RequestedWithHeaderMode.UNSUPPORTED
             val proxyStack = webController?.proxyStackName() ?: "Disabled"
 
             val headerModeString = when (mode) {
                 RequestedWithHeaderMode.ALLOW_LIST -> {
-                    val allow = parseRequestedWithHeaderAllowList(state.settingsDraft.requestedWithHeaderAllowList)
+                    val allow = state.settingsDraft.requestedWithHeaderAllowList
                     val preview = allow.take(3).joinToString(",")
                     "Allow-list(${allow.size}): $preview"
                 }
                 RequestedWithHeaderMode.ELIMINATED -> "Eliminated"
-                RequestedWithHeaderMode.UNKNOWN -> "Unknown"
+                RequestedWithHeaderMode.UNSUPPORTED -> "Unsupported"
             }
 
             val currentUserAgent = state.settingsDraft.customUserAgent

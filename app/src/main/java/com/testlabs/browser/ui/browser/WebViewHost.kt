@@ -37,6 +37,7 @@ import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.AcceptLanguageMode
 import com.testlabs.browser.domain.settings.WebViewConfig
 import com.testlabs.browser.js.JsBridge
+import com.testlabs.browser.ui.browser.RequestedWithHeaderMode
 import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 import java.util.Locale
@@ -73,10 +74,10 @@ public fun WebViewHost(
             val wv = WebView(ctx)
             webViewRef = wv
             setupWebViewDefaults(wv)
+            applyRequestedWithHeaderPolicy(wv, config)
 
             val controller = RealWebViewController(wv, networkProxy, config)
             controllerRef = controller
-            onControllerReady(controller)
 
             applyFullWebViewConfiguration(
                 webView = wv,
@@ -96,9 +97,12 @@ public fun WebViewHost(
                 onError = onError,
                 filePickerLauncher = filePickerLauncher
             )
+
+            onControllerReady(controller)
             wv
         },
         update = { webView ->
+            applyRequestedWithHeaderPolicy(webView, config)
 
             controllerRef?.updateConfig(config)
 
@@ -183,6 +187,23 @@ private fun setupWebViewDefaults(webView: WebView) {
     CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 }
 
+@SuppressLint("WebViewFeature", "RequiresFeature")
+private fun applyRequestedWithHeaderPolicy(webView: WebView, config: WebViewConfig) {
+    if (!WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) return
+
+    val allow = when (config.requestedWithHeaderMode) {
+        RequestedWithHeaderMode.ELIMINATED -> emptySet()
+        RequestedWithHeaderMode.ALLOW_LIST -> config.requestedWithHeaderAllowList
+        RequestedWithHeaderMode.UNSUPPORTED -> return
+    }
+
+    WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, allow)
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
+        val sw = ServiceWorkerControllerCompat.getInstance().serviceWorkerWebSettings
+        ServiceWorkerWebSettingsCompat.setRequestedWithHeaderOriginAllowList(sw, allow)
+    }
+}
+
 @SuppressLint("RestrictedApi")
 private fun WebView.applyConfig(
     config: WebViewConfig,
@@ -212,17 +233,6 @@ private fun WebView.applyConfig(
     s.javaScriptCanOpenWindowsAutomatically = true
     s.useWideViewPort = true
     s.loadWithOverviewMode = true
-
-    if (config.suppressXRequestedWith &&
-        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
-    ) {
-        val allowList = parseRequestedWithHeaderAllowList(config.requestedWithHeaderAllowList)
-        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(s, allowList)
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
-            val sw = ServiceWorkerControllerCompat.getInstance().serviceWorkerWebSettings
-            sw.requestedWithHeaderOriginAllowList = allowList
-        }
-    }
 
     val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
     s.userAgentString = ua
@@ -377,19 +387,6 @@ private fun applyFullWebViewConfiguration(
     s.javaScriptCanOpenWindowsAutomatically = true
     s.useWideViewPort = true
     s.loadWithOverviewMode = true
-
-    if (
-        config.suppressXRequestedWith &&
-        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
-    ) {
-        val allowList: Set<String> = parseRequestedWithHeaderAllowList(config.requestedWithHeaderAllowList)
-        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, allowList)
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
-            val swSettings = ServiceWorkerControllerCompat.getInstance().serviceWorkerWebSettings
-            swSettings.requestedWithHeaderOriginAllowList = allowList
-        }
-    }
-
 
     val cookieManager = CookieManager.getInstance()
     cookieManager.setAcceptCookie(true)
@@ -587,7 +584,7 @@ public class RealWebViewController(
         webView.clearCache(true)
         webView.clearHistory()
     }
-    override fun requestedWithHeaderMode(): RequestedWithHeaderMode = requestedWithHeaderModeOf(webView)
+    override fun config(): WebViewConfig = currentConfig
     override fun proxyStackName(): String = proxy.stackName
     override fun dumpSettings(): String = dumpWebViewConfig(webView, currentConfig)
 

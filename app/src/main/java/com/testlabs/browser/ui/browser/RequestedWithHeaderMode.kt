@@ -20,7 +20,7 @@ public enum class RequestedWithHeaderMode {
     ALLOW_LIST,
 
     /** WebView does not expose header control. */
-    UNKNOWN,
+    UNSUPPORTED,
 }
 
 @SuppressLint("WebViewFeature", "RequiresFeature")
@@ -28,7 +28,7 @@ public fun requestedWithHeaderModeOf(webView: android.webkit.WebView): Requested
     runCatching {
         val allow = WebSettingsCompat.getRequestedWithHeaderOriginAllowList(webView.settings)
         if (allow.isEmpty()) RequestedWithHeaderMode.ELIMINATED else RequestedWithHeaderMode.ALLOW_LIST
-    }.getOrElse { RequestedWithHeaderMode.UNKNOWN }
+    }.getOrElse { RequestedWithHeaderMode.UNSUPPORTED }
 
 public fun parseRequestedWithHeaderAllowList(raw: String): Set<String> = raw
     .split(',', ' ', '\n')
