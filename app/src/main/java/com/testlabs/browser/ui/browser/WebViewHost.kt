@@ -206,6 +206,7 @@ private fun WebView.applyConfig(
 
     s.javaScriptEnabled = config.javascriptEnabled
     s.domStorageEnabled = config.domStorageEnabled
+    s.databaseEnabled = true
     s.allowFileAccess = config.fileAccessEnabled
     s.allowContentAccess = config.fileAccessEnabled
     s.mediaPlaybackRequiresUserGesture = !config.mediaAutoplayEnabled
@@ -214,6 +215,10 @@ private fun WebView.applyConfig(
     } else {
         WebSettings.MIXED_CONTENT_NEVER_ALLOW
     }
+    s.setSupportMultipleWindows(true)
+    s.javaScriptCanOpenWindowsAutomatically = true
+    s.useWideViewPort = true
+    s.loadWithOverviewMode = true
 
     val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
     s.userAgentString = ua
@@ -355,6 +360,7 @@ private fun applyFullWebViewConfiguration(
 
     s.javaScriptEnabled = config.javascriptEnabled
     s.domStorageEnabled = config.domStorageEnabled
+    s.databaseEnabled = true
     s.allowFileAccess = config.fileAccessEnabled
     s.allowContentAccess = config.fileAccessEnabled
     s.mediaPlaybackRequiresUserGesture = !config.mediaAutoplayEnabled
@@ -363,6 +369,10 @@ private fun applyFullWebViewConfiguration(
     } else {
         WebSettings.MIXED_CONTENT_NEVER_ALLOW
     }
+    s.setSupportMultipleWindows(true)
+    s.javaScriptCanOpenWindowsAutomatically = true
+    s.useWideViewPort = true
+    s.loadWithOverviewMode = true
 
     val cookieManager = CookieManager.getInstance()
     cookieManager.setAcceptCookie(true)
