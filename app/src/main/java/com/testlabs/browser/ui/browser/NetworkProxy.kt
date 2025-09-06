@@ -85,7 +85,10 @@ public class DefaultNetworkProxy(
         val mime = contentType.substringBefore(';')
         val charset = contentType.substringAfter("charset=", "")
             .ifEmpty { null }
-        val webResp = WebResourceResponseCompat.create(mime, charset, resp.statusCode, resp.reasonPhrase, headerMap, resp.body)
+
+        val webResp = WebResourceResponse(mime, charset, resp.body)
+        webResp.responseHeaders = headerMap.toMutableMap()
+        webResp.setStatusCodeAndReasonPhrase(resp.statusCode, resp.reasonPhrase.ifBlank { " " })
         return webResp
     }
 }

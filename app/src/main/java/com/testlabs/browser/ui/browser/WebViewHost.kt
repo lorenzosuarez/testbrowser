@@ -212,7 +212,7 @@ private fun WebView.applyConfig(
     s.loadWithOverviewMode = true
 
     if (config.suppressXRequestedWith &&
-        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)
+        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
     ) {
         WebSettingsCompat.setRequestedWithHeaderOriginAllowList(s, emptySet())
     }
