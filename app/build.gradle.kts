@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)

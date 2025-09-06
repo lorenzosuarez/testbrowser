@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser.webview
 
 import android.graphics.Bitmap
@@ -18,8 +22,8 @@ public open class BrowserWebViewClient(
     private val jsBridge: JsBridge,
     private val uaProvider: UAProvider,
     private val acceptLanguage: String,
-    private val desktopMode: Boolean = false, // AGREGADO: Desktop Mode
-    private val proxyInterceptEnabled: Boolean = false // NUEVO: Control de proxy intercept
+    private val desktopMode: Boolean = false, 
+    private val proxyInterceptEnabled: Boolean = false 
 ) : WebViewClient() {
 
     private val blockedHosts: Set<String> = setOf(
@@ -64,7 +68,7 @@ public open class BrowserWebViewClient(
             )
         }
 
-        // CORREGIDO: Usar configuración de proxy intercept
+        
         return if (proxyInterceptEnabled) {
             val ua = uaProvider.userAgent(desktop = desktopMode)
             proxy.interceptRequest(
@@ -74,7 +78,7 @@ public open class BrowserWebViewClient(
                 proxyEnabled = true
             )
         } else {
-            null // Default: no intercept
+            null 
         }
     }
 }

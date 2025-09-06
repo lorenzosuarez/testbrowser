@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser.ui.browser.components
 
 import androidx.compose.foundation.layout.Arrangement
@@ -87,7 +91,7 @@ public fun BrowserSettingsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Core Browser Settings
+                
                 Card(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -145,7 +149,7 @@ public fun BrowserSettingsDialog(
                     }
                 }
 
-                // Network Settings
+                
                 Card(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -207,14 +211,14 @@ public fun BrowserSettingsDialog(
                     }
                 }
 
-                // Actions
+                
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onClearBrowsingData) {
                         Text(text = stringResource(id = R.string.settings_clear_browsing_data))
                     }
                 }
 
-                // Diagnostics
+                
                 Card(
                     modifier = Modifier.fillMaxWidth()
                 ) {

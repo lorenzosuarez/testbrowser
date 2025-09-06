@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser.ui.browser
 
 import android.content.Context
@@ -30,7 +34,7 @@ public class FileUploadHandler(private val context: Context) {
     ): Boolean {
         Log.d(TAG, "File chooser requested")
 
-        // Store the callback for later use
+        
         this.filePathCallback = filePathCallback
 
         try {

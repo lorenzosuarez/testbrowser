@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser.network
 
 import android.content.Context
@@ -51,12 +55,12 @@ public object CronetHolder {
         fun createBuilder(): CronetEngine.Builder {
             return CronetEngine.Builder(context)
                 .enableHttp2(true)
-                .enableQuic(true)  // HTTP/3
+                .enableQuic(true)  
                 .enableBrotli(true)
                 .apply {
-                    // Try to enable ZSTD if supported (gracefully handle if not available)
+                    
                     try {
-                        // Use reflection to avoid compilation issues on older Cronet versions
+                        
                         val enableZstdMethod = this::class.java.getDeclaredMethod("enableZstd", Boolean::class.javaPrimitiveType)
                         enableZstdMethod.invoke(this, true)
                         Log.d(TAG, "ZSTD compression enabled successfully")
@@ -66,13 +70,13 @@ public object CronetHolder {
                         Log.d(TAG, "ZSTD compression not available: ${e.javaClass.simpleName}")
                     }
                 }
-                .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_IN_MEMORY, 20L * 1024 * 1024) // 20MB cache
+                .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_IN_MEMORY, 20L * 1024 * 1024) 
                 .setUserAgent(userAgent)
                 .setThreadPriority(Thread.NORM_PRIORITY)
         }
 
         return try {
-            // Try to build directly first
+            
             Log.d(TAG, "Creating Cronet engine with UA: ${userAgent.take(100)}")
             createBuilder().build().also {
                 Log.d(TAG, "Cronet engine created successfully")
@@ -81,7 +85,7 @@ public object CronetHolder {
             Log.d(TAG, "Direct Cronet creation failed, trying with provider installation: ${e.message}")
 
             try {
-                // Try to install provider and build again
+                
                 val installTask = CronetProviderInstaller.installProvider(context)
                 Tasks.await(installTask, 5, TimeUnit.SECONDS)
 
