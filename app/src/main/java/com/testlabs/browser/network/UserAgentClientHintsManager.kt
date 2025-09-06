@@ -15,9 +15,6 @@ public class UserAgentClientHintsManager(
     /** Whether UA-CH headers should be sent. */
     public var enabled: Boolean = true
 
-    /** Manually toggle UA-CH transmission. */
-    public fun setEnabled(value: Boolean) { enabled = value }
-
     /** Placeholder for future hint refresh logic. */
     public fun refresh() { /* no-op for now */ }
 
@@ -42,4 +39,3 @@ public class UserAgentClientHintsManager(
             "sec-ch-ua-platform" to secChUaPlatform()
         )
 }
-

@@ -183,6 +183,7 @@ private fun setupWebViewDefaults(webView: WebView) {
     CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 }
 
+@SuppressLint("RestrictedApi")
 private fun WebView.applyConfig(
     config: WebViewConfig,
     uaProvider: UAProvider,
@@ -218,9 +219,8 @@ private fun WebView.applyConfig(
         val allowList = parseRequestedWithHeaderAllowList(config.requestedWithHeaderAllowList)
         WebSettingsCompat.setRequestedWithHeaderOriginAllowList(s, allowList)
         if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
-            val controller = ServiceWorkerControllerCompat.getInstance()
-            val sw = controller.serviceWorkerWebSettings
-            ServiceWorkerWebSettingsCompat.setRequestedWithHeaderOriginAllowList(sw, allowList)
+            val sw = ServiceWorkerControllerCompat.getInstance().serviceWorkerWebSettings
+            sw.requestedWithHeaderOriginAllowList = allowList
         }
     }
 
@@ -344,7 +344,7 @@ private fun WebView.applyConfig(
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
+@SuppressLint("SetJavaScriptEnabled", "RestrictedApi")
 private fun applyFullWebViewConfiguration(
     webView: WebView,
     config: WebViewConfig,
@@ -378,17 +378,18 @@ private fun applyFullWebViewConfiguration(
     s.useWideViewPort = true
     s.loadWithOverviewMode = true
 
-    if (config.suppressXRequestedWith &&
+    if (
+        config.suppressXRequestedWith &&
         WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
     ) {
-        val allowList = parseRequestedWithHeaderAllowList(config.requestedWithHeaderAllowList)
-        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(s, allowList)
+        val allowList: Set<String> = parseRequestedWithHeaderAllowList(config.requestedWithHeaderAllowList)
+        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, allowList)
         if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
-            val controller = ServiceWorkerControllerCompat.getInstance()
-            val sw = controller.serviceWorkerWebSettings
-            ServiceWorkerWebSettingsCompat.setRequestedWithHeaderOriginAllowList(sw, allowList)
+            val swSettings = ServiceWorkerControllerCompat.getInstance().serviceWorkerWebSettings
+            swSettings.requestedWithHeaderOriginAllowList = allowList
         }
     }
+
 
     val cookieManager = CookieManager.getInstance()
     cookieManager.setAcceptCookie(true)

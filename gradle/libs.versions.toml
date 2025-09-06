@@ -33,8 +33,8 @@ webkit = "1.14.0"
 cronet = "119.6045.31"
 play-services-cronet = "18.1.0"
 brotli = "0.1.2"
-zstd = "1.5.5-9"
-zstd-jni = "1.5.5-1"
+zstd = "1.5.7-4"
+zstd-jni = "1.5.7-4"
 
 [libraries]
 # AndroidX Core
