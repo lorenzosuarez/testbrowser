@@ -168,8 +168,9 @@ public fun BrowserScreen(
 
             val headerModeString = when (mode) {
                 RequestedWithHeaderMode.ALLOW_LIST -> {
-                    val count = parseRequestedWithHeaderAllowList(state.settingsDraft.requestedWithHeaderAllowList).size
-                    "Allow-list($count)"
+                    val allow = parseRequestedWithHeaderAllowList(state.settingsDraft.requestedWithHeaderAllowList)
+                    val preview = allow.take(3).joinToString(",")
+                    "Allow-list(${allow.size}): $preview"
                 }
                 RequestedWithHeaderMode.ELIMINATED -> "Eliminated"
                 RequestedWithHeaderMode.UNKNOWN -> "Unknown"
