@@ -22,9 +22,10 @@ public data class BrowserState(
     val canGoForward: Boolean = false,
     val inputUrl: String = "",
     val errorMessage: String? = null,
-    val shouldFocusUrlInput: Boolean = false,
     val isSettingsDialogVisible: Boolean = false,
     val settingsCurrent: WebViewConfig = WebViewConfig(),
     val settingsDraft: WebViewConfig = WebViewConfig(),
     val isUrlInputEditing: Boolean = false,
+    val mode: BrowserMode = BrowserMode.StartPage,
+    val webViewInstanceKey: Int = 0,
 )

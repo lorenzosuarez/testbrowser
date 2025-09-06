@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ClipEntry
@@ -39,13 +40,13 @@ import com.testlabs.browser.R
 import com.testlabs.browser.core.ValidatedUrl
 import com.testlabs.browser.presentation.browser.BrowserEffect
 import com.testlabs.browser.presentation.browser.BrowserIntent
+import com.testlabs.browser.presentation.browser.BrowserMode
 import com.testlabs.browser.presentation.browser.BrowserViewModel
 import com.testlabs.browser.ui.browser.components.BrowserBottomBar
 import com.testlabs.browser.ui.browser.components.BrowserProgressIndicator
 import com.testlabs.browser.ui.browser.components.BrowserSettingsDialog
 import com.testlabs.browser.ui.browser.components.BrowserTopBar
 import com.testlabs.browser.ui.browser.components.StartPage
-import com.testlabs.browser.ui.theme.StatusBarGradient
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -75,14 +76,10 @@ public fun BrowserScreen(
     val clipboard = LocalClipboard.current
 
     var webController by remember { mutableStateOf<WebViewController?>(null) }
-    var pendingUrl by remember { mutableStateOf<String?>(null) }
+    val focusRequester = remember { FocusRequester() }
 
     BackHandler(enabled = state.canGoBack) {
         viewModel.handleIntent(BrowserIntent.GoBack)
-    }
-
-    LaunchedEffect(state.shouldFocusUrlInput) {
-        if (state.shouldFocusUrlInput) topScroll.state.heightOffset = 0f
     }
 
     LaunchedEffect(Unit) {
@@ -93,10 +90,9 @@ public fun BrowserScreen(
                 BrowserEffect.NavigateBack -> webController?.goBack()
                 BrowserEffect.NavigateForward -> webController?.goForward()
                 is BrowserEffect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
-                BrowserEffect.RecreateWebView -> {
-                    pendingUrl = state.url.value.ifBlank { null }
-                    webController?.recreateWebView()
-                    scope.launch { snackbarHostState.showSnackbar("WebView restarted with new settings") }
+                BrowserEffect.FocusUrlEditor -> {
+                    focusRequester.requestFocus()
+                    topScroll.state.heightOffset = 0f
                 }
                 BrowserEffect.ClearBrowsingData -> {
                     val controller = webController
@@ -106,13 +102,19 @@ public fun BrowserScreen(
                         controller.clearBrowsingData {
                             scope.launch {
                                 viewModel.handleIntent(BrowserIntent.CloseSettings)
-                                viewModel.handleIntent(BrowserIntent.FocusUrlInput)
+                                viewModel.handleIntent(BrowserIntent.EditUrlRequested)
                                 snackbarHostState.showSnackbar(context.getString(R.string.settings_clear_browsing_data_done))
                             }
                         }
                     }
                 }
             }
+        }
+    }
+
+    LaunchedEffect(state.mode) {
+        if (state.mode == BrowserMode.StartPage) {
+            webController = null
         }
     }
 
@@ -126,7 +128,7 @@ public fun BrowserScreen(
                     onSubmit = { viewModel.submitUrl(state.inputUrl) },
                     onMenuClick = { viewModel.handleIntent(BrowserIntent.OpenSettings) },
                     scrollBehavior = topScroll,
-                    shouldFocusUrlInput = state.shouldFocusUrlInput,
+                    focusRequester = focusRequester,
                     onEditingChange = { editing -> viewModel.handleIntent(BrowserIntent.UrlInputEditing(editing)) }
                 )
                 BrowserProgressIndicator(
@@ -142,7 +144,8 @@ public fun BrowserScreen(
                 onBackClick = { viewModel.handleIntent(BrowserIntent.GoBack) },
                 onForwardClick = { viewModel.handleIntent(BrowserIntent.GoForward) },
                 onReloadClick = { viewModel.handleIntent(BrowserIntent.Reload) },
-                onEditUrlClick = { viewModel.handleIntent(BrowserIntent.FocusUrlInput) },
+                onHomeClick = { viewModel.handleIntent(BrowserIntent.NavigateHome) },
+                onEditUrlClick = { viewModel.handleIntent(BrowserIntent.EditUrlRequested) },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -151,46 +154,47 @@ public fun BrowserScreen(
         Box(
             modifier = Modifier.fillMaxSize().padding(innerPadding),
         ) {
-            WebViewHost(
-                modifier = Modifier.fillMaxSize(),
-                onProgressChanged = { p -> viewModel.handleIntent(BrowserIntent.ProgressChanged(p)) },
-                onPageStarted = { url -> viewModel.handleIntent(BrowserIntent.PageStarted(ValidatedUrl.fromValidUrl(url))) },
-                onPageFinished = { url -> viewModel.handleIntent(BrowserIntent.PageFinished(ValidatedUrl.fromValidUrl(url))) },
-                onTitleChanged = { title -> viewModel.handleIntent(BrowserIntent.TitleChanged(title)) },
-                onNavigationStateChanged = { canBack, canFwd ->
-                    viewModel.handleIntent(BrowserIntent.NavigationStateChanged(canBack, canFwd))
-                },
-                onError = { msg -> viewModel.handleIntent(BrowserIntent.NavigationError(msg)) },
-                onUrlChanged = { url -> viewModel.handleIntent(BrowserIntent.UrlChanged(ValidatedUrl.fromValidUrl(url))) },
-                filePickerLauncher = filePickerLauncher,
-                uaProvider = uaProvider,
-                jsCompat = jsCompat,
-                config = state.settingsCurrent,
-                onControllerReady = { controller ->
-                    webController = controller
-                    val initial = pendingUrl ?: state.url.value.ifBlank { null }
-                    if (initial != null) controller.loadUrl(initial)
-                    pendingUrl = null
-                },
-                onScrollDelta = { dyPx ->
-                    val available = Offset(x = 0f, y = -dyPx.toFloat())
-                    val pre = topScroll.nestedScrollConnection.onPreScroll(
-                        available,
-                        NestedScrollSource.UserInput
+            if (state.mode == BrowserMode.Web) {
+                androidx.compose.runtime.key(state.webViewInstanceKey) {
+                    WebViewHost(
+                        modifier = Modifier.fillMaxSize(),
+                        onProgressChanged = { p -> viewModel.handleIntent(BrowserIntent.ProgressChanged(p)) },
+                        onPageStarted = { url -> viewModel.handleIntent(BrowserIntent.PageStarted(ValidatedUrl.fromValidUrl(url))) },
+                        onPageFinished = { url -> viewModel.handleIntent(BrowserIntent.PageFinished(ValidatedUrl.fromValidUrl(url))) },
+                        onTitleChanged = { title -> viewModel.handleIntent(BrowserIntent.TitleChanged(title)) },
+                        onNavigationStateChanged = { canBack, canFwd ->
+                            viewModel.handleIntent(BrowserIntent.NavigationStateChanged(canBack, canFwd))
+                        },
+                        onError = { msg -> viewModel.handleIntent(BrowserIntent.NavigationError(msg)) },
+                        onUrlChanged = { url -> viewModel.handleIntent(BrowserIntent.UrlChanged(ValidatedUrl.fromValidUrl(url))) },
+                        filePickerLauncher = filePickerLauncher,
+                        uaProvider = uaProvider,
+                        jsCompat = jsCompat,
+                        config = state.settingsCurrent,
+                        onControllerReady = { controller ->
+                            webController = controller
+                            val initial = state.url.value.ifBlank { null }
+                            if (initial != null) controller.loadUrl(initial)
+                        },
+                        onScrollDelta = { dyPx ->
+                            val available = Offset(x = 0f, y = -dyPx.toFloat())
+                            val pre = topScroll.nestedScrollConnection.onPreScroll(
+                                available,
+                                NestedScrollSource.UserInput
+                            )
+                            val remaining = available - pre
+                            topScroll.nestedScrollConnection.onPostScroll(
+                                Offset.Zero,
+                                remaining,
+                                NestedScrollSource.UserInput
+                            )
+                        },
                     )
-                    val remaining = available - pre
-                    topScroll.nestedScrollConnection.onPostScroll(
-                        Offset.Zero,
-                        remaining,
-                        NestedScrollSource.UserInput
-                    )
-                },
-            )
+                }
+            }
 
-            val showStart = (state.url.value.isBlank() || state.url.value == "about:blank") &&
-                    !state.isLoading && state.errorMessage == null
             StartPage(
-                visible = showStart,
+                visible = state.mode == BrowserMode.StartPage,
                 onOpenUrl = { target -> viewModel.submitUrl(target) },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -209,7 +213,7 @@ public fun BrowserScreen(
                 onConfigChange = { viewModel.handleIntent(BrowserIntent.UpdateSettings(it)) },
                 onDismiss = { viewModel.handleIntent(BrowserIntent.CloseSettings) },
                 onConfirm = { viewModel.handleIntent(BrowserIntent.ApplySettings) },
-                onApplyAndRestart = { viewModel.handleIntent(BrowserIntent.ApplySettingsAndRestart(state.settingsDraft)) },
+                onApplyAndRestart = { viewModel.handleIntent(BrowserIntent.ApplySettingsAndRestartWebView(state.settingsDraft)) },
                 onClearBrowsingData = { viewModel.handleIntent(BrowserIntent.ClearBrowsingData) },
                 userAgent = currentUserAgent,
                 acceptLanguages = state.settingsDraft.acceptLanguages,

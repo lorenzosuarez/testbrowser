@@ -10,6 +10,7 @@
   <string name="browser_reload">Reload</string>
   <string name="browser_refresh">Refresh</string>
   <string name="browser_new_tab">New tab</string>
+  <string name="browser_home">Home</string>
   <string name="navigation_error">Navigation error</string>
   <string name="page_load_error">Failed to load page</string>
   <string name="loading">Loading&#x2026;</string>

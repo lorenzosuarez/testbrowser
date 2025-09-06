@@ -4,6 +4,8 @@
  */
 package com.testlabs.browser.presentation.browser
 
+import com.testlabs.browser.core.ValidatedUrl
+
 /**
  * Pure reducer function that handles state transitions for browser intents.
  * This function is side-effect free and deterministic.
@@ -25,7 +27,7 @@ public object BrowserReducer {
                     inputUrl = nextInput,
                     errorMessage = null,
                     isPullToRefresh = false,
-                    shouldFocusUrlInput = false,
+                    mode = BrowserMode.Web,
                 ) to BrowserEffect.LoadUrl(intent.url)
             }
 
@@ -48,7 +50,6 @@ public object BrowserReducer {
                     state.copy(
                         errorMessage = null,
                         isPullToRefresh = false,
-                        shouldFocusUrlInput = false,
                     ) to BrowserEffect.NavigateBack
                 } else state to null
             }
@@ -58,7 +59,6 @@ public object BrowserReducer {
                     state.copy(
                         errorMessage = null,
                         isPullToRefresh = false,
-                        shouldFocusUrlInput = false,
                     ) to BrowserEffect.NavigateForward
                 } else state to null
             }
@@ -66,7 +66,6 @@ public object BrowserReducer {
             is BrowserIntent.UpdateInputUrl -> {
                 state.copy(
                     inputUrl = intent.inputUrl,
-                    shouldFocusUrlInput = false,
                 ) to null
             }
 
@@ -79,6 +78,7 @@ public object BrowserReducer {
                     isLoading = true,
                     progress = 0f,
                     errorMessage = null,
+                    mode = BrowserMode.Web,
                 ) to null
             }
 
@@ -91,6 +91,7 @@ public object BrowserReducer {
                     isLoading = false,
                     isPullToRefresh = false,
                     progress = 1f,
+                    mode = BrowserMode.Web,
                 ) to null
             }
 
@@ -111,19 +112,17 @@ public object BrowserReducer {
 
             BrowserIntent.ClearError -> state.copy(errorMessage = null) to null
 
-            BrowserIntent.FocusUrlInput -> state.copy(
+            BrowserIntent.EditUrlRequested -> state.copy(
                 inputUrl = state.url.value,
-                shouldFocusUrlInput = true,
                 isUrlInputEditing = true,
-            ) to null
+            ) to BrowserEffect.FocusUrlEditor
 
             is BrowserIntent.UrlInputEditing -> {
                 if (intent.editing) {
-                    state.copy(isUrlInputEditing = true, shouldFocusUrlInput = false)
+                    state.copy(isUrlInputEditing = true)
                 } else {
                     state.copy(
                         isUrlInputEditing = false,
-                        shouldFocusUrlInput = false,
                         inputUrl = state.url.value,
                     )
                 } to null
@@ -138,11 +137,12 @@ public object BrowserReducer {
 
             is BrowserIntent.UpdateSettings -> state.copy(settingsDraft = intent.config) to null
 
-            is BrowserIntent.ApplySettingsAndRestart -> state.copy(
+            is BrowserIntent.ApplySettingsAndRestartWebView -> state.copy(
                 settingsCurrent = intent.config,
                 settingsDraft = intent.config,
                 isSettingsDialogVisible = false,
-            ) to BrowserEffect.RecreateWebView
+                webViewInstanceKey = state.webViewInstanceKey + 1,
+            ) to null
 
             BrowserIntent.ApplySettings -> state.copy(
                 settingsCurrent = state.settingsDraft,
@@ -155,8 +155,22 @@ public object BrowserReducer {
                 state.copy(
                     url = intent.url,
                     inputUrl = nextInput,
+                    mode = BrowserMode.Web,
                 ) to null
             }
+
+            BrowserIntent.NavigateHome -> state.copy(
+                url = ValidatedUrl.fromInput(""),
+                inputUrl = "",
+                isLoading = false,
+                isPullToRefresh = false,
+                canGoBack = false,
+                canGoForward = false,
+                errorMessage = null,
+                isUrlInputEditing = false,
+                mode = BrowserMode.StartPage,
+                webViewInstanceKey = state.webViewInstanceKey + 1,
+            ) to null
 
             BrowserIntent.ClearBrowsingData -> state to BrowserEffect.ClearBrowsingData
         }
