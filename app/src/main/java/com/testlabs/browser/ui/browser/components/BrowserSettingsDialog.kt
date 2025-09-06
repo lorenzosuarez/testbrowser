@@ -188,6 +188,21 @@ public fun BrowserSettingsDialog(
                             )
                         }
 
+                        SettingRow(
+                            label = "Remove X-Requested-With header",
+                            checked = tempConfig.suppressXRequestedWith,
+                            onCheckedChange = { tempConfig = tempConfig.copy(suppressXRequestedWith = it) }
+                        )
+
+                        OutlinedTextField(
+                            value = tempConfig.requestedWithHeaderAllowList,
+                            onValueChange = { tempConfig = tempConfig.copy(requestedWithHeaderAllowList = it) },
+                            label = { Text("X-Requested-With Allow-list") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            placeholder = { Text("comma or space separated origins") }
+                        )
+
                         OutlinedTextField(
                             value = tempConfig.acceptLanguages,
                             onValueChange = { tempConfig = tempConfig.copy(acceptLanguages = it) },

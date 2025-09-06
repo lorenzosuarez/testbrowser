@@ -90,9 +90,11 @@ public class DefaultNetworkProxy(
                 ?.let { sanitized.remove(it) }
         }
 
-        sanitized["sec-ch-ua"] = chManager.secChUa()
-        sanitized["sec-ch-ua-mobile"] = chManager.secChUaMobile(true)
-        sanitized["sec-ch-ua-platform"] = chManager.secChUaPlatform()
+        if (chManager.enabled) {
+            sanitized["sec-ch-ua"] = chManager.secChUa()
+            sanitized["sec-ch-ua-mobile"] = chManager.secChUaMobile(true)
+            sanitized["sec-ch-ua-platform"] = chManager.secChUaPlatform()
+        }
 
         return sanitized
     }

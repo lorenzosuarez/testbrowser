@@ -6,7 +6,6 @@ package com.testlabs.browser.ui.browser
 
 import android.util.Log
 import android.webkit.WebView
-import androidx.webkit.WebViewFeature
 import androidx.webkit.WebSettingsCompat
 
 private const val TAG = "ProxyValidator"
@@ -26,8 +25,16 @@ public object ProxyValidator {
             Log.d(TAG, "✅ DOM storage enabled: ${settings.domStorageEnabled}")
 
             
-            val headerMode = requestedWithHeaderModeOf(webView)
-            Log.d(TAG, "✅ X-Requested-With mode: $headerMode")
+            val mode = requestedWithHeaderModeOf(webView)
+            val detail = when (mode) {
+                RequestedWithHeaderMode.ALLOW_LIST -> {
+                    val allow = WebSettingsCompat.getRequestedWithHeaderOriginAllowList(webView.settings)
+                    "Allow-list(${allow.size})"
+                }
+                RequestedWithHeaderMode.ELIMINATED -> "Eliminated"
+                RequestedWithHeaderMode.UNKNOWN -> "Unknown"
+            }
+            Log.d(TAG, "✅ X-Requested-With mode: $detail")
 
         } catch (e: Exception) {
             Log.e(TAG, "❌ Proxy health check failed", e)

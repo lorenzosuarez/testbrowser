@@ -166,6 +166,15 @@ public fun BrowserScreen(
             val mode = webController?.requestedWithHeaderMode() ?: RequestedWithHeaderMode.UNKNOWN
             val proxyStack = webController?.proxyStackName() ?: "Disabled"
 
+            val headerModeString = when (mode) {
+                RequestedWithHeaderMode.ALLOW_LIST -> {
+                    val count = parseRequestedWithHeaderAllowList(state.settingsDraft.requestedWithHeaderAllowList).size
+                    "Allow-list($count)"
+                }
+                RequestedWithHeaderMode.ELIMINATED -> "Eliminated"
+                RequestedWithHeaderMode.UNKNOWN -> "Unknown"
+            }
+
             val currentUserAgent = state.settingsDraft.customUserAgent
                 ?: uaProvider.userAgent(desktop = state.settingsDraft.desktopMode)
 
@@ -180,13 +189,13 @@ public fun BrowserScreen(
                 onClearBrowsingData = { viewModel.handleIntent(BrowserIntent.ClearBrowsingData) },
                 userAgent = currentUserAgent,
                 acceptLanguages = state.settingsDraft.acceptLanguages,
-                headerMode = mode.name,
+                headerMode = headerModeString,
                 jsCompatEnabled = state.settingsDraft.jsCompatibilityMode,
                 proxyStack = proxyStack,
                 onCopyDiagnostics = {
                     val runtime = webController?.dumpSettings() ?: "{}"
                     val diagnostics =
-                        """{"userAgent":"$currentUserAgent","acceptLanguage":"${state.settingsDraft.acceptLanguages}","proxyStack":"$proxyStack","xRequestedWith":"${mode.name}","jsCompat":${state.settingsDraft.jsCompatibilityMode},"desktopMode":${state.settingsDraft.desktopMode},"thirdPartyCookies":${state.settingsDraft.enableThirdPartyCookies},"proxyEnabled":${state.settingsDraft.proxyEnabled},"proxyInterceptEnabled":${state.settingsDraft.proxyInterceptEnabled},"runtime":$runtime}"""
+                        """{"userAgent":"$currentUserAgent","acceptLanguage":"${state.settingsDraft.acceptLanguages}","proxyStack":"$proxyStack","xRequestedWith":"$headerModeString","jsCompat":${state.settingsDraft.jsCompatibilityMode},"desktopMode":${state.settingsDraft.desktopMode},"thirdPartyCookies":${state.settingsDraft.enableThirdPartyCookies},"proxyEnabled":${state.settingsDraft.proxyEnabled},"proxyInterceptEnabled":${state.settingsDraft.proxyInterceptEnabled},"runtime":$runtime}"""
                     scope.launch {
                         val clipData = ClipData.newPlainText("Diagnostics", diagnostics)
                         clipboard.setClipEntry(ClipEntry(clipData))

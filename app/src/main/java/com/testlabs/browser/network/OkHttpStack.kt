@@ -36,9 +36,11 @@ public class OkHttpStack(
         val acceptLang = headers["Accept-Language"] ?: "en-US,en;q=0.9"
         headers["Accept-Language"] = acceptLang
         val hints = chManager.asMap(isMobile = true)
-        headers["Sec-CH-UA"] = hints["sec-ch-ua"]!!
-        headers["Sec-CH-UA-Mobile"] = hints["sec-ch-ua-mobile"]!!
-        headers["Sec-CH-UA-Platform"] = hints["sec-ch-ua-platform"]!!
+        if (hints.isNotEmpty()) {
+            headers["Sec-CH-UA"] = hints["sec-ch-ua"]!!
+            headers["Sec-CH-UA-Mobile"] = hints["sec-ch-ua-mobile"]!!
+            headers["Sec-CH-UA-Platform"] = hints["sec-ch-ua-platform"]!!
+        }
 
         headers.forEach { (k, v) -> builder.header(k, v) }
 

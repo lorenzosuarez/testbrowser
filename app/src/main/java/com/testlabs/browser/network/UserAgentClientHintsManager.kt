@@ -12,6 +12,15 @@ import com.testlabs.browser.ui.browser.VersionProvider
 public class UserAgentClientHintsManager(
     private val versionProvider: VersionProvider
 ) {
+    /** Whether UA-CH headers should be sent. */
+    public var enabled: Boolean = true
+
+    /** Manually toggle UA-CH transmission. */
+    public fun setEnabled(value: Boolean) { enabled = value }
+
+    /** Placeholder for future hint refresh logic. */
+    public fun refresh() { /* no-op for now */ }
+
     /** Return Chrome major from the current User-Agent. */
     private fun chromeMajor(): String = versionProvider.major()
 
@@ -26,10 +35,11 @@ public class UserAgentClientHintsManager(
     public fun secChUaPlatform(): String = "\"Android\""
 
     /** Convenience helper returning the standard UA-CH map. */
-    public fun asMap(isMobile: Boolean = true): Map<String, String> = mapOf(
-        "sec-ch-ua" to secChUa(),
-        "sec-ch-ua-mobile" to secChUaMobile(isMobile),
-        "sec-ch-ua-platform" to secChUaPlatform()
-    )
+    public fun asMap(isMobile: Boolean = true): Map<String, String> =
+        if (!enabled) emptyMap() else mapOf(
+            "sec-ch-ua" to secChUa(),
+            "sec-ch-ua-mobile" to secChUaMobile(isMobile),
+            "sec-ch-ua-platform" to secChUaPlatform()
+        )
 }
 

@@ -30,6 +30,7 @@ public data class WebViewConfig(
     val proxyEnabled: Boolean = true,
     val proxyInterceptEnabled: Boolean = true,
     val suppressXRequestedWith: Boolean = true,
+    val requestedWithHeaderAllowList: String = "",
     val engineMode: EngineMode = EngineMode.Cronet,
 )
 

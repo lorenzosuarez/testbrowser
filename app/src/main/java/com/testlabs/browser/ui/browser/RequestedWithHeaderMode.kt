@@ -11,23 +11,27 @@ import kotlin.runCatching
 
 /**
  * Effective policy for the X-Requested-With header in WebView.
- *
- * UNKNOWN: engine does not expose allow-list control.
- * NO_HEADER: no origin is allow-listed, header will not be sent.
- * ALLOW_LIST: at least one origin is allow-listed; header may be sent to those origins.
  */
 public enum class RequestedWithHeaderMode {
-    NO_HEADER,
+    /** Header removed for all origins. */
+    ELIMINATED,
+
+    /** Header only sent to allow-listed origins. */
     ALLOW_LIST,
-    SUPPRESSED_VIA_WEBKIT,
-    SUPPRESSED_VIA_PROXY,
-    NOT_SUPPRESSED,
-    UNKNOWN
+
+    /** WebView does not expose header control. */
+    UNKNOWN,
 }
 
 @SuppressLint("WebViewFeature", "RequiresFeature")
 internal fun requestedWithHeaderModeOf(webView: android.webkit.WebView): RequestedWithHeaderMode =
     runCatching {
         val allow = WebSettingsCompat.getRequestedWithHeaderOriginAllowList(webView.settings)
-        if (allow.isEmpty()) RequestedWithHeaderMode.NO_HEADER else RequestedWithHeaderMode.ALLOW_LIST
+        if (allow.isEmpty()) RequestedWithHeaderMode.ELIMINATED else RequestedWithHeaderMode.ALLOW_LIST
     }.getOrElse { RequestedWithHeaderMode.UNKNOWN }
+
+internal fun parseRequestedWithHeaderAllowList(raw: String): Set<String> = raw
+    .split(',', ' ', '\n')
+    .map { it.trim() }
+    .filter { it.isNotEmpty() }
+    .toSet()
