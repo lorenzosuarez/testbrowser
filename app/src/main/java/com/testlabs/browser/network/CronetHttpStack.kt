@@ -38,7 +38,8 @@ import kotlin.coroutines.resumeWithException
  */
 public class CronetHttpStack(
     private val engine: CronetEngine,
-    private val uaProvider: UAProvider
+    private val uaProvider: UAProvider,
+    private val chManager: UserAgentClientHintsManager
 ) : HttpStack {
 
     override val name: String = "cronet"
@@ -96,17 +97,24 @@ public class CronetHttpStack(
                 "te", "trailer", "upgrade",
                 "accept-encoding"
             )
-            request.headers.forEach { (k, v) ->
+
+            val headers = request.headers.toMutableMap()
+            headers.keys.filter { it.equals("x-requested-with", true) }.forEach { headers.remove(it) }
+            val ua = uaProvider.userAgent(false)
+            headers["User-Agent"] = ua
+            val acceptLang = headers["Accept-Language"] ?: "en-US,en;q=0.9"
+            headers["Accept-Language"] = acceptLang
+            val major = Regex("Chrome/(\\d+)").find(ua)?.groupValues?.get(1) ?: "99"
+            val hints = chManager.lowEntropyUaHints(major)
+            headers["Sec-CH-UA"] = hints["sec-ch-ua"]!!
+            headers["Sec-CH-UA-Mobile"] = hints["sec-ch-ua-mobile"]!!
+            headers["Sec-CH-UA-Platform"] = hints["sec-ch-ua-platform"]!!
+
+            headers.forEach { (k, v) ->
                 val lk = k.lowercase()
                 if (lk !in forbidden) {
                     builder.addHeader(k, v)
                 }
-            }
-            if (request.headers.keys.none { it.equals("User-Agent", true) }) {
-                builder.addHeader("User-Agent", uaProvider.userAgent(false))
-            }
-            if (request.headers.keys.none { it.equals("Accept-Language", true) }) {
-                builder.addHeader("Accept-Language", "en-US,en;q=0.9")
             }
             val hasBody = request.body != null && request.method.uppercase() !in setOf("GET", "HEAD")
             if (hasBody) {

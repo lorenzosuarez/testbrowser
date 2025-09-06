@@ -182,6 +182,161 @@ private fun setupWebViewDefaults(webView: WebView) {
     CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 }
 
+private fun WebView.applyConfig(
+    config: WebViewConfig,
+    uaProvider: UAProvider,
+    jsCompat: JsCompatScriptProvider,
+    networkProxy: NetworkProxy,
+    onUrlChange: (String) -> Unit,
+    onPageStarted: (String) -> Unit,
+    onPageFinished: (String) -> Unit,
+    onNavState: (Boolean, Boolean) -> Unit,
+    onError: (String) -> Unit,
+) {
+    val s = settings
+
+    s.javaScriptEnabled = config.javascriptEnabled
+    s.domStorageEnabled = config.domStorageEnabled
+    s.databaseEnabled = true
+    s.allowFileAccess = config.fileAccessEnabled
+    s.allowContentAccess = config.fileAccessEnabled
+    s.mediaPlaybackRequiresUserGesture = !config.mediaAutoplayEnabled
+    s.mixedContentMode = if (config.mixedContentAllowed) {
+        WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+    } else {
+        WebSettings.MIXED_CONTENT_NEVER_ALLOW
+    }
+    s.setSupportMultipleWindows(true)
+    s.javaScriptCanOpenWindowsAutomatically = true
+    s.useWideViewPort = true
+    s.loadWithOverviewMode = true
+
+    if (config.suppressXRequestedWith &&
+        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)
+    ) {
+        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(s, emptySet())
+    }
+
+    val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
+    s.userAgentString = ua
+
+    val acceptLanguage = when (config.acceptLanguageMode) {
+        AcceptLanguageMode.Baseline -> config.acceptLanguages
+        AcceptLanguageMode.DeviceList -> buildDeviceAcceptLanguage()
+    }
+
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
+        runCatching {
+            val controller = ServiceWorkerControllerCompat.getInstance()
+            controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
+                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
+                    if (request.isForMainFrame) return null
+                    val uaNow = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
+                    return networkProxy.interceptRequest(
+                        request = request,
+                        userAgent = uaNow,
+                        acceptLanguage = acceptLanguage,
+                        proxyEnabled = config.proxyEnabled
+                    )
+                }
+            })
+        }
+    }
+
+    CookieManager.getInstance().setAcceptCookie(true)
+    CookieManager.getInstance().setAcceptThirdPartyCookies(this, config.enableThirdPartyCookies)
+
+    val jsBridge: JsBridge = object : JsBridge(ua = uaProvider) {
+        override fun script(): String = if (config.jsCompatibilityMode) {
+            getDocStartScript(jsCompat)
+        } else {
+            ""
+        }
+    }
+
+    webViewClient = object : WebViewClient() {
+        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+            super.onPageStarted(view, url, favicon)
+            url?.let {
+                onPageStarted(it)
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+            }
+        }
+
+        override fun onPageFinished(view: WebView?, url: String?) {
+            super.onPageFinished(view, url)
+            url?.let {
+                onPageFinished(it)
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+            }
+        }
+
+        override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+            super.doUpdateVisitedHistory(view, url, isReload)
+            url?.let {
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+            }
+        }
+
+        override fun onPageCommitVisible(view: WebView?, url: String?) {
+            super.onPageCommitVisible(view, url)
+            url?.let {
+                onUrlChange(it)
+                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+            }
+        }
+
+        override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
+            super.onReceivedError(view, errorCode, description, failingUrl)
+            onError("Error $errorCode: $description")
+        }
+
+        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+            if (request?.isForMainFrame == true) {
+                request.url?.toString()?.let { url -> onUrlChange(url) }
+            }
+            return try {
+                networkProxy.interceptRequest(
+                    request = request ?: return null,
+                    userAgent = ua,
+                    acceptLanguage = acceptLanguage,
+                    proxyEnabled = config.proxyEnabled
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
+        runCatching {
+            val controller = ServiceWorkerControllerCompat.getInstance()
+            controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
+                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
+                    if (request.isForMainFrame) return null
+                    val uaNow = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
+                    return networkProxy.interceptRequest(
+                        request = request,
+                        userAgent = uaNow,
+                        acceptLanguage = acceptLanguage,
+                        proxyEnabled = config.proxyEnabled
+                    )
+                }
+            })
+        }
+    }
+
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+        WebSettingsCompat.setForceDark(
+            s,
+            if (config.forceDarkMode) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+        )
+    }
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 private fun applyFullWebViewConfiguration(
     webView: WebView,
