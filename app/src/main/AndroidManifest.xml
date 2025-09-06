@@ -9,7 +9,8 @@
   <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
-  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" android:minSdkVersion="33"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" android:minSdkVersion="33"
+      tools:ignore="SelectedPhotoAccess" />
   <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" android:minSdkVersion="33"/>
   <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" android:minSdkVersion="33"/>
   <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage"/>
@@ -28,19 +29,18 @@
                android:largeHeap="true"
                android:usesCleartextTraffic="false"
                android:enableOnBackInvokedCallback="true"
-               tools:targetApi="31">
+               tools:targetApi="33">
 
     <!-- Add WebView multiprocess support to prevent renderer crashes -->
     <meta-data android:name="android.webkit.WebView.MetricsOptOut" android:value="true" />
     <meta-data android:name="android.webkit.WebView.EnableSafeBrowsing" android:value="true" />
 
-    <activity android:name=".MainActivity"
+    <activity android:name="com.testlabs.browser.MainActivity"
               android:exported="true"
               android:theme="@style/Theme.TestBrowser"
               android:launchMode="singleTop"
               android:windowSoftInputMode="adjustResize"
-              android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
-              android:process=":main">
+              android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>

@@ -1,17 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme using AppCompat -->
-    <style name="Theme.TestBrowser" parent="Theme.AppCompat.DayNight">
+    <!-- Base application theme using Material3 -->
+    <style name="Theme.TestBrowser" parent="Theme.AppCompat.Light">
         <!-- Primary brand color -->
         <item name="colorPrimary">@color/browser_primary</item>
-        <item name="colorPrimaryDark">@color/browser_primary_variant</item>
-        <item name="colorAccent">@color/browser_secondary</item>
-
-        <!-- Background colors -->
-        <item name="android:colorBackground">@color/browser_background</item>
-        <item name="android:textColorPrimary">@color/browser_on_background</item>
-        <item name="android:textColorSecondary">@color/browser_on_surface</item>
-
         <!-- Status bar -->
         <item name="android:statusBarColor">@color/status_bar</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -20,9 +12,23 @@
         <item name="android:navigationBarColor">@color/navigation_bar</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
 
-        <!-- Window properties -->
+        <!-- Window properties for proper initialization -->
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+
+        <!-- Ensure proper resource loading -->
+        <item name="android:windowBackground">@color/browser_background</item>
+        <item name="android:colorPrimary">@color/browser_primary</item>
+        <item name="android:colorAccent">@color/browser_secondary</item>
+    </style>
+
+    <!-- Fallback theme for compatibility -->
+    <style name="Theme.TestBrowser.Fallback" parent="Theme.AppCompat.DayNight">
+        <item name="colorPrimary">@color/browser_primary</item>
+        <item name="colorPrimaryDark">@color/browser_primary_variant</item>
+        <item name="colorAccent">@color/browser_secondary</item>
     </style>
 </resources>

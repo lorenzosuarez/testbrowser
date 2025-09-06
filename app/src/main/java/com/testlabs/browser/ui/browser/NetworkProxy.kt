@@ -345,14 +345,38 @@ public class NetworkProxy(
 
     private fun parseContentType(contentType: String): Pair<String, String> {
         val parts = contentType.split(';').map { it.trim() }
-        val mimeType = parts.firstOrNull() ?: "application/octet-stream"
+        val originalMimeType = parts.firstOrNull()?.lowercase() ?: ""
+
+        // Enhanced MIME type detection with URL-based fallback
+        val mimeType = when {
+            originalMimeType.isNotBlank() && originalMimeType != "application/octet-stream" -> originalMimeType
+            // URL-based MIME type detection for common cases
+            contentType.contains(".js") || contentType.endsWith(".js") -> "application/javascript"
+            contentType.contains(".mjs") || contentType.endsWith(".mjs") -> "application/javascript"
+            contentType.contains(".css") || contentType.endsWith(".css") -> "text/css"
+            contentType.contains(".json") || contentType.endsWith(".json") -> "application/json"
+            contentType.contains(".html") || contentType.endsWith(".html") -> "text/html"
+            contentType.contains(".xml") || contentType.endsWith(".xml") -> "application/xml"
+            contentType.contains(".png") || contentType.endsWith(".png") -> "image/png"
+            contentType.contains(".jpg") || contentType.contains(".jpeg") -> "image/jpeg"
+            contentType.contains(".gif") || contentType.endsWith(".gif") -> "image/gif"
+            contentType.contains(".svg") || contentType.endsWith(".svg") -> "image/svg+xml"
+            contentType.contains(".woff") -> "font/woff"
+            contentType.contains(".ttf") -> "font/ttf"
+            originalMimeType.isNotBlank() -> originalMimeType
+            else -> "application/octet-stream"
+        }
 
         val charset = parts
             .find { it.startsWith("charset=", ignoreCase = true) }
             ?.substringAfter('=')
             ?.trim('"', ' ')
-            ?: "UTF-8"  // Default to UTF-8 if no charset
+            ?: when {
+                mimeType.startsWith("text/") || mimeType == "application/javascript" || mimeType == "application/json" -> "UTF-8"
+                else -> "UTF-8"
+            }
 
+        Log.d(TAG, "📋 MIME type detection: '$contentType' → '$mimeType' (charset: $charset)")
         return Pair(mimeType, charset)
     }
 
