@@ -60,9 +60,11 @@ public class OkHttpEngine(
             headers.putIfAbsent("Accept-Language", acceptLanguage)
             headers["Accept-Encoding"] = "gzip, deflate, br, zstd"
             val hints = chManager.asMap(isMobile = true)
-            headers.putIfAbsent("Sec-CH-UA", hints["sec-ch-ua"]!!)
-            headers.putIfAbsent("Sec-CH-UA-Mobile", hints["sec-ch-ua-mobile"]!!)
-            headers.putIfAbsent("Sec-CH-UA-Platform", hints["sec-ch-ua-platform"]!!)
+            if (hints.isNotEmpty()) {
+                headers.putIfAbsent("Sec-CH-UA", hints["sec-ch-ua"]!!)
+                headers.putIfAbsent("Sec-CH-UA-Mobile", hints["sec-ch-ua-mobile"]!!)
+                headers.putIfAbsent("Sec-CH-UA-Platform", hints["sec-ch-ua-platform"]!!)
+            }
             try {
                 val cookies = cookieManager.getCookie(url)
                 if (!cookies.isNullOrBlank()) headers["Cookie"] = cookies

@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
+import androidx.webkit.ServiceWorkerWebSettingsCompat
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.AcceptLanguageMode
@@ -214,7 +215,13 @@ private fun WebView.applyConfig(
     if (config.suppressXRequestedWith &&
         WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
     ) {
-        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(s, emptySet())
+        val allowList = parseRequestedWithHeaderAllowList(config.requestedWithHeaderAllowList)
+        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(s, allowList)
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
+            val controller = ServiceWorkerControllerCompat.getInstance()
+            val sw = controller.serviceWorkerWebSettings
+            ServiceWorkerWebSettingsCompat.setRequestedWithHeaderOriginAllowList(sw, allowList)
+        }
     }
 
     val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
@@ -370,6 +377,18 @@ private fun applyFullWebViewConfiguration(
     s.javaScriptCanOpenWindowsAutomatically = true
     s.useWideViewPort = true
     s.loadWithOverviewMode = true
+
+    if (config.suppressXRequestedWith &&
+        WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
+    ) {
+        val allowList = parseRequestedWithHeaderAllowList(config.requestedWithHeaderAllowList)
+        WebSettingsCompat.setRequestedWithHeaderOriginAllowList(s, allowList)
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
+            val controller = ServiceWorkerControllerCompat.getInstance()
+            val sw = controller.serviceWorkerWebSettings
+            ServiceWorkerWebSettingsCompat.setRequestedWithHeaderOriginAllowList(sw, allowList)
+        }
+    }
 
     val cookieManager = CookieManager.getInstance()
     cookieManager.setAcceptCookie(true)
@@ -567,7 +586,7 @@ public class RealWebViewController(
         webView.clearCache(true)
         webView.clearHistory()
     }
-    override fun requestedWithHeaderMode(): RequestedWithHeaderMode = RequestedWithHeaderMode.UNKNOWN
+    override fun requestedWithHeaderMode(): RequestedWithHeaderMode = requestedWithHeaderModeOf(webView)
     override fun proxyStackName(): String = proxy.stackName
     override fun dumpSettings(): String = dumpWebViewConfig(webView, currentConfig)
 

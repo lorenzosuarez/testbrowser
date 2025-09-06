@@ -2,6 +2,8 @@ package com.testlabs.browser.ui.browser
 
 import android.webkit.CookieManager
 import android.webkit.WebView
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.WebViewConfig
 import org.json.JSONObject
 
@@ -21,5 +23,13 @@ public fun dumpWebViewConfig(webView: WebView, config: WebViewConfig): String {
     obj.put("acceptThirdPartyCookies", CookieManager.getInstance().acceptThirdPartyCookies(webView))
     obj.put("hardwareAccelerated", webView.isHardwareAccelerated)
     obj.put("acceptLanguages", config.acceptLanguages)
+
+    val headerInfo = if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+        val allow = WebSettingsCompat.getRequestedWithHeaderOriginAllowList(s)
+        if (allow.isEmpty()) "Eliminated" else "Allow-list(${allow.size}): ${allow.take(3).joinToString(',')}"
+    } else {
+        "Unknown"
+    }
+    obj.put("xRequestedWithMode", headerInfo)
     return obj.toString()
 }

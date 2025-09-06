@@ -77,14 +77,12 @@ class HeadersTest {
             val webView = WebView(activity)
             val mode = requestedWithHeaderModeOf(webView)
             // Test that we can determine the header mode without crashing
-            assertTrue("Should be able to determine header mode",
+            assertTrue(
+                "Should be able to determine header mode",
                 mode in listOf(
-                    RequestedWithHeaderMode.NO_HEADER,
+                    RequestedWithHeaderMode.ELIMINATED,
                     RequestedWithHeaderMode.ALLOW_LIST,
                     RequestedWithHeaderMode.UNKNOWN,
-                    RequestedWithHeaderMode.SUPPRESSED_VIA_WEBKIT,
-                    RequestedWithHeaderMode.SUPPRESSED_VIA_PROXY,
-                    RequestedWithHeaderMode.NOT_SUPPRESSED
                 )
             )
         }
