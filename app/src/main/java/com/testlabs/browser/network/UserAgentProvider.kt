@@ -1,3 +1,5 @@
-// This file has been removed - UserAgentProvider functionality moved to UAProvider interface
-// All references should now use com.testlabs.browser.ui.browser.UAProvider
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 

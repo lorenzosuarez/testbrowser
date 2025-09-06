@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser.ui.browser
 
 import android.util.Log
@@ -43,7 +47,7 @@ public class ProxySmokeTest {
                 val (url, description) = testUrls[testIndex]
                 Log.d(TAG, "Running test ${testIndex + 1}/${testUrls.size}: $description")
 
-                // Set up a simple success/failure detection
+                
                 var testCompleted = false
                 val startTime = System.currentTimeMillis()
 
@@ -53,17 +57,17 @@ public class ProxySmokeTest {
                         if (!testCompleted) {
                             testCompleted = true
                             val loadTime = System.currentTimeMillis() - startTime
-                            val success = loadTime < 30000 // Basic success criteria
+                            val success = loadTime < 30000 
                             val message = if (success) "Loaded in ${loadTime}ms" else "Timeout or error"
 
                             Log.d(TAG, "Test ${testIndex + 1} result: $success - $message")
                             onTestResult(description, success, message)
 
-                            // Restore original client and continue
+                            
                             webView.webViewClient = originalClient
                             testIndex++
 
-                            // Wait a bit before next test
+                            
                             CoroutineScope(Dispatchers.Main).launch {
                                 delay(2000)
                                 runNextTest()
@@ -96,15 +100,15 @@ public class ProxySmokeTest {
                         view: WebView?,
                         request: android.webkit.WebResourceRequest?
                     ): android.webkit.WebResourceResponse? {
-                        // Pass through to original client
+                        
                         return originalClient.shouldInterceptRequest(view, request)
                     }
                 }
 
-                // Start the test
+                
                 webView.loadUrl(url)
 
-                // Timeout protection
+                
                 CoroutineScope(Dispatchers.Main).launch {
                     delay(30000)
                     if (!testCompleted) {
@@ -132,7 +136,7 @@ public class ProxySmokeTest {
         Log.d(TAG, "Validating proxy configuration...")
         Log.i(TAG, "Using HTTP stack: ${networkProxy.stackName}")
 
-        // Check stack name
+        
         when (networkProxy.stackName) {
             "OkHttp" -> Log.i(TAG, "✓ OkHttp stack active - gzip/br/zstd compression enabled")
             "Cronet" -> Log.i(TAG, "✓ Cronet stack active - HTTP/2, QUIC, Brotli enabled for JA3/JA4 accuracy")

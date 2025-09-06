@@ -1,3 +1,7 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ */
 package com.testlabs.browser.network
 
 import android.content.Context
@@ -19,13 +23,13 @@ public class UserAgentClientHintsManager(private val context: Context) {
 
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "ua_ch_prefs")
 
-    // In-memory cache for fast lookups
+    
     private val allowedHints = ConcurrentHashMap<String, Set<String>>()
 
     public companion object {
         private val ACCEPT_CH_KEY = stringSetPreferencesKey("accept_ch_origins")
 
-        // High-entropy UA-CH headers that require explicit permission
+        
         private val HIGH_ENTROPY_HINTS = setOf(
             "sec-ch-ua-arch",
             "sec-ch-ua-bitness",
@@ -40,16 +44,16 @@ public class UserAgentClientHintsManager(private val context: Context) {
      */
     public suspend fun isHighEntropyAllowed(origin: String, hintName: String): Boolean {
         if (hintName.lowercase() !in HIGH_ENTROPY_HINTS) {
-            return true // Low entropy hints are always allowed
+            return true 
         }
 
-        // Check cache first
+        
         val cachedHints = allowedHints[origin]
         if (cachedHints != null) {
             return hintName.lowercase() in cachedHints
         }
 
-        // Load from DataStore
+        
         val allowedForOrigin = loadAllowedHints(origin)
         allowedHints[origin] = allowedForOrigin
 
@@ -69,10 +73,10 @@ public class UserAgentClientHintsManager(private val context: Context) {
             .toSet()
 
         if (requestedHints.isNotEmpty()) {
-            // Update cache
+            
             allowedHints[origin] = requestedHints
 
-            // Persist to DataStore
+            
             saveAllowedHints(origin, requestedHints)
         }
     }
@@ -95,7 +99,7 @@ public class UserAgentClientHintsManager(private val context: Context) {
                 preferences[originKey] = hints
             }
         } catch (e: Exception) {
-            // Log error but don't fail the request
+            
         }
     }
 
@@ -109,7 +113,7 @@ public class UserAgentClientHintsManager(private val context: Context) {
             }
             allowedHints.clear()
         } catch (e: Exception) {
-            // Log error
+            
         }
     }
 }
