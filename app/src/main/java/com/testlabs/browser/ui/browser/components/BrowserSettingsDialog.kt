@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.testlabs.browser.R
 import com.testlabs.browser.domain.settings.WebViewConfig
+import com.testlabs.browser.ui.browser.RequestedWithHeaderMode
+import com.testlabs.browser.ui.browser.parseRequestedWithHeaderAllowList
 
 /**
  * Enhanced dialog allowing editing of all [WebViewConfig] options with Apply & Restart functionality.
@@ -58,6 +60,7 @@ public fun BrowserSettingsDialog(
     proxyStack: String,
 ) {
     var tempConfig by remember { mutableStateOf(config) }
+    var allowListText by remember { mutableStateOf(tempConfig.requestedWithHeaderAllowList.joinToString(",")) }
     val hasChanges = tempConfig != config
 
     AlertDialog(
@@ -190,13 +193,19 @@ public fun BrowserSettingsDialog(
 
                         SettingRow(
                             label = "Remove X-Requested-With header",
-                            checked = tempConfig.suppressXRequestedWith,
-                            onCheckedChange = { tempConfig = tempConfig.copy(suppressXRequestedWith = it) }
+                            checked = tempConfig.requestedWithHeaderMode == RequestedWithHeaderMode.ELIMINATED,
+                            onCheckedChange = { checked ->
+                                val mode = if (checked) RequestedWithHeaderMode.ELIMINATED else RequestedWithHeaderMode.ALLOW_LIST
+                                tempConfig = tempConfig.copy(requestedWithHeaderMode = mode)
+                            }
                         )
 
                         OutlinedTextField(
-                            value = tempConfig.requestedWithHeaderAllowList,
-                            onValueChange = { tempConfig = tempConfig.copy(requestedWithHeaderAllowList = it) },
+                            value = allowListText,
+                            onValueChange = { text ->
+                                allowListText = text
+                                tempConfig = tempConfig.copy(requestedWithHeaderAllowList = parseRequestedWithHeaderAllowList(text))
+                            },
                             label = { Text("X-Requested-With Allow-list") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,

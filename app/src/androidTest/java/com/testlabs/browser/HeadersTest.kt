@@ -82,7 +82,7 @@ class HeadersTest {
                 mode in listOf(
                     RequestedWithHeaderMode.ELIMINATED,
                     RequestedWithHeaderMode.ALLOW_LIST,
-                    RequestedWithHeaderMode.UNKNOWN,
+                    RequestedWithHeaderMode.UNSUPPORTED,
                 )
             )
         }

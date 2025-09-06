@@ -4,6 +4,8 @@
  */
 package com.testlabs.browser.ui.browser
 
+import com.testlabs.browser.domain.settings.WebViewConfig
+
 public interface WebViewController {
     public fun loadUrl(url: String)
     public fun reload()
@@ -11,7 +13,7 @@ public interface WebViewController {
     public fun goForward()
     public fun recreateWebView()
     public fun clearBrowsingData(done: () -> Unit)
-    public fun requestedWithHeaderMode(): RequestedWithHeaderMode
+    public fun config(): WebViewConfig
     public fun proxyStackName(): String
     public fun dumpSettings(): String
 }

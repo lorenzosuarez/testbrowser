@@ -7,6 +7,7 @@ package com.testlabs.browser.domain.settings
 
 import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
+import com.testlabs.browser.ui.browser.RequestedWithHeaderMode
 
 /**
  * Immutable configuration applied to the WebView.
@@ -29,8 +30,8 @@ public data class WebViewConfig(
     val forceDarkMode: Boolean = false,
     val proxyEnabled: Boolean = true,
     val proxyInterceptEnabled: Boolean = true,
-    val suppressXRequestedWith: Boolean = true,
-    val requestedWithHeaderAllowList: String = "",
+    val requestedWithHeaderMode: RequestedWithHeaderMode = RequestedWithHeaderMode.ELIMINATED,
+    val requestedWithHeaderAllowList: Set<String> = emptySet(),
     val engineMode: EngineMode = EngineMode.Cronet,
 )
 

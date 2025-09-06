@@ -15,6 +15,8 @@ import com.testlabs.browser.domain.settings.AcceptLanguageMode
 import com.testlabs.browser.domain.settings.BrowserSettingsRepository
 import com.testlabs.browser.domain.settings.WebViewConfig
 import com.testlabs.browser.domain.settings.EngineMode
+import com.testlabs.browser.ui.browser.RequestedWithHeaderMode
+import com.testlabs.browser.ui.browser.parseRequestedWithHeaderAllowList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -40,8 +42,8 @@ public class BrowserSettingsRepositoryImpl(
         val FORCE_DARK_MODE = booleanPreferencesKey("force_dark_mode")
         val PROXY_ENABLED = booleanPreferencesKey("proxy_enabled")
         val PROXY_INTERCEPT_ENABLED = booleanPreferencesKey("proxy_intercept_enabled")
-        val SUPPRESS_X_REQUESTED_WITH = booleanPreferencesKey("suppress_x_requested_with")
-        val REQUESTED_WITH_ALLOW_LIST = stringPreferencesKey("x_requested_with_allow_list")
+        val REQUESTED_WITH_HEADER_MODE = stringPreferencesKey("requested_with_header_mode")
+        val REQUESTED_WITH_HEADER_ALLOW_LIST = stringPreferencesKey("requested_with_header_allow_list")
         val ENGINE_MODE = stringPreferencesKey("engine_mode")
     }
 
@@ -63,8 +65,8 @@ public class BrowserSettingsRepositoryImpl(
             forceDarkMode = preferences[PreferenceKeys.FORCE_DARK_MODE] ?: false,
             proxyEnabled = preferences[PreferenceKeys.PROXY_ENABLED] ?: true,
             proxyInterceptEnabled = preferences[PreferenceKeys.PROXY_INTERCEPT_ENABLED] ?: true,
-            suppressXRequestedWith = preferences[PreferenceKeys.SUPPRESS_X_REQUESTED_WITH] ?: true,
-            requestedWithHeaderAllowList = preferences[PreferenceKeys.REQUESTED_WITH_ALLOW_LIST] ?: "",
+            requestedWithHeaderMode = preferences[PreferenceKeys.REQUESTED_WITH_HEADER_MODE]?.let { RequestedWithHeaderMode.valueOf(it) } ?: RequestedWithHeaderMode.ELIMINATED,
+            requestedWithHeaderAllowList = preferences[PreferenceKeys.REQUESTED_WITH_HEADER_ALLOW_LIST]?.let { parseRequestedWithHeaderAllowList(it) } ?: emptySet(),
             engineMode = preferences[PreferenceKeys.ENGINE_MODE]?.let { EngineMode.valueOf(it) } ?: EngineMode.Cronet,
         )
     }
@@ -85,8 +87,8 @@ public class BrowserSettingsRepositoryImpl(
             preferences[PreferenceKeys.FORCE_DARK_MODE] = config.forceDarkMode
             preferences[PreferenceKeys.PROXY_ENABLED] = config.proxyEnabled
             preferences[PreferenceKeys.PROXY_INTERCEPT_ENABLED] = config.proxyInterceptEnabled
-            preferences[PreferenceKeys.SUPPRESS_X_REQUESTED_WITH] = config.suppressXRequestedWith
-            preferences[PreferenceKeys.REQUESTED_WITH_ALLOW_LIST] = config.requestedWithHeaderAllowList
+            preferences[PreferenceKeys.REQUESTED_WITH_HEADER_MODE] = config.requestedWithHeaderMode.name
+            preferences[PreferenceKeys.REQUESTED_WITH_HEADER_ALLOW_LIST] = config.requestedWithHeaderAllowList.joinToString(",")
             preferences[PreferenceKeys.ENGINE_MODE] = config.engineMode.name
         }
     }
