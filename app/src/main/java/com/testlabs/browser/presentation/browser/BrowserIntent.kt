@@ -93,12 +93,11 @@ public sealed interface BrowserIntent {
      */
     public data object ClearError : BrowserIntent
 
-    /**
-     * User wants to focus on the URL input field (clearing current page).
-     */
-    public data object FocusUrlInput : BrowserIntent
+    public data object EditUrlRequested : BrowserIntent
 
     public data class UrlInputEditing(val editing: Boolean) : BrowserIntent
+
+    public data object NavigateHome : BrowserIntent
 
     /**
      * User opened the settings dialog.
@@ -117,10 +116,7 @@ public sealed interface BrowserIntent {
         val config: WebViewConfig,
     ) : BrowserIntent
 
-    /**
-     * User applied settings and wants to restart WebView immediately.
-     */
-    public data class ApplySettingsAndRestart(
+    public data class ApplySettingsAndRestartWebView(
         val config: WebViewConfig,
     ) : BrowserIntent
 

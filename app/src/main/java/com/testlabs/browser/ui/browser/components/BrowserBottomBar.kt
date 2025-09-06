@@ -4,16 +4,20 @@
  */
 package com.testlabs.browser.ui.browser.components
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -32,6 +36,7 @@ public fun BrowserBottomBar(
     onBackClick: () -> Unit,
     onForwardClick: () -> Unit,
     onReloadClick: () -> Unit,
+    onHomeClick: () -> Unit,
     onEditUrlClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -74,6 +79,13 @@ public fun BrowserBottomBar(
                 Icon(
                     Icons.Filled.Refresh,
                     contentDescription = stringResource(R.string.browser_reload),
+                )
+            }
+            VerticalDivider(modifier = Modifier.padding(vertical = 8.dp).height(24.dp))
+            IconButton(onClick = onHomeClick) {
+                Icon(
+                    Icons.Outlined.Home,
+                    contentDescription = stringResource(R.string.browser_home),
                 )
             }
         },

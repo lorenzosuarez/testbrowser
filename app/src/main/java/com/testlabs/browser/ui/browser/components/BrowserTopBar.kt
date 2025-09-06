@@ -59,11 +59,10 @@ public fun BrowserTopBar(
     onSubmit: () -> Unit,
     onMenuClick: () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior,
-    shouldFocusUrlInput: Boolean = false,
+    focusRequester: FocusRequester,
     onEditingChange: (Boolean) -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
-    val focusRequester = remember { FocusRequester() }
     var textFieldValue by remember { mutableStateOf(TextFieldValue(url)) }
     var lastFocusState by remember { mutableStateOf(false) }
     val barColors = BrowserThemeTokens.barColors()
@@ -72,16 +71,6 @@ public fun BrowserTopBar(
     LaunchedEffect(url) {
         if (textFieldValue.text != url) {
             textFieldValue = TextFieldValue(url)
-        }
-    }
-
-    LaunchedEffect(shouldFocusUrlInput) {
-        if (shouldFocusUrlInput) {
-            textFieldValue = TextFieldValue(
-                text = url,
-                selection = TextRange(0, url.length)
-            )
-            focusRequester.requestFocus()
         }
     }
 
@@ -201,13 +190,14 @@ private fun BrowserTopBarPreview() {
     TestBrowserTheme {
         val state = rememberTopAppBarState()
         val behavior = TopAppBarDefaults.pinnedScrollBehavior(state)
+        val focus = remember { FocusRequester() }
         BrowserTopBar(
             url = "browserscan.net",
             onUrlChanged = {},
             onSubmit = {},
             onMenuClick = {},
             scrollBehavior = behavior,
-            shouldFocusUrlInput = false,
+            focusRequester = focus,
             onEditingChange = {}
         )
     }

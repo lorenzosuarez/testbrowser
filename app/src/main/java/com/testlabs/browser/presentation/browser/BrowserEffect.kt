@@ -44,8 +44,5 @@ public sealed interface BrowserEffect {
      */
     public data object ClearBrowsingData : BrowserEffect
 
-    /**
-     * Effect to recreate the WebView with new configuration.
-     */
-    public data object RecreateWebView : BrowserEffect
+    public data object FocusUrlEditor : BrowserEffect
 }
