@@ -21,8 +21,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -58,7 +56,6 @@ public fun BrowserTopBar(
     onUrlChanged: (String) -> Unit,
     onSubmit: () -> Unit,
     onMenuClick: () -> Unit = {},
-    scrollBehavior: TopAppBarScrollBehavior,
     focusRequester: FocusRequester,
     onEditingChange: (Boolean) -> Unit = {},
 ) {
@@ -172,7 +169,6 @@ public fun BrowserTopBar(
                 ),
             )
         },
-        scrollBehavior = scrollBehavior,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = barColors.container,
             scrolledContainerColor = barColors.container,
@@ -188,15 +184,12 @@ public fun BrowserTopBar(
 @Composable
 private fun BrowserTopBarPreview() {
     TestBrowserTheme {
-        val state = rememberTopAppBarState()
-        val behavior = TopAppBarDefaults.pinnedScrollBehavior(state)
         val focus = remember { FocusRequester() }
         BrowserTopBar(
             url = "browserscan.net",
             onUrlChanged = {},
             onSubmit = {},
             onMenuClick = {},
-            scrollBehavior = behavior,
             focusRequester = focus,
             onEditingChange = {}
         )
