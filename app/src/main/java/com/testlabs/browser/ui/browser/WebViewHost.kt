@@ -78,11 +78,6 @@ public fun WebViewHost(
             webViewRef = wv
             setupWebViewDefaults(wv)
 
-            wv.setOnTouchListener { _, event ->
-                Log.d(TAG, "onTouch ${'$'}{event.action}")
-                false
-            }
-
             val controller = RealWebViewController(wv, networkProxy, config)
             controllerRef = controller
             onControllerReady(controller)
@@ -184,7 +179,7 @@ private fun setupWebViewDefaults(webView: WebView) {
     s.displayZoomControls = false
     s.useWideViewPort = true
     s.loadWithOverviewMode = true
-    s.supportMultipleWindows = true
+    s.supportMultipleWindows()
     s.javaScriptCanOpenWindowsAutomatically = true
 
     webView.isVerticalScrollBarEnabled = true
@@ -475,19 +470,13 @@ private fun applyFullWebViewConfiguration(
             popup.webViewClient = object : WebViewClient() {
                 override fun onPageStarted(v: WebView?, url: String?, favicon: Bitmap?) {
                     if (url != null) {
-                        view?.loadUrl(url)
+                        view.loadUrl(url)
                     }
                 }
             }
             transport.webView = popup
             resultMsg.sendToTarget()
             return true
-        }
-
-        override fun onCloseWindow(window: WebView?) {
-            Log.d(TAG, "onCloseWindow")
-        }
-            return false
         }
 
         override fun onCloseWindow(window: WebView?) {}

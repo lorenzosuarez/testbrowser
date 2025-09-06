@@ -12,7 +12,7 @@ public fun dumpWebViewConfig(webView: WebView, config: WebViewConfig): String {
     obj.put("javascriptEnabled", s.javaScriptEnabled)
     obj.put("domStorageEnabled", s.domStorageEnabled)
     obj.put("databaseEnabled", s.databaseEnabled)
-    obj.put("supportMultipleWindows", s.supportMultipleWindows)
+    obj.put("supportMultipleWindows", s.supportMultipleWindows())
     obj.put("javaScriptCanOpenWindowsAutomatically", s.javaScriptCanOpenWindowsAutomatically)
     obj.put("useWideViewPort", s.useWideViewPort)
     obj.put("loadWithOverviewMode", s.loadWithOverviewMode)
