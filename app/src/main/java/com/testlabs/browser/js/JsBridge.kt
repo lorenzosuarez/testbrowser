@@ -3,8 +3,8 @@ package com.testlabs.browser.js
 import android.os.Build
 import com.testlabs.browser.ui.browser.UAProvider
 
-public class JsBridge(private val ua: UAProvider) {
-    public fun script(): String {
+public open class JsBridge(private val ua: UAProvider) {
+    public open fun script(): String {
         val uaString = ua.userAgent(desktop = false)
         val chromeVersion = extractChromeVersion(uaString)
         val fullVersion = "$chromeVersion.0.0.0"

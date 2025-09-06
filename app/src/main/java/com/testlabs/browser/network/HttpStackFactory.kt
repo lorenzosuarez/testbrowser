@@ -1,42 +1,34 @@
 package com.testlabs.browser.network
 
 import android.content.Context
-import android.util.Log
-import com.testlabs.browser.domain.settings.EngineMode
-import com.testlabs.browser.domain.settings.WebViewConfig
+import com.testlabs.browser.settings.DeveloperSettings
 import com.testlabs.browser.ui.browser.UAProvider
+import org.chromium.net.CronetEngine
 
-private const val TAG = "HttpStackFactory"
-
+/**
+ * Factory that selects the HTTP stack at runtime based on developer settings.
+ */
 public object HttpStackFactory {
-
+    /**
+     * Creates the best-fitting HttpStack given current developer settings.
+     *
+     * @param context Android context for Cronet engine creation.
+     * @param settings Developer toggles for Cronet/QUIC.
+     * @param uaProvider Provider for UA strings.
+     */
     public fun create(
         context: Context,
-        userAgentProvider: UAProvider,
-        userAgentClientHintsManager: UserAgentClientHintsManager,
-        config: WebViewConfig
+        settings: DeveloperSettings,
+        uaProvider: UAProvider
     ): HttpStack {
-        Log.d(TAG, "Creating HTTP stack (engine: ${config.engineMode}, proxy: ${config.proxyEnabled}, QUIC: ${config.enableQuic})...")
-
-        return if (config.proxyEnabled) {
-            try {
-                when (config.engineMode) {
-                    EngineMode.Cronet -> {
-                        Log.d(TAG, "Using CronetHttpStack with QUIC=${config.enableQuic}")
-                        CronetHttpStack(context, userAgentProvider, userAgentClientHintsManager, config.enableQuic)
-                    }
-                    EngineMode.OkHttp -> {
-                        Log.d(TAG, "Using OkHttpStack")
-                        OkHttpStack(userAgentProvider, userAgentClientHintsManager)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error creating ${config.engineMode} stack, using OkHttp fallback", e)
-                OkHttpStack(userAgentProvider, userAgentClientHintsManager)
-            }
+        return if (settings.useCronet.value) {
+            val builder = CronetEngine.Builder(context)
+            if (settings.enableQuic.value) builder.enableQuic(true)
+            builder.enableHttp2(true)
+            val engine = builder.build()
+            CronetHttpStack(engine, uaProvider)
         } else {
-            Log.d(TAG, "Proxy disabled, using OkHttp")
-            OkHttpStack(userAgentProvider, userAgentClientHintsManager)
+            OkHttpStack(uaProvider)
         }
     }
 }

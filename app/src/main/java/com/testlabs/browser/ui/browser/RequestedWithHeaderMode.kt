@@ -2,6 +2,7 @@ package com.testlabs.browser.ui.browser
 
 import android.annotation.SuppressLint
 import androidx.webkit.WebSettingsCompat
+import kotlin.runCatching
 
 
 /**

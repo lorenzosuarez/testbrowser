@@ -1,96 +1,87 @@
 package com.testlabs.browser.ui.browser
 
+import android.content.Context
 import android.os.Build
 import android.webkit.WebView
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Provides user agent strings matching Chrome for both mobile and desktop modes.
+ * Provides Chrome-like user agent values for the current device.
  */
 public interface UAProvider {
-    /** Flow of the current user agent. */
-    public val uaFlow: StateFlow<String>
+    /** Returns a full UA string matching Chrome Mobile for the device. */
+    public fun userAgent(desktop: Boolean = false): String
 
-    /** Returns a user agent string for the requested mode. */
-    public fun userAgent(desktop: Boolean): String
+    /** Baseline Accept-Language string in Chrome style. */
+    public val acceptLanguage: StateFlow<String>
 
-    /** Sets a custom user agent override or clears it when null. */
-    public fun setCustomUserAgent(ua: String?)
-}
-
-/** Sources version information for Chrome and WebView. */
-public interface VersionProvider {
-    public fun chromeMajor(): String?
-
-    public fun webViewMajor(): String?
+    /** Current Chrome major version used for UA-CH. */
+    public val chromeMajor: Int
 }
 
 /**
- * Android implementation of [VersionProvider].
- */
-public class AndroidVersionProvider(
-    private val context: android.content.Context,
-) : VersionProvider {
-    override fun chromeMajor(): String? =
-        runCatching {
-            context.packageManager
-                .getPackageInfo("com.android.chrome", 0)
-                .versionName
-                ?.substringBefore('.')
-        }.getOrNull()
-
-    override fun webViewMajor(): String? =
-        runCatching {
-            WebView.getCurrentWebViewPackage()?.versionName?.substringBefore('.')
-        }.getOrNull()
-}
-
-/**
- * Chrome-compatible User Agent provider that generates UA strings matching Chrome Stable.
- * Detects Chrome version via package manager or falls back to WebView version.
+ * Android-backed UA provider that derives a Chrome-like UA from WebView/Chrome package version.
  */
 public class ChromeUAProvider(
-    private val versionProvider: VersionProvider,
+    private val versionProvider: VersionProvider
 ) : UAProvider {
+    private val _acceptLanguage = MutableStateFlow("en-US,en;q=0.9")
+    override val acceptLanguage: StateFlow<String> = _acceptLanguage
 
-    private val _uaFlow = MutableStateFlow(generateMobileUA())
-    override val uaFlow: StateFlow<String> = _uaFlow.asStateFlow()
-
-    private var customUA: String? = null
+    override val chromeMajor: Int by lazy { versionProvider.chromeMajor() }
 
     override fun userAgent(desktop: Boolean): String {
-        return customUA ?: if (desktop) generateDesktopUA() else generateMobileUA()
+        val androidVersion = versionProvider.androidVersion()
+        val deviceModel = versionProvider.deviceModel()
+        val brandModelToken = if (desktop) "" else " Mobile"
+        val chromeFull = versionProvider.chromeFullVersion()
+        return "Mozilla/5.0 (Linux; Android $androidVersion; $deviceModel) AppleWebKit/537.36 (KHTML, like Gecko)$brandModelToken Chrome/$chromeFull Mobile Safari/537.36"
+    }
+}
+
+/**
+ * Provides version and device information required to construct UA strings.
+ */
+public interface VersionProvider {
+    /** Android version string such as 13 or 14. */
+    public fun androidVersion(): String
+
+    /** Full Chrome version such as 122.0.6261.105. */
+    public fun chromeFullVersion(): String
+
+    /** Chrome major version such as 122. */
+    public fun chromeMajor(): Int
+
+    /** Short device model token for UA. */
+    public fun deviceModel(): String
+}
+
+/**
+ * Default VersionProvider based on platform APIs.
+ */
+public class AndroidVersionProvider(private val context: Context) : VersionProvider {
+    override fun androidVersion(): String = Build.VERSION.RELEASE ?: Build.VERSION.SDK_INT.toString()
+
+    override fun chromeFullVersion(): String {
+        val pkg = try { WebView.getCurrentWebViewPackage() } catch (_: Throwable) { null }
+        val name = pkg?.versionName ?: fallbackChromeVersion()
+        return name
     }
 
-    override fun setCustomUserAgent(ua: String?) {
-        customUA = ua
-        _uaFlow.value = ua ?: generateMobileUA()
+    override fun chromeMajor(): Int {
+        val full = chromeFullVersion()
+        val major = full.substringBefore(".").toIntOrNull()
+        return major ?: 120
     }
 
-    private fun generateMobileUA(): String {
-        val chromeVersion = getChromeVersion()
-        val androidVersion = Build.VERSION.RELEASE
-        val deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
-
-        return "Mozilla/5.0 (Linux; Android $androidVersion; $deviceModel) " +
-                "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                "Chrome/$chromeVersion Mobile Safari/537.36"
+    override fun deviceModel(): String {
+        val model = Build.MODEL ?: "Android"
+        return model.replace(" ", "_")
     }
 
-    private fun generateDesktopUA(): String {
-        val chromeVersion = getChromeVersion()
-
-        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-                "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                "Chrome/$chromeVersion Safari/537.36"
-    }
-
-    private fun getChromeVersion(): String {
-        // Try Chrome Stable first, then WebView, then fallback
-        return versionProvider.chromeMajor()?.let { "$it.0.0.0" }
-            ?: versionProvider.webViewMajor()?.let { "$it.0.0.0" }
-            ?: "120.0.0.0" // Fallback to recent stable version
+    private fun fallbackChromeVersion(): String {
+        val defaultMajor = 120
+        return "$defaultMajor.0.0.0"
     }
 }

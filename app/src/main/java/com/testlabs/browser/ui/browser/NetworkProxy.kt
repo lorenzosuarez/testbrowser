@@ -7,21 +7,35 @@ import com.testlabs.browser.network.HttpStack
 import com.testlabs.browser.network.ProxyRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import org.brotli.dec.BrotliInputStream
 import java.io.ByteArrayInputStream
-import java.io.InputStream
 import java.util.Locale
 import java.util.zip.GZIPInputStream
 import java.util.zip.InflaterInputStream
-import com.github.luben.zstd.ZstdInputStream
+import java.net.URI
 
 private const val TAG = "NetworkProxy"
 
+/**
+ * Subresource proxy and response normalizer used by WebView interceptors.
+ *
+ * - Bypasses main-frame HTML navigations so WebView loads documents natively.
+ * - Mirrors Chrome-like request headers and bridges cookies both ways.
+ * - Normalizes responses to avoid decoding/CORS issues:
+ *   If the body is decoded, strips Content-Encoding/Transfer-Encoding/Content-Length.
+ *   If not decoded, passes through bytes and headers intact.
+ * - Decodes only gzip/deflate/br and never zstd to avoid native dependencies.
+ */
 public class NetworkProxy(
     private val stack: HttpStack,
     private val cookieManager: android.webkit.CookieManager = android.webkit.CookieManager.getInstance(),
 ) {
+    /** Returns the active HTTP stack name for diagnostics. */
     public val stackName: String get() = stack.name
 
+    /**
+     * Intercepts a single WebView request. Main-frame HTML requests are bypassed.
+     */
     public fun interceptRequest(
         request: WebResourceRequest,
         userAgent: String,
@@ -29,100 +43,59 @@ public class NetworkProxy(
         proxyEnabled: Boolean
     ): WebResourceResponse? {
         val url = request.url.toString()
-
-        // A. Main-frame policy: Do not intercept top-level document navigations
-        if (request.isForMainFrame && isHtmlRequest(request, url)) {
-            Log.d(TAG, "❌ Bypassing main-frame HTML navigation: $url")
-            return null
-        }
-
-        // Enhanced logging for all requests
-        Log.d(TAG, "=== REQUEST ANALYSIS ===")
-        Log.d(TAG, "URL: $url")
-        Log.d(TAG, "Method: ${request.method}")
-        Log.d(TAG, "Main frame: ${request.isForMainFrame}")
-        Log.d(TAG, "Proxy enabled: $proxyEnabled")
-        Log.d(TAG, "Request headers: ${request.requestHeaders.keys}")
-
-        // Only proxy HTTP/HTTPS schemes - let WebView handle special schemes natively
-        if (!shouldProxy(url)) {
-            Log.d(TAG, "❌ Bypassing special scheme: $url")
-            return null
-        }
-
-        if (!proxyEnabled) {
-            Log.d(TAG, "❌ Proxy disabled, bypassing: $url")
-            return null
-        }
-
-        // Log specific resource types for debugging
-        val resourceType = getResourceType(url)
-        Log.d(TAG, "✅ Intercepting $resourceType: ${request.method} $url")
+        if (request.isForMainFrame && isHtmlRequest(request, url)) return null
+        if (!shouldProxy(url)) return null
+        if (!proxyEnabled) return null
 
         return try {
             runBlocking(Dispatchers.IO) {
-                // C. Request header parity (proxy layer)
                 val headers = buildRequestHeaders(request, userAgent, acceptLanguage, url)
-                val body = extractRequestBody(request)
-                val proxyRequest = ProxyRequest(url, request.method, headers, body)
+                var currentUrl = url
+                var response = stack.execute(ProxyRequest(currentUrl, request.method, headers, null))
 
-                Log.d(TAG, "🚀 Executing via ${stack.name}: ${proxyRequest.url}")
-                val response = stack.execute(proxyRequest)
-
-                // Enhanced response logging
-                val contentType = response.headers["Content-Type"] ?: response.headers["content-type"] ?: ""
-                val contentEncoding = response.headers["Content-Encoding"] ?: response.headers["content-encoding"]
-                Log.d(TAG, "📥 Response ${response.statusCode} ${response.reasonPhrase}")
-                Log.d(TAG, "📥 Content-Type: $contentType")
-                Log.d(TAG, "📥 Content-Encoding: $contentEncoding")
-                Log.d(TAG, "📥 Headers: ${response.headers.keys}")
-
-                // Check for potential bot challenges
-                if (resourceType == "JavaScript" && contentType.startsWith("text/html")) {
-                    Log.e(TAG, "🚨 BOT CHALLENGE DETECTED!")
-                    Log.e(TAG, "🚨 JavaScript resource served as HTML: $url")
-                    Log.e(TAG, "🚨 This indicates CDN bot detection!")
+                // Seguir manualmente redirecciones (máx 5) para evitar excepciones 3xx en WebResourceResponse
+                var hops = 0
+                while (response.statusCode in 300..399 && hops < 5) {
+                    val loc = firstHeader(response.headers, "Location") ?: firstHeader(response.headers, "location")
+                    if (loc.isNullOrBlank()) break
+                    val nextUrl = resolveUrl(currentUrl, loc)
+                    try { response.body.close() } catch (_: Throwable) { }
+                    currentUrl = nextUrl
+                    response = stack.execute(ProxyRequest(currentUrl, "GET", headers, null))
+                    hops++
                 }
 
-                // E. Cookies: Handle cookies from response
-                handleSetCookies(url, response.headers)
-
-                // B. Response decoding normalization (critical)
-                val webResponse = createNormalizedWebResourceResponse(response, url)
-                Log.d(TAG, "✅ Successfully created normalized WebResourceResponse for $url")
-                webResponse
+                handleSetCookies(currentUrl, response.headers)
+                createNormalizedWebResourceResponse(response, currentUrl)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "💥 ERROR proxying request: $url", e)
+            Log.e(TAG, "proxy error: $url", e)
             createErrorResponse(e)
         }
     }
 
+    /**
+     * Heuristic to classify an HTML navigation.
+     */
     private fun isHtmlRequest(request: WebResourceRequest, url: String): Boolean {
         val acceptHeader = request.requestHeaders["Accept"] ?: ""
         return acceptHeader.contains("text/html") ||
-               url.endsWith(".html") ||
-               url.endsWith("/") ||
-               (!url.contains(".") && !url.contains("api"))
+                url.endsWith(".html") ||
+                url.endsWith("/") ||
+                (!url.contains(".") && !url.contains("api"))
     }
 
-    private fun getResourceType(url: String): String = when {
-        url.endsWith(".js") || url.endsWith(".mjs") -> "JavaScript"
-        url.endsWith(".css") -> "CSS"
-        url.endsWith(".html") || url.endsWith("/") -> "HTML"
-        url.contains("api") -> "API"
-        url.endsWith(".json") -> "JSON"
-        url.endsWith(".woff") || url.endsWith(".woff2") || url.endsWith(".ttf") -> "Font"
-        url.endsWith(".png") || url.endsWith(".jpg") || url.endsWith(".jpeg") || url.endsWith(".gif") || url.endsWith(".webp") -> "Image"
-        else -> "Other"
-    }
-
+    /**
+     * Only HTTP/HTTPS are proxied.
+     */
     private fun shouldProxy(url: String): Boolean {
         val scheme = url.substringBefore(':').lowercase(Locale.US)
-        return scheme in setOf("http", "https")
+        return scheme == "http" || scheme == "https"
     }
 
-    // C. Request header parity (proxy layer)
+    /**
+     * Builds Chrome-like request headers and attaches cookies read from CookieManager.
+     */
     private fun buildRequestHeaders(
         request: WebResourceRequest,
         userAgent: String,
@@ -130,268 +103,165 @@ public class NetworkProxy(
         url: String
     ): Map<String, String> {
         val headers = mutableMapOf<String, String>()
-
-        // Forward all headers from WebResourceRequest unmodified, except specific ones
         request.requestHeaders.forEach { (name, value) ->
-            val lowerName = name.lowercase(Locale.US)
-            when (lowerName) {
-                "x-requested-with" -> {
-                    // Remove X-Requested-With everywhere
-                    Log.d(TAG, "Suppressing X-Requested-With header")
-                }
-                "user-agent" -> {
-                    // Overwrite User-Agent with exact Chrome Stable mobile UA
-                    headers["User-Agent"] = userAgent
-                    Log.d(TAG, "Set User-Agent: $userAgent")
-                }
-                "accept-language" -> {
-                    // Ensure Accept-Language follows device locales with Chrome-like weighting
-                    headers["Accept-Language"] = acceptLanguage
-                    Log.d(TAG, "Set Accept-Language: $acceptLanguage")
-                }
-                else -> {
-                    // Copy all other headers including Accept, Referer, Sec-*, Cache-Control, etc.
-                    headers[name] = value
-                }
+            val lower = name.lowercase(Locale.US)
+            when (lower) {
+                "x-requested-with" -> Unit
+                "user-agent" -> headers["User-Agent"] = userAgent
+                "accept-language" -> headers["Accept-Language"] = acceptLanguage
+                else -> headers[name] = value
             }
         }
-
-        // Ensure required headers are set
-        if (!headers.containsKey("User-Agent")) {
-            headers["User-Agent"] = userAgent
-        }
-        if (!headers.containsKey("Accept-Language")) {
-            headers["Accept-Language"] = acceptLanguage
-        }
-
-        // E. Cookies: read cookies from CookieManager and attach to proxied requests
+        if (!headers.containsKey("User-Agent")) headers["User-Agent"] = userAgent
+        if (!headers.containsKey("Accept-Language")) headers["Accept-Language"] = acceptLanguage
         try {
             val cookies = cookieManager.getCookie(url)
-            if (!cookies.isNullOrBlank()) {
-                headers["Cookie"] = cookies
-                Log.d(TAG, "Added cookies for $url")
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Error getting cookies for $url", e)
-        }
-
-        Log.d(TAG, "Final request headers for $url: ${headers.keys}")
+            if (!cookies.isNullOrBlank()) headers["Cookie"] = cookies
+        } catch (_: Throwable) { }
         return headers
     }
 
-    private fun extractRequestBody(request: WebResourceRequest): ByteArray? {
-        // WebResourceRequest doesn't expose body directly
-        // This would need to be handled at a higher level if POST/PUT data is needed
-        return null
-    }
-
-    // E. Cookies: capture all Set-Cookie headers and write into CookieManager
-    private fun handleSetCookies(url: String, headers: Map<String, String>) {
-        headers.forEach { (name, value) ->
-            if (name.equals("Set-Cookie", ignoreCase = true)) {
-                try {
-                    cookieManager.setCookie(url, value)
-                    Log.d(TAG, "Set cookie for $url: ${value.substringBefore(';')}")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error setting cookie for $url", e)
+    /**
+     * Persists Set-Cookie headers into CookieManager and flushes them.
+     */
+    private fun handleSetCookies(url: String, headers: Map<String, List<String>>) {
+        headers.forEach { (name, values) ->
+            if (name.equals("Set-Cookie", true)) {
+                values.forEach { v ->
+                    try { cookieManager.setCookie(url, v) } catch (_: Throwable) { }
                 }
             }
         }
-
-        // Flush cookies to storage for synchronization
-        try {
-            cookieManager.flush()
-        } catch (e: Exception) {
-            Log.w(TAG, "Error flushing cookies", e)
-        }
+        try { cookieManager.flush() } catch (_: Throwable) { }
     }
 
-    // B. Response decoding normalization (critical)
+    /**
+     * Produces a WebResourceResponse while enforcing decoding and header normalization rules.
+     */
     private fun createNormalizedWebResourceResponse(
         response: com.testlabs.browser.network.ProxyResponse,
         url: String
     ): WebResourceResponse {
-        // Read Content-Type exactly; derive mime and charset
-        val contentTypeHeader = response.headers["Content-Type"] ?: response.headers["content-type"] ?: "application/octet-stream"
+        // WebResourceResponse no admite códigos 3xx: si aún tenemos uno, devolvemos 204 vacía
+        if (response.statusCode in 300..399) {
+            return WebResourceResponse(
+                "text/plain",
+                "UTF-8",
+                204,
+                "No Content",
+                emptyMap(),
+                ByteArrayInputStream(ByteArray(0))
+            )
+        }
+        val contentTypeHeader = firstHeader(response.headers, "Content-Type")
+            ?: firstHeader(response.headers, "content-type")
+            ?: "application/octet-stream"
         val (mimeType, charset) = parseContentType(contentTypeHeader)
 
-        Log.d(TAG, "📋 Normalizing response for $url")
-        Log.d(TAG, "📋 Original Content-Type: $contentTypeHeader")
-        Log.d(TAG, "📋 Parsed MIME: $mimeType, Charset: $charset")
+        val contentEncoding = firstHeader(response.headers, "Content-Encoding")
+            ?: firstHeader(response.headers, "content-encoding")
+        val bodyBytes = response.body.readBytes()
 
-        // Determine if the response body is encoded or decoded
-        val contentEncoding = response.headers["Content-Encoding"] ?: response.headers["content-encoding"]
-        val transferEncoding = response.headers["Transfer-Encoding"] ?: response.headers["transfer-encoding"]
-        val contentLength = response.headers["Content-Length"] ?: response.headers["content-length"]
-
-        Log.d(TAG, "📋 Original Content-Encoding: $contentEncoding")
-        Log.d(TAG, "📋 Original Content-Length: $contentLength")
-
-        // Read the response body
-        val originalBody = response.body.readBytes()
-
-        // Determine if body is actually encoded by checking magic bytes
-        val bodyEncoding = detectBodyEncoding(originalBody)
-        Log.d(TAG, "📋 Detected body encoding: $bodyEncoding")
-
-        val (finalBody, normalizedHeaders) = when {
-            // If headers say encoded but body is already decoded: strip encoding headers
-            contentEncoding != null && bodyEncoding == null -> {
-                Log.d(TAG, "📋 Body already decoded, stripping encoding headers")
-                val headers = response.headers.toMutableMap()
-                headers.remove("Content-Encoding")
-                headers.remove("content-encoding")
-                headers.remove("Transfer-Encoding")
-                headers.remove("transfer-encoding")
-                headers.remove("Content-Length")
-                headers.remove("content-length")
-                Pair(originalBody, headers)
-            }
-            // If headers say encoded and body is still encoded: decode transparently
-            contentEncoding != null && bodyEncoding != null -> {
-                Log.d(TAG, "📋 Body is encoded, decoding transparently")
-                val decodedBody = decodeBody(originalBody, bodyEncoding)
-                val headers = response.headers.toMutableMap()
-                headers.remove("Content-Encoding")
-                headers.remove("content-encoding")
-                headers.remove("Transfer-Encoding")
-                headers.remove("transfer-encoding")
-                headers.remove("Content-Length")
-                headers.remove("content-length")
-                Pair(decodedBody, headers)
-            }
-            // Body is not encoded: pass through unchanged
-            else -> {
-                Log.d(TAG, "📋 Body not encoded, passing through")
-                Pair(originalBody, response.headers)
-            }
+        val encoding = contentEncoding?.lowercase(Locale.US)
+        val shouldAttemptDecode = when (encoding) {
+            "gzip", "deflate", "br" -> true
+            else -> false
         }
 
-        // Filter hop-by-hop headers and never synthesize CORS headers
-        val filteredHeaders = filterResponseHeaders(normalizedHeaders)
-
-        Log.d(TAG, "📋 Final normalized headers: ${filteredHeaders.keys}")
-
-        // Handle special status codes
-        return when (response.statusCode) {
-            304 -> {
-                Log.d(TAG, "Not modified response for $url")
-                WebResourceResponse(
-                    null, null,
-                    response.statusCode,
-                    response.reasonPhrase.ifBlank { getDefaultStatusText(response.statusCode) },
-                    filteredHeaders,
-                    ByteArrayInputStream(ByteArray(0))
-                )
-            }
-            204, 205 -> {
-                Log.d(TAG, "No content response ${response.statusCode} for $url")
-                WebResourceResponse(
-                    "text/plain", charset,
-                    response.statusCode,
-                    response.reasonPhrase.ifBlank { getDefaultStatusText(response.statusCode) },
-                    filteredHeaders,
-                    ByteArrayInputStream(ByteArray(0))
-                )
-            }
-            else -> {
-                WebResourceResponse(
-                    mimeType, charset,
-                    response.statusCode,
-                    response.reasonPhrase.ifBlank { getDefaultStatusText(response.statusCode) },
-                    filteredHeaders,
-                    ByteArrayInputStream(finalBody)
-                )
-            }
+        return if (shouldAttemptDecode) {
+            val decoded = decodeBody(bodyBytes, encoding!!)
+            val single = headersToSingleMap(response.headers)
+            single.remove("Content-Encoding"); single.remove("content-encoding")
+            single.remove("Transfer-Encoding"); single.remove("transfer-encoding")
+            single.remove("Content-Length"); single.remove("content-length")
+            WebResourceResponse(
+                mimeType,
+                charset,
+                response.statusCode,
+                response.reasonPhrase.ifBlank { getDefaultStatusText(response.statusCode) },
+                filterResponseHeaders(single),
+                ByteArrayInputStream(decoded)
+            )
+        } else {
+            WebResourceResponse(
+                mimeType,
+                charset,
+                response.statusCode,
+                response.reasonPhrase.ifBlank { getDefaultStatusText(response.statusCode) },
+                filterResponseHeaders(headersToSingleMap(response.headers)),
+                ByteArrayInputStream(bodyBytes)
+            )
         }
     }
 
-    // Recognize encodings via magic bytes
-    private fun detectBodyEncoding(body: ByteArray): String? {
-        if (body.size < 4) return null
-
-        return when {
-            // gzip → 1F 8B
-            body[0] == 0x1F.toByte() && body[1] == 0x8B.toByte() -> "gzip"
-            // zstd → 28 B5 2F FD
-            body[0] == 0x28.toByte() && body[1] == 0xB5.toByte() &&
-            body[2] == 0x2F.toByte() && body[3] == 0xFD.toByte() -> "zstd"
-            // brotli has no clear magic bytes, assume encoded if header says so
-            else -> null
-        }
+    /**
+     * Parses Content-Type into MIME and charset with defaults.
+     */
+    private fun parseContentType(contentType: String): Pair<String, String> {
+        val parts = contentType.split(';').map { it.trim() }
+        val originalMime = parts.firstOrNull()?.lowercase(Locale.US).orEmpty().ifBlank { "application/octet-stream" }
+        val charset = parts.find { it.startsWith("charset=", true) }?.substringAfter('=')?.trim('"', ' ')
+            ?: if (originalMime.startsWith("text/") || originalMime == "application/javascript" || originalMime == "application/json") "UTF-8" else "UTF-8"
+        return originalMime to charset
     }
 
+    /**
+     * Decodes gzip/deflate/brotli bodies. zstd is passed through unchanged.
+     */
     private fun decodeBody(body: ByteArray, encoding: String): ByteArray {
         return try {
-            when (encoding.lowercase()) {
+            when (encoding) {
                 "gzip" -> GZIPInputStream(ByteArrayInputStream(body)).readBytes()
                 "deflate" -> InflaterInputStream(ByteArrayInputStream(body)).readBytes()
-                "zstd" -> ZstdInputStream(ByteArrayInputStream(body)).readBytes()
-                // For brotli, we'd need a brotli decoder library
-                "br", "brotli" -> {
-                    Log.w(TAG, "Brotli decoding not implemented, returning raw bytes")
-                    body
-                }
-                else -> {
-                    Log.w(TAG, "Unknown encoding: $encoding, returning raw bytes")
-                    body
-                }
+                "br" -> BrotliInputStream(ByteArrayInputStream(body)).readBytes()
+                else -> body
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error decoding body with $encoding", e)
+        } catch (_: Throwable) {
             body
         }
     }
 
-    private fun parseContentType(contentType: String): Pair<String, String> {
-        val parts = contentType.split(';').map { it.trim() }
-        val originalMimeType = parts.firstOrNull()?.lowercase() ?: ""
-
-        // Enhanced MIME type detection with URL-based fallback
-        val mimeType = when {
-            originalMimeType.isNotBlank() && originalMimeType != "application/octet-stream" -> originalMimeType
-            // URL-based MIME type detection for common cases
-            contentType.contains(".js") || contentType.endsWith(".js") -> "application/javascript"
-            contentType.contains(".mjs") || contentType.endsWith(".mjs") -> "application/javascript"
-            contentType.contains(".css") || contentType.endsWith(".css") -> "text/css"
-            contentType.contains(".json") || contentType.endsWith(".json") -> "application/json"
-            contentType.contains(".html") || contentType.endsWith(".html") -> "text/html"
-            contentType.contains(".xml") || contentType.endsWith(".xml") -> "application/xml"
-            contentType.contains(".png") || contentType.endsWith(".png") -> "image/png"
-            contentType.contains(".jpg") || contentType.contains(".jpeg") -> "image/jpeg"
-            contentType.contains(".gif") || contentType.endsWith(".gif") -> "image/gif"
-            contentType.contains(".svg") || contentType.endsWith(".svg") -> "image/svg+xml"
-            contentType.contains(".woff") -> "font/woff"
-            contentType.contains(".ttf") -> "font/ttf"
-            originalMimeType.isNotBlank() -> originalMimeType
-            else -> "application/octet-stream"
-        }
-
-        val charset = parts
-            .find { it.startsWith("charset=", ignoreCase = true) }
-            ?.substringAfter('=')
-            ?.trim('"', ' ')
-            ?: when {
-                mimeType.startsWith("text/") || mimeType == "application/javascript" || mimeType == "application/json" -> "UTF-8"
-                else -> "UTF-8"
-            }
-
-        Log.d(TAG, "📋 MIME type detection: '$contentType' → '$mimeType' (charset: $charset)")
-        return Pair(mimeType, charset)
+    /**
+     * Case-insensitive single-value header accessor from a multimap.
+     */
+    private fun firstHeader(headers: Map<String, List<String>>, name: String): String? {
+        val entry = headers.entries.firstOrNull { it.key.equals(name, true) } ?: return null
+        return entry.value.firstOrNull()
     }
 
-    // Never synthesize CORS headers. Forward server CORS headers exactly as received.
+    /**
+     * Resuelve la URL de redirección respecto a la URL base.
+     */
+    private fun resolveUrl(base: String, location: String): String {
+        return try {
+            val baseUri = URI(base)
+            baseUri.resolve(location).toString()
+        } catch (_: Throwable) {
+            location
+        }
+    }
+
+    /**
+     * Converts a multimap of headers into single-value map by joining values with comma.
+     */
+    private fun headersToSingleMap(headers: Map<String, List<String>>): MutableMap<String, String> {
+        return headers.mapValues { it.value.joinToString(",") }.toMutableMap()
+    }
+
+    /**
+     * Filters hop-by-hop headers and forwards the rest unchanged.
+     */
     private fun filterResponseHeaders(headers: Map<String, String>): Map<String, String> {
-        val hopByHopHeaders = setOf(
+        val hop = setOf(
             "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
             "te", "trailers", "transfer-encoding", "upgrade"
         )
-
-        return headers.filterKeys { key ->
-            key.lowercase() !in hopByHopHeaders
-        }
+        return headers.filterKeys { it.lowercase(Locale.US) !in hop }
     }
 
+    /**
+     * Provides default reason phrases when missing.
+     */
     private fun getDefaultStatusText(code: Int): String = when (code) {
         200 -> "OK"
         201 -> "Created"
@@ -409,8 +279,10 @@ public class NetworkProxy(
         else -> "Unknown"
     }
 
+    /**
+     * Builds a 502 error response suitable for WebView consumption.
+     */
     private fun createErrorResponse(error: Exception): WebResourceResponse {
-        Log.e(TAG, "Creating error response for: ${error.message}")
         return WebResourceResponse(
             "text/plain", "UTF-8", 502, "Bad Gateway",
             emptyMap(),
