@@ -1,159 +1,115 @@
 # TestBrowser
 
-A modern Android WebView browser that strives for Chrome fingerprint parity while providing full web capabilities and configuration flexibility.
+A modern Android WebView browser focused on **Chrome fingerprint parity** with flexible configuration and a sane, testable networking stack.
 
-## Feature Highlights
+---
 
-### Chrome Parity
-- User-Agent strings generated from the installed Chrome Stable version with WebView fallback
-- Configurable `Accept-Language` header
-- Removal of `X-Requested-With` header on all HTTP/HTTPS requests via Cronet proxy
-- Standard headers (`Accept`, `Cache-Control`, `Sec-Fetch-*`) aligned with Chrome
-- Cookie persistence compatible with Chrome
-- Manual redirect handling up to 10 hops
+## Highlights
 
-### Known Limitations
-- `Sec-CH-UA*` client hints originate from the Chromium engine and may expose WebView instead of Chrome
-- TLS extension ordering (JA3/JA4) may differ slightly
-- HTTP/2 SETTINGS and GREASE values can vary
-- Request body proxying for POST/PUT is not available in `WebResourceRequest`
+- **UA Parity** — User-Agent derived from installed Chrome Stable (WebView fallback).  
+- **Header Control** — Removes `X-Requested-With`; sets `Accept`, `Accept-Language`, `Cache-Control`, `Sec-Fetch-*`.  
+- **Cronet + OkHttp** — Cronet as primary HTTP stack (HTTP/2, QUIC, Brotli); OkHttp fallback.  
+- **Cookie Sync** — Full round-trip via `CookieManager`.  
+- **Safe Decoding** — Handles `gzip/deflate/br` (and ignores `zstd` at runtime if native lib is absent).  
+- **Redirects** — Manual handling (up to 10 hops).  
+- **Config First** — Immutable `WebViewConfig` applied live with smart WebView recreation.
 
-## Architecture
+### What’s intentionally not spoofed
+- `Sec-CH-UA*` are provided by Chromium/WebView and can expose WebView.
+- TLS/HTTP2 low-level ordering (JA3/JA4, SETTINGS, GREASE) may differ slightly.
+- WebView limitations: request body interception for some methods is not available.
 
-### Network Proxy (`NetworkProxy`)
-- Intercepts HTTP/HTTPS traffic via `shouldInterceptRequest`
-- Replays requests with Cronet (Brotli, Zstd, HTTP/2, QUIC) and falls back to OkHttp
-- Removes `X-Requested-With`
-- Synchronizes cookies using `CookieManager`
-- Bypasses native schemes: `blob:`, `data:`, `file:`, `ws:`, `wss:`, `intent:`
+---
 
-### Configuration (`WebViewConfig`)
-- Immutable configuration stored with DataStore
-- Real-time application with smart WebView recreation
-- Single source of truth for browser behavior
+## How it works
 
-### User Agent (`ChromeUAProvider`)
-- Detects installed Chrome version via `PackageManager`
-- Falls back to WebView version
-- Supports mobile/desktop switching and custom overrides
+### Network proxy
+- `shouldInterceptRequest` → **replay** via Cronet (or OkHttp) with Chrome-like headers.
+- Forces `Accept-Encoding: identity` to avoid double decompression; then **optionally** decodes (gzip/deflate/br) and rewrites headers for WebView safety.
+- Syncs cookies in both directions.
+- Skips native/non-HTTP schemes (`blob:`, `data:`, `file:`, `intent:`, `ws:`, `wss:`).
+
+### Configuration
+- `WebViewConfig` is the single source of truth (DataStore).  
+- Applying changes recreates the WebView **only when required** (diff-based).
+
+### User agent
+- `ChromeUAProvider` inspects installed Chrome; supports mobile/desktop and custom overrides.
+
+---
 
 ## Settings
 
-### Core
-- Desktop mode
-- JavaScript enablement
-- DOM storage
-- Mixed content policy
-- Force dark mode
-- File access permissions
-- Media autoplay
+**Core:** Desktop mode, JavaScript, DOM Storage, Mixed Content, Force Dark Mode, JS Compatibility Layer, Third-party cookies.  
+**Network:** Route traffic via **Chromium (Cronet)**, **Proxy Intercept Requests**, remove `X-Requested-With`, custom `Accept-Language`, custom UA.
 
-### Network
-- Proxy toggle for header control
-- `Accept-Language` customization
-- Custom user agent string
+---
 
-### Apply & Restart
-- Immediate configuration updates with WebView recreation
-- Preserves cookies and storage
-- Avoids unnecessary rebuilds with smart diffing
+## Quick test
 
-## Testing
+1. Enable **Route traffic via Chromium (Cronet)** and **Proxy Intercept Requests**.  
+2. Visit:
+   - `https://tls.peet.ws/api/all` → check UA, `Accept-Language`, and **no** `X-Requested-With`.
+   - `https://fingerprintjs.github.io/fingerprintjs/` → expect UA parity; CH hints may differ.
+   - `https://httpbin.org/headers` → inspect effective headers.
 
-### Sites
-1. `https://tls.peet.ws/api/all` – verify absence of `X-Requested-With`, check user agent and `Accept-Language`
-2. `https://fingerprintjs.github.io/fingerprintjs` – confirm `navigator.userAgent`, expect differences in `Sec-CH-UA*`
-3. `https://httpbin.org/headers` – inspect headers, confirm `X-Requested-With` is absent
+---
 
-### Script
-```bash
-# Open TestBrowser
-# Enable "Route traffic via proxy"
-# Navigate to each test site and verify headers
-# Toggle settings and use "Apply & Restart WebView" to observe changes
-```
+## Architecture
 
-## Implementation Details
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/44da216e-9cde-4912-b4e0-26e4cbcc6440">
+    <img src="https://github.com/user-attachments/assets/44da216e-9cde-4912-b4e0-26e4cbcc6440" alt="App architecture diagram" width="1100">
+  </a>
+</p>
 
-### WebView Recreation
-Triggered by changes to:
-- JavaScript
-- DOM storage
-- Mixed content
-- File access
-- Media autoplay
-- Proxy
-- Force dark mode
-
-### Performance
-- Singleton OkHttpClient with pooling
-- Streaming response handling
-- Efficient cookie sync
-- Hardware acceleration
-
-### Error Handling
-- Fallback pages on proxy failure
-- Detailed SSL error reporting
-- HTTP status code handling
-- 30 s network timeouts
-
-## Security Considerations
-- Network security config permits cleartext during development
-- SSL errors rejected by default
-- Configurable file access permissions
-- Cookie security maintained via `CookieManager`
-
-## Dependencies
-- Cronet Embedded
-- OkHttp 5.1.0
-- AndroidX WebKit
-- Kotlinx Coroutines
-- Koin
-- DataStore
-- Jetpack Compose
-
-## Development
-The project follows clean architecture:
-- **Domain** – business logic and entities
-- **Data** – repositories with DataStore
-- **Presentation** – MVI with `StateFlow`
-- **UI** – Compose Material 3
+---
 
 ## Screenshots
 
 ### Light mode
 <table>
-  <thead>
-    <tr>
-      <th>Start Page</th>
-      <th>BrowserScan</th>
-      <th>Advanced Settings</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><img src="https://github.com/user-attachments/assets/47111eb4-6ac7-45ab-b8af-18bab93744c6" width="260" alt="Start Page (light)"></td>
-      <td><img src="https://github.com/user-attachments/assets/ed20f2ac-b84e-4b16-98ed-25facbff05db" width="260" alt="BrowserScan (light)"></td>
-      <td><img src="https://github.com/user-attachments/assets/03d9f351-e347-4045-8a20-7c3b56c6d6b3" width="260" alt="Advanced Settings (light)"></td>
-    </tr>
-  </tbody>
+  <tr>
+    <th>Start Page</th>
+    <th>BrowserScan</th>
+    <th>Advanced Settings</th>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/47111eb4-6ac7-45ab-b8af-18bab93744c6" width="270" alt="Start Page (light)"></td>
+    <td><img src="https://github.com/user-attachments/assets/ed20f2ac-b84e-4b16-98ed-25facbff05db" width="270" alt="BrowserScan (light)"></td>
+    <td><img src="https://github.com/user-attachments/assets/03d9f351-e347-4045-8a20-7c3b56c6d6b3" width="270" alt="Advanced Settings (light)"></td>
+  </tr>
 </table>
 
 ### Dark mode
 <table>
-  <thead>
-    <tr>
-      <th>Start Page</th>
-      <th>BrowserScan</th>
-      <th>Advanced Settings</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><img src="https://github.com/user-attachments/assets/b57fa9b1-c900-4cb8-a42d-ab782be0fedc" width="260" alt="Start Page (dark)"></td>
-      <td><img src="https://github.com/user-attachments/assets/cefb7552-be74-4bd8-86b4-2b74faa62515" width="260" alt="BrowserScan (dark)"></td>
-      <td><img src="https://github.com/user-attachments/assets/fac3462e-f8e9-46e4-a36d-a5bd14152095" width="260" alt="Advanced Settings (dark)"></td>
-    </tr>
-  </tbody>
+  <tr>
+    <th>Start Page</th>
+    <th>BrowserScan</th>
+    <th>Advanced Settings</th>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/b57fa9b1-c900-4cb8-a42d-ab782be0fedc" width="270" alt="Start Page (dark)"></td>
+    <td><img src="https://github.com/user-attachments/assets/cefb7552-be74-4bd8-86b4-2b74faa62515" width="270" alt="BrowserScan (dark)"></td>
+    <td><img src="https://github.com/user-attachments/assets/fac3462e-f8e9-46e4-a36d-a5bd14152095" width="270" alt="Advanced Settings (dark)"></td>
+  </tr>
 </table>
 
+---
+
+## Dependencies
+
+- Cronet (Play Services or embedded)
+- OkHttp **5.1.0**
+- AndroidX WebKit, DataStore
+- Kotlin Coroutines
+- DI (Koin)
+- Jetpack Compose (Material 3)
+
+---
+
+## Security
+
+- Cleartext only allowed in development via `network_security_config`.
+- SSL errors are blocked by default.
+- Cookie security via `CookieManager`; file access is configurable.
