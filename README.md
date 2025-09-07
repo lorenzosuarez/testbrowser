@@ -119,4 +119,41 @@ The project follows clean architecture:
 - **Presentation** – MVI with `StateFlow`
 - **UI** – Compose Material 3
 
-All public APIs include KDoc and the codebase uses explicit API mode with SOLID principles.
+## Screenshots
+
+### Light mode
+<table>
+  <thead>
+    <tr>
+      <th>Start Page</th>
+      <th>BrowserScan</th>
+      <th>Advanced Settings</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="https://github.com/user-attachments/assets/47111eb4-6ac7-45ab-b8af-18bab93744c6" width="260" alt="Start Page (light)"></td>
+      <td><img src="https://github.com/user-attachments/assets/ed20f2ac-b84e-4b16-98ed-25facbff05db" width="260" alt="BrowserScan (light)"></td>
+      <td><img src="https://github.com/user-attachments/assets/03d9f351-e347-4045-8a20-7c3b56c6d6b3" width="260" alt="Advanced Settings (light)"></td>
+    </tr>
+  </tbody>
+</table>
+
+### Dark mode
+<table>
+  <thead>
+    <tr>
+      <th>Start Page</th>
+      <th>BrowserScan</th>
+      <th>Advanced Settings</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="https://github.com/user-attachments/assets/b57fa9b1-c900-4cb8-a42d-ab782be0fedc" width="260" alt="Start Page (dark)"></td>
+      <td><img src="https://github.com/user-attachments/assets/cefb7552-be74-4bd8-86b4-2b74faa62515" width="260" alt="BrowserScan (dark)"></td>
+      <td><img src="https://github.com/user-attachments/assets/fac3462e-f8e9-46e4-a36d-a5bd14152095" width="260" alt="Advanced Settings (dark)"></td>
+    </tr>
+  </tbody>
+</table>
+
