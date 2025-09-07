@@ -49,7 +49,10 @@ public class DefaultNetworkProxy(
     private val httpStack = if (config.engineMode == EngineMode.Cronet) {
         val ua = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
         val engine = CronetHolder.getEngine(context, ua)
-        if (engine != null) CronetHttpStack(engine, uaProvider, chManager) else OkHttpStack(uaProvider, chManager)
+        if (engine != null) CronetHttpStack(engine, uaProvider, chManager) else OkHttpStack(
+            uaProvider,
+            chManager
+        )
     } else {
         OkHttpStack(uaProvider, chManager)
     }
@@ -79,7 +82,8 @@ public class DefaultNetworkProxy(
         try {
             val cookie = cookieManager.getCookie(url)
             if (!cookie.isNullOrBlank()) headers["Cookie"] = cookie
-        } catch (_: Throwable) {}
+        } catch (_: Throwable) {
+        }
 
         val proxyReq = ProxyRequest(url = url, method = method, headers = headers)
 
@@ -94,10 +98,14 @@ public class DefaultNetworkProxy(
         try {
             resp.headers["Set-Cookie"]?.forEach { value ->
                 val lines = value.split("\r\n", "\n").filter { it.isNotBlank() }
-                if (lines.isEmpty()) cookieManager.setCookie(url, value) else lines.forEach { cookieManager.setCookie(url, it) }
+                if (lines.isEmpty()) cookieManager.setCookie(
+                    url,
+                    value
+                ) else lines.forEach { cookieManager.setCookie(url, it) }
             }
             runCatching { cookieManager.flush() }
-        } catch (_: Throwable) {}
+        } catch (_: Throwable) {
+        }
 
         val rawCt = firstHeader(resp.headers, "Content-Type")
         val guessedCt = rawCt ?: pickContentTypeByUrl(url)
@@ -108,7 +116,11 @@ public class DefaultNetworkProxy(
         val bodyBytes: ByteArray?
         val decoded: ByteArray?
         if (textual) {
-            bodyBytes = try { resp.body.readBytes() } catch (_: Throwable) { null }
+            bodyBytes = try {
+                resp.body.readBytes()
+            } catch (_: Throwable) {
+                null
+            }
             decoded = maybeDecode(bodyBytes, encoding)
         } else {
             bodyBytes = null
@@ -128,10 +140,15 @@ public class DefaultNetworkProxy(
                 bodyBytes != null -> bodyBytes.size
                 else -> resp.body.available()
             }
-        } catch (_: Throwable) { -1 }
+        } catch (_: Throwable) {
+            -1
+        }
 
         val dt = (System.nanoTime() - t0) / 1e6
-        Log.d(TAG, "← RESPONSE  code=${resp.statusCode} reason='${reason}' mime=$mime charset=$charset size~$sizeHint  (${dt}ms)  $method $url")
+        Log.d(
+            TAG,
+            "← RESPONSE  code=${resp.statusCode} reason='${reason}' mime=$mime charset=$charset size~$sizeHint  (${dt}ms)  $method $url"
+        )
 
         val dataStream: InputStream = when {
             decoded != null -> ByteArrayInputStream(decoded)
@@ -147,15 +164,51 @@ public class DefaultNetworkProxy(
 
     public fun normalizeHeaders(incoming: Map<String, String>, ua: String): Map<String, String> {
         val sanitized = incoming.toMutableMap()
-        sanitized.keys.filter { it.equals("x-requested-with", true) }.toList().forEach { sanitized.remove(it) }
-        sanitized.keys.filter { it.lowercase(Locale.US).startsWith("sec-ch-ua") }.toList().forEach { sanitized.remove(it) }
-        val aeKey = sanitized.keys.firstOrNull { it.equals("accept-encoding", true) }
-        if (aeKey != null) sanitized.remove(aeKey)
+        sanitized.keys.filter { it.equals("x-requested-with", true) }.toList()
+            .forEach { sanitized.remove(it) }
+        sanitized.keys.filter { it.lowercase(Locale.US).startsWith("sec-ch-ua") }.toList()
+            .forEach { sanitized.remove(it) }
+        sanitized.keys.firstOrNull { it.equals("accept-encoding", true) }
+            ?.let { sanitized.remove(it) }
         sanitized["Accept-Encoding"] = "identity"
-        sanitized.keys.filter { it.equals("range", true) || it.equals("if-range", true) }.toList().forEach { sanitized.remove(it) }
+        sanitized.keys.filter { it.equals("range", true) || it.equals("if-range", true) }.toList()
+            .forEach { sanitized.remove(it) }
+
         val isMobile = ua.contains(" Mobile") && !ua.contains("X11;")
-        if (chManager.enabled) chManager.asMap(isMobile = isMobile).forEach { (k, v) -> sanitized[k] = v }
+        if (chManager.enabled) chManager.asMap(isMobile = isMobile)
+            .forEach { (k, v) -> sanitized[k] = v }
+
+        val platform = platformFromUA(ua)
+        sanitized["Sec-CH-UA-Platform"] = "\"$platform\""
+
+        if (platform != "Android") {
+            listOf("sec-ch-ua-platform-version", "sec-ch-ua-model")
+                .mapNotNull { key -> sanitized.keys.firstOrNull { it.equals(key, true) } }
+                .forEach { sanitized.remove(it) }
+            val mobileKey = sanitized.keys.firstOrNull { it.equals("sec-ch-ua-mobile", true) }
+            if (mobileKey != null) sanitized[mobileKey] = "?0" else sanitized["Sec-CH-UA-Mobile"] =
+                "?0"
+        } else {
+            val mobileKey = sanitized.keys.firstOrNull { it.equals("sec-ch-ua-mobile", true) }
+            if (mobileKey != null) sanitized[mobileKey] = "?1" else sanitized["Sec-CH-UA-Mobile"] =
+                "?1"
+        }
+
         return sanitized
+    }
+
+
+    private fun platformFromUA(ua: String): String {
+        val u = ua.lowercase(Locale.US)
+        return when {
+            "android" in u -> "Android"
+            "windows nt" in u -> "Windows"
+            "mac os x" in u || "macintosh" in u -> "macOS"
+            "cros " in u -> "Chrome OS"
+            "x11; linux" in u || "linux" in u -> "Linux"
+            "iphone" in u || "ipad" in u || "ios" in u -> "iOS"
+            else -> "Linux"
+        }
     }
 
     private fun buildWebViewResponseHeaders(
@@ -225,7 +278,8 @@ public class DefaultNetworkProxy(
     private fun splitMimeAndCharset(contentType: String): Pair<String, String?> {
         val parts = contentType.split(';').map { it.trim() }
         val mime = parts.firstOrNull()?.lowercase(Locale.US).orEmpty()
-        val cs = parts.firstOrNull { it.startsWith("charset=", true) }?.substringAfter('=')?.trim('"', ' ')
+        val cs = parts.firstOrNull { it.startsWith("charset=", true) }?.substringAfter('=')
+            ?.trim('"', ' ')
         return mime to cs
     }
 
