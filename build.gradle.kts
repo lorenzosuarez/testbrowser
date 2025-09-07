@@ -1,7 +1,8 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 09/06/2025
+ * Date: 06/09/2025
  */
+
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false

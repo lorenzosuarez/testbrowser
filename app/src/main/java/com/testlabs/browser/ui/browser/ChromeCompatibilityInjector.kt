@@ -1,7 +1,8 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 09/06/2025
+ * Date: 06/09/2025
  */
+
 package com.testlabs.browser.ui.browser
 
 /**
@@ -40,7 +41,7 @@ public class ChromeCompatibilityInjector(
                 
                 console.log('Chrome compatibility injection starting...');
                 
-                // Override navigator.userAgent to match Chrome Mobile
+                
                 try {
                     Object.defineProperty(navigator, 'userAgent', {
                         value: '$userAgent',
@@ -53,7 +54,7 @@ public class ChromeCompatibilityInjector(
                     console.warn('Could not override navigator.userAgent:', e.message);
                 }
                 
-                // Override navigator.platform
+                
                 try {
                     Object.defineProperty(navigator, 'platform', {
                         value: '$platform',
@@ -65,7 +66,7 @@ public class ChromeCompatibilityInjector(
                     console.warn('Could not override navigator.platform:', e.message);
                 }
                 
-                // Override navigator.vendor
+                
                 try {
                     Object.defineProperty(navigator, 'vendor', {
                         value: 'Google Inc.',
@@ -77,7 +78,7 @@ public class ChromeCompatibilityInjector(
                     console.warn('Could not override navigator.vendor:', e.message);
                 }
                 
-                // Override navigator.language and languages
+                
                 try {
                     Object.defineProperty(navigator, 'language', {
                         value: 'en-US',
@@ -96,7 +97,7 @@ public class ChromeCompatibilityInjector(
                     console.warn('Could not override navigator.language:', e.message);
                 }
                 
-                // Create realistic navigator.userAgentData
+                
                 try {
                     const userAgentData = {
                         brands: Object.freeze($brands),
@@ -136,7 +137,7 @@ public class ChromeCompatibilityInjector(
                     console.warn('Could not create navigator.userAgentData:', e.message);
                 }
                 
-                // Create window.chrome object
+                
                 try {
                     if (typeof window.chrome === 'undefined') {
                         window.chrome = {
@@ -189,7 +190,7 @@ public class ChromeCompatibilityInjector(
                     console.warn('Could not create window.chrome:', e.message);
                 }
                 
-                // Override navigator.webdriver
+                
                 try {
                     Object.defineProperty(navigator, 'webdriver', {
                         value: undefined,
@@ -201,7 +202,7 @@ public class ChromeCompatibilityInjector(
                     console.warn('Could not override navigator.webdriver:', e.message);
                 }
                 
-                // Override screen properties for mobile consistency
+                
                 try {
                     if (!$desktopMode) {
                         const screenProps = {
@@ -230,7 +231,7 @@ public class ChromeCompatibilityInjector(
                     console.warn('Could not override screen properties:', e.message);
                 }
                 
-                // Override devicePixelRatio for mobile
+                
                 try {
                     if (!$desktopMode) {
                         Object.defineProperty(window, 'devicePixelRatio', {

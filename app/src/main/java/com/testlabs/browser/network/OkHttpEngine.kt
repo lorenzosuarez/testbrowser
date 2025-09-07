@@ -1,9 +1,8 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 09/06/2025
- * Subresource HTTP engine with Chrome-like headers and WebView-safe normalization.
- * Top-level HTML navigations are bypassed to let native WebView handle them.
+ * Date: 06/09/2025
  */
+
 package com.testlabs.browser.network
 
 import android.webkit.CookieManager

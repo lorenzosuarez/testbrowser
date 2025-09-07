@@ -1,7 +1,8 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 09/06/2025
+ * Date: 06/09/2025
  */
+
 package com.testlabs.browser
 
 import android.webkit.WebView
@@ -58,9 +59,9 @@ class HeadersTest {
 
     @Test
     fun requestedWithHeaderControlFeatureSupported() {
-        // Test that we can check WebView feature support
+        
         val supported = WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)
-        // This test verifies the WebView feature checking mechanism works
+        
         assertTrue("WebView feature checking should work", true)
     }
 
@@ -76,7 +77,7 @@ class HeadersTest {
         rule.scenario.onActivity { activity ->
             val webView = WebView(activity)
             val mode = requestedWithHeaderModeOf(webView)
-            // Test that we can determine the header mode without crashing
+            
             assertTrue(
                 "Should be able to determine header mode",
                 mode in listOf(

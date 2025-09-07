@@ -1,9 +1,8 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 09/06/2025
- * Network proxy for WebView backed by Cronet/OkHttp. Produces WebResourceResponse with WebView-safe headers,
- * synchronizes cookies, injects client hints, and robustly handles content-encoding with transparent decoding.
+ * Date: 06/09/2025
  */
+
 package com.testlabs.browser.ui.browser
 
 import android.content.Context
