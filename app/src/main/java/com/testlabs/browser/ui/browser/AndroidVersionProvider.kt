@@ -1,3 +1,8 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 06/09/2025
+ */
+
 package com.testlabs.browser.ui.browser
 
 import android.content.Context
@@ -11,7 +16,7 @@ public class AndroidVersionProvider(private val context: Context) : VersionProvi
     override fun androidVersion(): String = Build.VERSION.RELEASE ?: "0"
 
     override fun chromeFullVersion(): String {
-        // Prefer the installed Chrome version. Fall back to WebView implementation.
+        
         val chrome = packageVersion("com.android.chrome")
         if (chrome != null) return chrome
         return packageVersion("com.google.android.webview") ?: "0.0.0.0"

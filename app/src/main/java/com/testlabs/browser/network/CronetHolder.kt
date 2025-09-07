@@ -1,4 +1,9 @@
 /**
+ * Author: Lorenzo Suarez
+ * Date: 06/09/2025
+ */
+
+/**
  * Singleton holder for an app-wide CronetEngine instance.
  *
  * Provides a shared, properly configured Cronet instance for all network requests.

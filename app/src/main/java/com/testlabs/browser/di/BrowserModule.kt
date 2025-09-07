@@ -1,3 +1,8 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 06/09/2025
+ */
+
 package com.testlabs.browser.di
 
 import com.testlabs.browser.presentation.browser.BrowserViewModel

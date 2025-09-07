@@ -1,7 +1,8 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 09/06/2025
+ * Date: 06/09/2025
  */
+
 package com.testlabs.browser.network
 
 import okhttp3.Dns
@@ -73,19 +74,19 @@ public object OkHttpClientProvider {
         val original = chain.request()
         val builder = original.newBuilder()
 
-        // Remove X-Requested-With
+        
         original.headers.names()
             .filter { it.equals("x-requested-with", ignoreCase = true) }
             .forEach { builder.removeHeader(it) }
 
-        // Remove any existing UA-CH headers
+        
         listOf("sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform").forEach { h ->
             original.headers.names()
                 .firstOrNull { it.equals(h, ignoreCase = true) }
                 ?.let { builder.removeHeader(it) }
         }
 
-        // Inject canonical UA-CH
+        
         uaCh.asMap(isMobile = true).forEach { (k, v) -> builder.addHeader(k, v) }
 
         chain.proceed(builder.build())

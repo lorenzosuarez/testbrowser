@@ -1,3 +1,8 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 06/09/2025
+ */
+
 package com.testlabs.browser.ui.browser
 
 /**
@@ -14,11 +19,11 @@ public class ChromeUAProvider(
         val model = versionProvider.deviceModel()
 
         return if (desktop) {
-            // Desktop mode pretends to be Chrome on Linux x86_64 similar to Chrome's device emulation.
+            
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) " +
                 "Chrome/$chromeVersion Safari/537.36"
         } else {
-            // Mobile mode mirrors Chrome for Android on a device.
+            
             "Mozilla/5.0 (Linux; Android $androidVersion; $model) " +
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$chromeVersion Mobile Safari/537.36"
         }

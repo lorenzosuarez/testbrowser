@@ -1,8 +1,8 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 09/06/2025
- * WebView host that wires configuration, proxy integration and detailed logging.
+ * Date: 06/09/2025
  */
+
 package com.testlabs.browser.ui.browser
 
 import android.annotation.SuppressLint
