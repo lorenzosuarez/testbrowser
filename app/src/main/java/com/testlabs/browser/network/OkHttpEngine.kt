@@ -1,28 +1,22 @@
 /**
  * Author: Lorenzo Suarez
  * Date: 09/06/2025
+ * Subresource HTTP engine with Chrome-like headers and WebView-safe normalization.
+ * Top-level HTML navigations are bypassed to let native WebView handle them.
  */
 package com.testlabs.browser.network
 
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
-import com.github.luben.zstd.ZstdInputStream
 import com.testlabs.browser.settings.DeveloperSettings
 import com.testlabs.browser.ui.browser.UAProvider
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.brotli.dec.BrotliInputStream
 import java.io.ByteArrayInputStream
 import java.util.Locale
-import java.util.zip.GZIPInputStream
-import java.util.zip.InflaterInputStream
 
-/**
- * Executes subresource HTTP requests with Chrome-like headers and response normalization.
- * This engine returns null for top-level HTML navigations to allow native WebView handling.
- */
 public class OkHttpEngine(
     private val settings: DeveloperSettings,
     private val ua: UAProvider,
@@ -32,7 +26,7 @@ public class OkHttpEngine(
     private val client: OkHttpClient = OkHttpClientProvider.client(chManager)
 
     /**
-     * Intercepts a WebResourceRequest and returns a normalized WebResourceResponse, or null to bypass.
+     * Executes a subresource request and returns a normalized WebResourceResponse.
      */
     public fun execute(request: WebResourceRequest): WebResourceResponse? {
         val url = request.url.toString()
@@ -58,17 +52,20 @@ public class OkHttpEngine(
             }
             headers.putIfAbsent("User-Agent", userAgent)
             headers.putIfAbsent("Accept-Language", acceptLanguage)
-            headers["Accept-Encoding"] = "gzip, deflate, br, zstd"
+            headers["Accept-Encoding"] = "identity"
+
             val hints = chManager.asMap(isMobile = true)
             if (hints.isNotEmpty()) {
-                headers.putIfAbsent("Sec-CH-UA", hints["sec-ch-ua"]!!)
-                headers.putIfAbsent("Sec-CH-UA-Mobile", hints["sec-ch-ua-mobile"]!!)
-                headers.putIfAbsent("Sec-CH-UA-Platform", hints["sec-ch-ua-platform"]!!)
+                hints["sec-ch-ua"]?.let { headers.putIfAbsent("Sec-CH-UA", it) }
+                hints["sec-ch-ua-mobile"]?.let { headers.putIfAbsent("Sec-CH-UA-Mobile", it) }
+                hints["sec-ch-ua-platform"]?.let { headers.putIfAbsent("Sec-CH-UA-Platform", it) }
             }
+
             try {
                 val cookies = cookieManager.getCookie(url)
                 if (!cookies.isNullOrBlank()) headers["Cookie"] = cookies
             } catch (_: Exception) {}
+
             headers.forEach { (k, v) -> builder.header(k, v) }
 
             var resp = client.newCall(builder.build()).execute()
@@ -95,6 +92,9 @@ public class OkHttpEngine(
         }
     }
 
+    /**
+     * Returns true for common static assets to keep scope limited and predictable.
+     */
     private fun isStaticUrl(url: String): Boolean {
         val path = url.substringBefore('#').substringBefore('?').lowercase(Locale.US)
         return path.endsWith(".mjs") || path.endsWith(".js") ||
@@ -105,6 +105,9 @@ public class OkHttpEngine(
                 path.endsWith(".woff2") || path.endsWith(".woff") || path.endsWith(".ttf")
     }
 
+    /**
+     * Detects HTML navigations that must be handled by WebView.
+     */
     private fun isHtmlRequest(request: WebResourceRequest, url: String): Boolean {
         val acceptHeader = request.requestHeaders["Accept"] ?: ""
         return acceptHeader.contains("text/html", ignoreCase = true) ||
@@ -113,33 +116,46 @@ public class OkHttpEngine(
                 (!url.contains('.', ignoreCase = true) && !url.contains("api", ignoreCase = true))
     }
 
+    /**
+     * Converts the OkHttp response into a WebView-ready response with safe headers.
+     */
     private fun normalize(response: Response): WebResourceResponse {
-        val encoding = response.header("Content-Encoding")
         val bodyBytes = response.body.bytes()
-        val decoded = decode(bodyBytes, encoding)
-        val headers: MutableMap<String, String> =
-            response.headers.toMultimap().mapValues { it.value.joinToString(",") }.toMutableMap()
-        val didDecode = decoded !== bodyBytes && encoding != null
-        if (didDecode) {
-            headers.keys
-                .filter {
-                    it.equals("Content-Encoding", true) ||
-                            it.equals("Content-Length", true) ||
-                            it.equals("Transfer-Encoding", true)
-                }
-                .toList()
-                .forEach { headers.remove(it) }
-        }
-        val url = response.request.url.toString()
-        val finalContentType = pickContentType(headers["Content-Type"], url)
-        val (mime, charset) = splitMimeAndCharset(finalContentType)
-        val web = WebResourceResponse(mime, charset, ByteArrayInputStream(decoded))
+        val headersMap = response.headers.toMultimap().mapValues { it.value.joinToString(",") }.toMutableMap()
 
-        web.responseHeaders = headers
-        web.setStatusCodeAndReasonPhrase(response.code, response.message.ifBlank { " " })
+        val url = response.request.url.toString()
+        val finalContentType = pickContentType(headersMap["Content-Type"], url)
+        val (mime, charset) = splitMimeAndCharset(finalContentType)
+
+        val web = WebResourceResponse(mime, charset, ByteArrayInputStream(bodyBytes))
+        web.responseHeaders = buildWebViewResponseHeaders(headersMap, dropContentEncoding = false)
+
+        val safeReason = response.message.ifBlank {
+            when (response.code) {
+                200 -> "OK"
+                201 -> "Created"
+                204 -> "No Content"
+                301 -> "Moved Permanently"
+                302 -> "Found"
+                304 -> "Not Modified"
+                400 -> "Bad Request"
+                401 -> "Unauthorized"
+                403 -> "Forbidden"
+                404 -> "Not Found"
+                500 -> "Internal Server Error"
+                502 -> "Bad Gateway"
+                503 -> "Service Unavailable"
+                else -> "Unknown"
+            }
+        }
+
+        web.setStatusCodeAndReasonPhrase(response.code, safeReason)
         return web
     }
 
+    /**
+     * Picks an explicit content type for common static assets when servers return opaque types.
+     */
     private fun pickContentType(original: String?, url: String): String {
         if (!original.isNullOrBlank() && !original.startsWith("application/octet-stream", true)) return original
         val path = url.substringBefore('#').substringBefore('?').lowercase(Locale.US)
@@ -167,30 +183,19 @@ public class OkHttpEngine(
         return if (charset != null) "$mime; charset=$charset" else mime
     }
 
+    /**
+     * Splits content-type into mime and charset.
+     */
     private fun splitMimeAndCharset(contentType: String): Pair<String, String?> {
         val parts = contentType.split(';').map { it.trim() }
         val mime = parts.firstOrNull()?.lowercase(Locale.US).orEmpty()
-        val charset = parts
-            .firstOrNull { it.startsWith("charset=", ignoreCase = true) }
-            ?.substringAfter('=')
-            ?.trim('"', ' ')
+        val charset = parts.firstOrNull { it.startsWith("charset=", ignoreCase = true) }?.substringAfter('=')?.trim('"', ' ')
         return mime to charset
     }
 
-    private fun decode(bytes: ByteArray, encoding: String?): ByteArray {
-        return try {
-            when (encoding?.lowercase(Locale.US)) {
-                "gzip" -> GZIPInputStream(ByteArrayInputStream(bytes)).use { it.readBytes() }
-                "deflate" -> InflaterInputStream(ByteArrayInputStream(bytes)).use { it.readBytes() }
-                "zstd" -> ZstdInputStream(ByteArrayInputStream(bytes)).use { it.readBytes() }
-                "br" -> BrotliInputStream(ByteArrayInputStream(bytes)).use { it.readBytes() }
-                else -> bytes
-            }
-        } catch (_: Exception) {
-            bytes
-        }
-    }
-
+    /**
+     * Applies Set-Cookie headers to the WebView cookie store.
+     */
     private fun handleSetCookies(url: String, response: Response) {
         response.headers("Set-Cookie").forEach { value ->
             val lines = value.split("\r\n", "\n").filter { it.isNotBlank() }
@@ -203,5 +208,38 @@ public class OkHttpEngine(
             }
         }
         try { cookieManager.flush() } catch (_: Exception) {}
+    }
+
+    /**
+     * Builds response headers suitable for WebView.
+     */
+    private fun buildWebViewResponseHeaders(
+        src: Map<String, String>,
+        dropContentEncoding: Boolean
+    ): LinkedHashMap<String, String> {
+        val out = linkedMapOf<String, String>()
+        src.forEach { (k, v) ->
+            if (k.isBlank()) return@forEach
+            val low = k.lowercase(Locale.US)
+            if (isHopByHop(k)) return@forEach
+            if (k.equals("Set-Cookie", true)) return@forEach
+            if (dropContentEncoding && (low == "content-encoding" || low == "content-length" || low == "transfer-encoding" || low == "content-range")) return@forEach
+            out[k] = v
+        }
+        return out
+    }
+
+    /**
+     * Returns whether a header is hop-by-hop.
+     */
+    private fun isHopByHop(name: String): Boolean {
+        val n = name.lowercase(Locale.US)
+        return n == "connection" ||
+                n == "proxy-connection" ||
+                n == "transfer-encoding" ||
+                n == "content-length" ||
+                n == "te" ||
+                n == "trailer" ||
+                n == "upgrade"
     }
 }

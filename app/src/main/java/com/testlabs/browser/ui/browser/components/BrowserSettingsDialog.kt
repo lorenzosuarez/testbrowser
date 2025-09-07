@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -61,7 +60,6 @@ public fun BrowserSettingsDialog(
 ) {
     var tempConfig by remember { mutableStateOf(config) }
     var allowListText by remember { mutableStateOf(tempConfig.requestedWithHeaderAllowList.joinToString(",")) }
-    val hasChanges = tempConfig != config
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -69,11 +67,6 @@ public fun BrowserSettingsDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (hasChanges) {
-                    Button(onClick = { onApplyAndRestart(tempConfig) }) {
-                        Text("Apply & Restart WebView")
-                    }
-                }
                 TextButton(onClick = {
                     onConfigChange(tempConfig)
                     onConfirm()
@@ -224,7 +217,7 @@ public fun BrowserSettingsDialog(
                             value = tempConfig.customUserAgent ?: "",
                             onValueChange = { value ->
                                 tempConfig = tempConfig.copy(
-                                    customUserAgent = if (value.isBlank()) null else value
+                                    customUserAgent = value.ifBlank { null }
                                 )
                             },
                             label = { Text("Custom User Agent (optional)") },

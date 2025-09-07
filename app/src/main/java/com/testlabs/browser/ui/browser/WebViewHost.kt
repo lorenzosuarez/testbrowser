@@ -1,18 +1,18 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/06/2025
+ * WebView host that wires configuration, proxy integration and detailed logging.
+ */
 package com.testlabs.browser.ui.browser
 
-import android.R.attr.allow
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
-import android.os.Message
 import android.webkit.CookieManager
 import android.webkit.MimeTypeMap
-import android.webkit.JsPromptResult
-import android.webkit.JsResult
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
-import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -32,14 +32,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
-import androidx.webkit.ServiceWorkerWebSettingsCompat
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.AcceptLanguageMode
 import com.testlabs.browser.domain.settings.WebViewConfig
 import com.testlabs.browser.js.JsBridge
-import com.testlabs.browser.ui.browser.RequestedWithHeaderMode
 import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 import java.util.Locale
@@ -64,7 +62,8 @@ public fun WebViewHost(
     onControllerReady: (WebViewController) -> Unit,
 ) {
     val koin = getKoin()
-    val networkProxy: NetworkProxy = remember(config) { koin.get(parameters = { parametersOf(config) }) }
+    val networkProxy: NetworkProxy =
+        remember(config) { koin.get(parameters = { parametersOf(config) }) }
 
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var progress by remember { mutableIntStateOf(0) }
@@ -105,9 +104,7 @@ public fun WebViewHost(
         },
         update = { webView ->
             applyRequestedWithHeaderPolicy(webView, config)
-
             controllerRef?.updateConfig(config)
-
             applyFullWebViewConfiguration(
                 webView = webView,
                 config = config,
@@ -126,12 +123,10 @@ public fun WebViewHost(
                 onError = onError,
                 filePickerLauncher = filePickerLauncher
             )
-
             val newUserAgent = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
             if (webView.settings.userAgentString != newUserAgent) {
                 webView.settings.userAgentString = newUserAgent
             }
-
             onNavigationStateChanged(webView.canGoBack(), webView.canGoForward())
         },
         onRelease = { webView ->
@@ -233,7 +228,6 @@ private fun Iterable<String>.filterIsOriginLike(): List<String> =
         .filter { it.startsWith("https://") || it.startsWith("http://") }
         .map { it.removeSuffix("/") }
 
-
 @SuppressLint("RestrictedApi")
 private fun WebView.applyConfig(
     config: WebViewConfig,
@@ -318,12 +312,20 @@ private fun WebView.applyConfig(
             }
         }
 
-        override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
+        override fun onReceivedError(
+            view: WebView?,
+            errorCode: Int,
+            description: String?,
+            failingUrl: String?
+        ) {
             super.onReceivedError(view, errorCode, description, failingUrl)
             onError("Error $errorCode: $description")
         }
 
-        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+        override fun shouldInterceptRequest(
+            view: WebView?,
+            request: WebResourceRequest?
+        ): WebResourceResponse? {
             if (request?.isForMainFrame == true) {
                 request.url?.toString()?.let { url -> onUrlChange(url) }
             }
@@ -334,7 +336,7 @@ private fun WebView.applyConfig(
                     acceptLanguage = acceptLanguage,
                     proxyEnabled = config.proxyEnabled
                 )
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 null
             }
         }
@@ -366,6 +368,10 @@ private fun WebView.applyConfig(
     }
 }
 
+/**
+ * Applies the full WebView configuration, installs a BrowserWebViewClient with first-class logging,
+ * and mirrors interception on the Service Worker path so subresources fetched via SW are also proxied.
+ */
 @SuppressLint("SetJavaScriptEnabled", "RestrictedApi")
 private fun applyFullWebViewConfiguration(
     webView: WebView,
@@ -390,15 +396,12 @@ private fun applyFullWebViewConfiguration(
     s.allowFileAccess = config.fileAccessEnabled
     s.allowContentAccess = config.fileAccessEnabled
     s.mediaPlaybackRequiresUserGesture = !config.mediaAutoplayEnabled
-    s.mixedContentMode = if (config.mixedContentAllowed) {
-        WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-    } else {
-        WebSettings.MIXED_CONTENT_NEVER_ALLOW
-    }
+    s.mixedContentMode = if (config.mixedContentAllowed) WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE else WebSettings.MIXED_CONTENT_NEVER_ALLOW
     s.setSupportMultipleWindows(true)
     s.javaScriptCanOpenWindowsAutomatically = true
     s.useWideViewPort = true
     s.loadWithOverviewMode = true
+    s.cacheMode = if (config.proxyInterceptEnabled) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
 
     val cookieManager = CookieManager.getInstance()
     cookieManager.setAcceptCookie(true)
@@ -412,71 +415,71 @@ private fun applyFullWebViewConfiguration(
         AcceptLanguageMode.DeviceList -> buildDeviceAcceptLanguage()
     }
 
-    webView.webViewClient = object : WebViewClient() {
-        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+    webView.webViewClient = object : com.testlabs.browser.webview.BrowserWebViewClient(
+        proxy = networkProxy,
+        jsBridge = object : JsBridge(ua = uaProvider) {
+            override fun script(): String = if (config.jsCompatibilityMode) getDocStartScript(jsCompat) else ""
+        },
+        uaProvider = uaProvider,
+        acceptLanguage = acceptLanguage,
+        desktopMode = config.desktopMode,
+        proxyInterceptEnabled = config.proxyInterceptEnabled
+    ) {
+        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest): WebResourceResponse? {
+            val isMain = request.isForMainFrame
+            val url = request.url.toString()
+            val method = request.method
+            val t0 = System.nanoTime()
+            Log.d(TAG, "REQ  main=$isMain  $method $url")
+            val resp = try { super.shouldInterceptRequest(view, request) } catch (t: Throwable) { null }
+            val dt = (System.nanoTime() - t0) / 1e6
+            if (resp != null) {
+                val code = try { resp.statusCode } catch (_: Throwable) { -1 }
+                val mime = try { resp.mimeType } catch (_: Throwable) { null }
+                val size = try { resp.data?.available() ?: -1 } catch (_: Throwable) { -1 }
+                Log.d(TAG, "HIT  code=$code mime=$mime size~${size}B  (${dt}ms)  $method $url")
+            } else {
+                Log.d(TAG, "MISS (${dt}ms)  $method $url")
+            }
+            return resp
+        }
+
+        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
             Log.d(TAG, "onPageStarted $url")
             super.onPageStarted(view, url, favicon)
             url?.let {
                 onPageStarted(it)
                 onUrlChange(it)
-                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+                onNavState(view.canGoBack(), view.canGoForward())
             }
         }
 
-        override fun onPageFinished(view: WebView?, url: String?) {
+        override fun onPageFinished(view: WebView, url: String?) {
             Log.d(TAG, "onPageFinished $url")
             super.onPageFinished(view, url)
             url?.let {
                 onPageFinished(it)
                 onUrlChange(it)
-                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+                onNavState(view.canGoBack(), view.canGoForward())
             }
         }
 
-        override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
-            Log.d(TAG, "doUpdateVisitedHistory $url")
+        override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+            Log.d(TAG, "doUpdateVisitedHistory $url reload=$isReload")
             super.doUpdateVisitedHistory(view, url, isReload)
             url?.let {
                 onUrlChange(it)
-                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+                onNavState(view.canGoBack(), view.canGoForward())
             }
         }
 
-        override fun onPageCommitVisible(view: WebView?, url: String?) {
+        override fun onPageCommitVisible(view: WebView, url: String?) {
             super.onPageCommitVisible(view, url)
+            Log.d(TAG, "onPageCommitVisible $url")
             url?.let {
                 onUrlChange(it)
-                onNavState(view?.canGoBack() == true, view?.canGoForward() == true)
+                onNavState(view.canGoBack(), view.canGoForward())
             }
-        }
-
-        override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
-            Log.e(TAG, "onReceivedError $errorCode $description")
-            super.onReceivedError(view, errorCode, description, failingUrl)
-            onError("Error $errorCode: $description")
-        }
-
-        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-            if (request?.isForMainFrame == true) {
-                request.url?.toString()?.let { url ->
-                    onUrlChange(url)
-                }
-            }
-            return try {
-                networkProxy.interceptRequest(
-                    request = request ?: return null,
-                    userAgent = ua,
-                    acceptLanguage = acceptLanguage,
-                    proxyEnabled = config.proxyEnabled
-                )
-            } catch (e: Exception) {
-                null
-            }
-        }
-
-        override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
-            Log.e(TAG, "renderProcessGone crash=${detail?.didCrash()}")
-            return super.onRenderProcessGone(view, detail)
         }
     }
 
@@ -492,62 +495,38 @@ private fun applyFullWebViewConfiguration(
             super.onReceivedTitle(view, title)
             onTitle(title)
         }
+    }
 
-        override fun onCreateWindow(
-            view: WebView?,
-            isDialog: Boolean,
-            isUserGesture: Boolean,
-            resultMsg: Message?
-        ): Boolean {
-            Log.d(TAG, "onCreateWindow")
-            val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
-            val popup = WebView(view?.context ?: return false)
-            setupWebViewDefaults(popup)
-            popup.webViewClient = object : WebViewClient() {
-                override fun onPageStarted(v: WebView?, url: String?, favicon: Bitmap?) {
-                    if (url != null) {
-                        view.loadUrl(url)
-                    }
-                }
-            }
-            transport.webView = popup
-            resultMsg.sendToTarget()
-            return true
-        }
-
-        override fun onCloseWindow(window: WebView?) {}
-
-        override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
-            return super.onJsAlert(view, url, message, result)
-        }
-
-        override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
-            return super.onJsConfirm(view, url, message, result)
-        }
-
-        override fun onJsPrompt(view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?): Boolean {
-            return super.onJsPrompt(view, url, message, defaultValue, result)
-        }
-
-        override fun onShowFileChooser(
-            webView: WebView?,
-            filePathCallback: ValueCallback<Array<Uri>>?,
-            fileChooserParams: FileChooserParams?
-        ): Boolean {
-            val launcher = filePickerLauncher
-            return if (launcher != null && filePathCallback != null) {
-                fileCallbackRef.set(filePathCallback)
-                val intent = fileChooserParams?.createIntent()
-                if (intent != null) {
-                    launcher.launch(intent)
-                    true
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
+        val controller = ServiceWorkerControllerCompat.getInstance()
+        controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
+            override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
+                val isMain = request.isForMainFrame
+                val url = request.url.toString()
+                val method = request.method
+                val t0 = System.nanoTime()
+                Log.d(TAG, "SW REQ  main=$isMain  $method $url")
+                val uaNow = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
+                val resp = try {
+                    networkProxy.interceptRequest(
+                        request = request,
+                        userAgent = uaNow,
+                        acceptLanguage = acceptLanguage,
+                        proxyEnabled = config.proxyEnabled
+                    )
+                } catch (_: Throwable) { null }
+                val dt = (System.nanoTime() - t0) / 1e6
+                if (resp != null) {
+                    val code = try { resp.statusCode } catch (_: Throwable) { -1 }
+                    val mime = try { resp.mimeType } catch (_: Throwable) { null }
+                    val size = try { resp.data?.available() ?: -1 } catch (_: Throwable) { -1 }
+                    Log.d(TAG, "SW HIT  code=$code mime=$mime size~${size}B  (${dt}ms)  $method $url")
                 } else {
-                    false
+                    Log.d(TAG, "SW MISS (${dt}ms)  $method $url")
                 }
-            } else {
-                false
+                return resp
             }
-        }
+        })
     }
 
     if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
@@ -557,14 +536,8 @@ private fun applyFullWebViewConfiguration(
         )
     }
 
-    if (config.jsCompatibilityMode &&
-        WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
-    ) {
-        WebViewCompat.addDocumentStartJavaScript(
-            webView,
-            getDocStartScript(jsCompat),
-            setOf("*")
-        )
+    if (config.jsCompatibilityMode && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+        WebViewCompat.addDocumentStartJavaScript(webView, getDocStartScript(jsCompat), setOf("*"))
     }
 }
 
@@ -576,15 +549,19 @@ public class RealWebViewController(
     override fun loadUrl(url: String) {
         webView.loadUrl(url)
     }
+
     override fun reload() {
         webView.reload()
     }
+
     override fun goBack() {
         if (webView.canGoBack()) webView.goBack()
     }
+
     override fun goForward() {
         if (webView.canGoForward()) webView.goForward()
     }
+
     override fun recreateWebView() {
         val currentUrl = webView.url
         webView.stopLoading()
@@ -601,11 +578,13 @@ public class RealWebViewController(
             }
         }
     }
+
     override fun clearBrowsingData(done: () -> Unit) {
         CookieManager.getInstance().removeAllCookies { done() }
         webView.clearCache(true)
         webView.clearHistory()
     }
+
     override fun config(): WebViewConfig = currentConfig
     override fun proxyStackName(): String = proxy.stackName
     override fun dumpSettings(): String = dumpWebViewConfig(webView, currentConfig)
@@ -617,7 +596,6 @@ public class RealWebViewController(
 
 private fun extractFileName(contentDisposition: String?, url: String, mimeType: String?): String {
     var fileName: String? = null
-
     if (contentDisposition != null) {
         val index = contentDisposition.indexOf("filename=")
         if (index >= 0) {
@@ -625,32 +603,27 @@ private fun extractFileName(contentDisposition: String?, url: String, mimeType: 
             fileName = fileName.replace("\"", "")
         }
     }
-
     if (fileName == null) {
         fileName = url.substringAfterLast("/")
         if (fileName.isEmpty()) {
             fileName = "download"
         }
     }
-
     if (!fileName.contains('.') && mimeType != null) {
         val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
         if (extension != null) {
             fileName += ".$extension"
         }
     }
-
     return fileName
 }
 
 private fun buildDeviceAcceptLanguage(): String {
     val locales = mutableListOf<Locale>()
-
     val localeList = android.content.res.Resources.getSystem().configuration.locales
     for (i in 0 until localeList.size()) {
         locales.add(localeList[i])
     }
-
     return locales.mapIndexed { index, locale ->
         val quality = 1.0 - (index * 0.1)
         "${locale.language}-${locale.country};q=${"%.1f".format(quality)}"

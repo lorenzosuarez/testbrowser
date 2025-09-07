@@ -31,6 +31,8 @@ class BrowserViewModelTest {
         override suspend fun save(config: WebViewConfig) {
             _config.value = config
         }
+
+        override suspend fun reset() {}
     }
 
     @Test

@@ -2,80 +2,172 @@
 
 ```mermaid
 graph TD
-    AppModule --> BrowserViewModel
-    AppModule --> DeveloperSettings
-    AppModule --> JsBridge
-    AppModule --> UAProvider
-    BrowserBottomBar --> BrowserThemeTokens
-    BrowserBottomBar --> R
-    BrowserEffect --> ValidatedUrl
-    BrowserIntent --> ValidatedUrl
-    BrowserIntent --> WebViewConfig
-    BrowserModule --> BrowserViewModel
-    BrowserReducer --> ValidatedUrl
-    BrowserReducerTest --> BrowserEffect
-    BrowserReducerTest --> BrowserIntent
-    BrowserReducerTest --> BrowserReducer
-    BrowserReducerTest --> BrowserState
-    BrowserReducerTest --> ValidatedUrl
-    BrowserReducerTest --> WebViewConfig
-    BrowserScreen --> BrowserBottomBar
-    BrowserScreen --> BrowserEffect
-    BrowserScreen --> BrowserIntent
-    BrowserScreen --> BrowserProgressIndicator
-    BrowserScreen --> BrowserSettingsDialog
-    BrowserScreen --> BrowserTopBar
-    BrowserScreen --> BrowserViewModel
-    BrowserScreen --> R
-    BrowserScreen --> StartPage
-    BrowserScreen --> StatusBarGradient
-    BrowserScreen --> ValidatedUrl
-    BrowserSettingsDialog --> R
-    BrowserSettingsDialog --> WebViewConfig
+    %% Layer groupings (subgraphs)
+    subgraph DI
+        AppModule
+        CoreModule
+        SettingsModule
+        BrowserModule
+    end
+
+    subgraph Core
+        ValidatedUrl
+        DeveloperSettings
+        UserAgentClientHintsManager
+    end
+
+    subgraph Domain
+        BrowserSettingsRepository
+        WebViewConfig
+        AcceptLanguageMode
+        EngineMode
+    end
+
+    subgraph Data
+        BrowserSettingsRepositoryImpl
+        BrowserSettingsSerializer
+    end
+
+    subgraph Presentation
+        BrowserViewModel
+        BrowserState
+        BrowserIntent
+        BrowserEffect
+        BrowserReducer
+        BrowserMode
+    end
+
+    subgraph JS
+        JsBridge
+    end
+
+    subgraph Network
+        HttpStack
+        OkHttpStack
+        CronetHttpStack
+        HttpStackFactory
+        OkHttpClientProvider
+        ProxyRequest
+        ProxyResponse
+        CronetHolder
+        UserAgentClientHintsManager
+    end
+
+    subgraph UI_Browser[UI - Browser]
+        BrowserScreen
+        BrowserBottomBar
+        BrowserTopBar
+        BrowserProgressIndicator
+        BrowserSettingsDialog
+        StartPage
+        StatusBarGradient
+        WebViewHost
+        WebViewController
+        WebViewDebug
+        FileUploadHandler
+        DownloadHandler
+        ProxyValidator
+        ProxySmokeTest
+        JsCompatScriptProvider
+        NetworkProxy
+        DefaultNetworkProxy
+        RequestedWithHeaderMode
+        ChromeCompatibilityInjector
+        UAProvider
+        ChromeUAProvider
+        AndroidVersionProvider
+        VersionProvider
+    end
+
+    subgraph WebViewLayer[WebView]
+        BrowserWebViewClient
+    end
+
+    subgraph Settings
+        DeveloperSettings
+    end
+
+    subgraph App
+        MainActivity
+    end
+
+    %% Data Layer relations
     BrowserSettingsRepositoryImpl --> BrowserSettingsRepository
     BrowserSettingsRepositoryImpl --> WebViewConfig
     BrowserSettingsSerializer --> WebViewConfig
-    BrowserState --> ValidatedUrl
+
+    %% Domain usages
     BrowserState --> WebViewConfig
-    BrowserTopBar --> BrowserThemeTokens
-    BrowserTopBar --> R
+    BrowserState --> ValidatedUrl
+    BrowserIntent --> ValidatedUrl
+    BrowserIntent --> WebViewConfig
+    BrowserEffect --> ValidatedUrl
+    BrowserReducer --> ValidatedUrl
+
+    %% ViewModel dependencies
     BrowserViewModel --> BrowserSettingsRepository
     BrowserViewModel --> ValidatedUrl
-    BrowserViewModelTest --> BrowserEffect
-    BrowserViewModelTest --> BrowserIntent
-    BrowserViewModelTest --> BrowserSettingsRepository
-    BrowserViewModelTest --> BrowserViewModel
-    BrowserViewModelTest --> ValidatedUrl
-    BrowserViewModelTest --> WebViewConfig
-    BrowserWebViewClient --> JsBridge
-    BrowserWebViewClient --> NetworkProxy
-    BrowserWebViewClient --> UAProvider
-    CoreModule --> *
+    BrowserViewModel --> BrowserReducer
+    BrowserViewModel --> BrowserState
+
+    %% DI provisioning
+    BrowserModule --> BrowserViewModel
+    BrowserModule --> UAProvider
+    BrowserModule --> NetworkProxy
+    BrowserModule --> JsCompatScriptProvider
     CoreModule --> DeveloperSettings
-    CoreModule --> HttpStack
-    CoreModule --> HttpStackFactory
     CoreModule --> UserAgentClientHintsManager
+    CoreModule --> BrowserSettingsRepositoryImpl
+    SettingsModule --> BrowserSettingsRepository
+
+    %% JS Bridge dependency
+    JsBridge --> UAProvider
+
+    %% Network dependencies
+    OkHttpStack --> UAProvider
+    OkHttpStack --> UserAgentClientHintsManager
     CronetHttpStack --> UAProvider
-    HeadersTest --> WebViewConfig
+    CronetHttpStack --> UserAgentClientHintsManager
     HttpStackFactory --> DeveloperSettings
     HttpStackFactory --> UAProvider
-    JsBridge --> UAProvider
-    MainActivity --> BrowserScreen
-    MainActivity --> TestBrowserTheme
-    MainActivity --> UAProvider
+    HttpStackFactory --> UserAgentClientHintsManager
+    DefaultNetworkProxy --> WebViewConfig
+    DefaultNetworkProxy --> UAProvider
+    DefaultNetworkProxy --> UserAgentClientHintsManager
+    DefaultNetworkProxy --> OkHttpStack
+    DefaultNetworkProxy --> CronetHttpStack
     NetworkProxy --> HttpStack
-    NetworkProxy --> ProxyRequest
-    NetworkProxy --> ProxyResponse
-    OkHttpEngine --> DeveloperSettings
-    OkHttpEngine --> UAProvider
-    OkHttpStack --> UAProvider
-    SettingsModule --> BrowserSettingsRepository
-    SettingsModule --> BrowserSettingsRepositoryImpl
-    SettingsModule --> BrowserSettingsSerializer
-    SettingsModule --> WebViewConfig
-    StartPage --> R
-    WebViewHost --> AcceptLanguageMode
+
+    %% WebView client dependencies
+    BrowserWebViewClient --> NetworkProxy
+    BrowserWebViewClient --> JsBridge
+    BrowserWebViewClient --> UAProvider
+
+    %% UI dependencies
+    BrowserScreen --> BrowserViewModel
+    BrowserScreen --> BrowserIntent
+    BrowserScreen --> BrowserEffect
+    BrowserScreen --> BrowserSettingsDialog
+    BrowserScreen --> BrowserBottomBar
+    BrowserScreen --> BrowserTopBar
+    BrowserScreen --> StartPage
+    BrowserScreen --> BrowserProgressIndicator
+    BrowserScreen --> StatusBarGradient
+    BrowserSettingsDialog --> WebViewConfig
     WebViewHost --> BrowserWebViewClient
-    WebViewHost --> JsBridge
     WebViewHost --> WebViewConfig
+    WebViewHost --> JsBridge
+
+    %% App entry
+    MainActivity --> BrowserScreen
+    MainActivity --> UAProvider
+
+    %% Misc relationships
+    JsCompatScriptProvider --> JsBridge
+    ChromeUAProvider --> UAProvider
+    AndroidVersionProvider --> VersionProvider
+
+    %% Styling / Theme tokens (simplified)
+    StatusBarGradient --> WebViewConfig
 ```
+````
