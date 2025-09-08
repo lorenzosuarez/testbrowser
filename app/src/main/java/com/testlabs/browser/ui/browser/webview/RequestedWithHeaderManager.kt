@@ -5,11 +5,11 @@
 package com.testlabs.browser.ui.browser.webview
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.webkit.WebView
 import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
-import com.testlabs.browser.domain.settings.RequestedWithHeaderMode
 import com.testlabs.browser.domain.settings.WebViewConfig
 
 /**
@@ -17,37 +17,33 @@ import com.testlabs.browser.domain.settings.WebViewConfig
  */
 public object RequestedWithHeaderManager {
 
+    private const val TAG = "RequestedWith"
+
     @SuppressLint("WebViewFeature", "RequiresFeature", "RestrictedApi")
     public fun applyPolicy(webView: WebView, config: WebViewConfig) {
-        val allow: Set<String> = when (config.requestedWithHeaderMode) {
-            RequestedWithHeaderMode.ELIMINATED -> emptySet()
-            RequestedWithHeaderMode.ALLOW_LIST -> config.requestedWithHeaderAllowList
-            RequestedWithHeaderMode.UNSUPPORTED -> return
-        }
+        val allow = emptySet<String>()
 
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+        val supported = WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
+        if (supported) {
             try {
                 WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, allow)
-            } catch (iae: IllegalArgumentException) {
-                val sanitized = allow.filterIsOriginLike().toSet()
-                WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, sanitized)
+                Log.d(TAG, "X-Requested-With REMOVE")
+            } catch (_: IllegalArgumentException) {
+                Log.d(TAG, "X-Requested-With REMOVE")
+                WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, allow)
             }
         } else {
-            return
+            Log.d(TAG, "X-Requested-With UNSUPPORTED")
         }
 
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE) &&
-            WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)
-        ) {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE) && supported) {
             val swSettings = ServiceWorkerControllerCompat
                 .getInstance()
                 .serviceWorkerWebSettings
-
             try {
                 swSettings.requestedWithHeaderOriginAllowList = allow
-            } catch (iae: IllegalArgumentException) {
-                val sanitized = allow.filterIsOriginLike().toSet()
-                swSettings.requestedWithHeaderOriginAllowList = sanitized
+            } catch (_: IllegalArgumentException) {
+                swSettings.requestedWithHeaderOriginAllowList = allow
             }
         }
     }

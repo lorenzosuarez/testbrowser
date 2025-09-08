@@ -6,6 +6,7 @@
 package com.testlabs.browser.network
 
 import com.testlabs.browser.ui.browser.UAProvider
+import com.testlabs.browser.network.ChromeHeaderSanitizer
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,7 +46,7 @@ public class CronetHttpStack(
 
             override fun onResponseStarted(request: UrlRequest, info: UrlResponseInfo) {
                 statusCode = info.httpStatusCode
-                headers = info.allHeaders
+                headers = ChromeHeaderSanitizer.sanitizeIncoming(info.allHeaders)
                 buffer.clear()
                 request.read(buffer)
             }
