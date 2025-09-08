@@ -2,8 +2,8 @@
  * File: ui/browser/NetworkProxy_SmartBypass.kt
  * Purpose: Entry point to integrate SmartBypass in the interception path used by WebViewClient.
  * Usage:
- * - Replace the direct proxy call with [SmartBypassInterceptor.maybeBypass] and pass your existing lambda.
- * - Example: return SmartBypassInterceptor.maybeBypass(request) { existingProxyCall(request) }
+ * - Replace the direct proxy call with [SmartBypassInterceptor.intercept] and pass your existing lambda.
+ * - Example: return SmartBypassInterceptor.intercept(request) { existingProxyCall(request) }
  */
 package com.testlabs.browser.ui.browser
 
@@ -18,6 +18,6 @@ public object NetworkProxySmartBypass {
     @JvmStatic
     public fun intercept(
         request: WebResourceRequest,
-        executeProxy: () -> WebResourceResponse?
-    ): WebResourceResponse? = SmartBypassInterceptor.maybeBypass(request, executeProxy)
+        executeProxy: () -> WebResourceResponse?,
+    ): WebResourceResponse? = SmartBypassInterceptor.intercept(request, executeProxy)
 }
