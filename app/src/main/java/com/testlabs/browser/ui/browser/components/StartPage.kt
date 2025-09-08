@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
@@ -170,8 +171,8 @@ private fun RecommendationCard(
         shape = RoundedCornerShape(dimensionResource(R.dimen.start_page_card_corner_radius)),
     ) {
         Column(
-            modifier = Modifier.padding(dimensionResource(R.dimen.start_page_card_padding)),
-            verticalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.spacing_medium))
+            modifier = Modifier.padding(dimensionResource(R.dimen.start_page_card_padding)).background(Color.Transparent),
+            verticalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.spacing_medium)),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

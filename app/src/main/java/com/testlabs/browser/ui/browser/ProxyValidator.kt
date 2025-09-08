@@ -8,6 +8,8 @@ package com.testlabs.browser.ui.browser
 import android.util.Log
 import android.webkit.WebView
 import androidx.webkit.WebSettingsCompat
+import com.testlabs.browser.domain.settings.RequestedWithHeaderMode
+import com.testlabs.browser.domain.settings.requestedWithHeaderModeOf
 
 private const val TAG = "ProxyValidator"
 

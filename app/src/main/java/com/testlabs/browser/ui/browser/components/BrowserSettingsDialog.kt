@@ -1,8 +1,3 @@
-/**
- * Author: Lorenzo Suarez
- * Date: 06/09/2025
- */
-
 package com.testlabs.browser.ui.browser.components
 
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +15,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,13 +34,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.testlabs.browser.R
+import com.testlabs.browser.domain.settings.AcceptLanguageMode
+import com.testlabs.browser.domain.settings.EngineMode
 import com.testlabs.browser.domain.settings.WebViewConfig
-import com.testlabs.browser.ui.browser.RequestedWithHeaderMode
-import com.testlabs.browser.ui.browser.parseRequestedWithHeaderAllowList
+import com.testlabs.browser.domain.settings.RequestedWithHeaderMode
+import com.testlabs.browser.domain.settings.parseRequestedWithHeaderAllowList
 
-/**
- * Enhanced dialog allowing editing of all [WebViewConfig] options with Apply & Restart functionality.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 public fun BrowserSettingsDialog(
@@ -70,10 +67,12 @@ public fun BrowserSettingsDialog(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = {
                     onConfigChange(tempConfig)
+                    onApplyAndRestart(tempConfig)
+                }) { Text(text = "Apply & Restart") }
+                TextButton(onClick = {
+                    onConfigChange(tempConfig)
                     onConfirm()
-                }) {
-                    Text(text = stringResource(android.R.string.ok))
-                }
+                }) { Text(text = stringResource(android.R.string.ok)) }
             }
         },
         dismissButton = {
@@ -82,61 +81,43 @@ public fun BrowserSettingsDialog(
         title = { Text(text = stringResource(id = R.string.settings_title)) },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "Core Settings",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(text = "Core Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                         SettingRow(
                             label = stringResource(id = R.string.settings_desktop_mode),
                             checked = tempConfig.desktopMode,
                             onCheckedChange = { tempConfig = tempConfig.copy(desktopMode = it) }
                         )
-
                         SettingRow(
                             label = stringResource(id = R.string.settings_js_enabled),
                             checked = tempConfig.javascriptEnabled,
                             onCheckedChange = { tempConfig = tempConfig.copy(javascriptEnabled = it) }
                         )
-
                         SettingRow(
                             label = "DOM Storage",
                             checked = tempConfig.domStorageEnabled,
                             onCheckedChange = { tempConfig = tempConfig.copy(domStorageEnabled = it) }
                         )
-
                         SettingRow(
                             label = "Mixed Content",
                             checked = tempConfig.mixedContentAllowed,
                             onCheckedChange = { tempConfig = tempConfig.copy(mixedContentAllowed = it) }
                         )
-
                         SettingRow(
                             label = "Force Dark Mode",
                             checked = tempConfig.forceDarkMode,
                             onCheckedChange = { tempConfig = tempConfig.copy(forceDarkMode = it) }
                         )
-
                         SettingRow(
                             label = stringResource(id = R.string.settings_js_compat),
                             checked = tempConfig.jsCompatibilityMode,
                             onCheckedChange = { tempConfig = tempConfig.copy(jsCompatibilityMode = it) }
                         )
-
                         SettingRow(
                             label = "Third-Party Cookies",
                             checked = tempConfig.enableThirdPartyCookies,
@@ -145,44 +126,49 @@ public fun BrowserSettingsDialog(
                     }
                 }
 
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "Network Settings",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(text = "Network Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                        SettingRow(
+                            label = stringResource(id = R.string.settings_proxy_toggle),
+                            checked = tempConfig.proxyEnabled,
+                            onCheckedChange = { tempConfig = tempConfig.copy(proxyEnabled = it) }
                         )
 
-                        Column {
-                            SettingRow(
-                                label = stringResource(id = R.string.settings_proxy_toggle),
-                                checked = tempConfig.proxyEnabled,
-                                onCheckedChange = { tempConfig = tempConfig.copy(proxyEnabled = it) }
-                            )
-                            Text(
-                                text = "Required to eliminate X-Requested-With header on all requests",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        SettingRow(
+                            label = "Smart Proxy (dynamic bypass)",
+                            checked = tempConfig.smartProxy,
+                            onCheckedChange = { tempConfig = tempConfig.copy(smartProxy = it) }
+                        )
 
-                        Column {
-                            SettingRow(
-                                label = "Proxy Intercept Requests",
-                                checked = tempConfig.proxyInterceptEnabled,
-                                onCheckedChange = { tempConfig = tempConfig.copy(proxyInterceptEnabled = it) }
+                        SettingRow(
+                            label = "Intercept Subresource Requests",
+                            checked = tempConfig.proxyInterceptEnabled,
+                            onCheckedChange = { tempConfig = tempConfig.copy(proxyInterceptEnabled = it) }
+                        )
+
+                        Text(text = "Engine", style = MaterialTheme.typography.labelLarge)
+                        SingleChoiceSegmentedButtonRow {
+                            val engineOptions = listOf(
+                                EngineMode.Cronet to "Cronet",
+                                EngineMode.OkHttp to "OkHttp",
                             )
-                            Text(
-                                text = "Intercept and modify network requests through proxy (starts disabled)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+
+                            engineOptions.forEachIndexed { index, (mode, label) ->
+                                SegmentedButton(
+                                    selected = tempConfig.engineMode == mode,
+                                    onClick = { tempConfig = tempConfig.copy(engineMode = mode) },
+                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = engineOptions.size),
+                                    colors = SegmentedButtonDefaults.colors(
+                                        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                                        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    label = { Text(label) },
+                                )
+                            }
                         }
 
                         SettingRow(
@@ -203,23 +189,46 @@ public fun BrowserSettingsDialog(
                             label = { Text("X-Requested-With Allow-list") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            placeholder = { Text("comma or space separated origins") }
+                            placeholder = { Text("comma or space separated origins") },
+                            enabled = tempConfig.requestedWithHeaderMode == RequestedWithHeaderMode.ALLOW_LIST
                         )
+
+                        Text(text = "Accept-Language Mode", style = MaterialTheme.typography.labelLarge)
+                        SingleChoiceSegmentedButtonRow {
+                            val langOptions = listOf(
+                                AcceptLanguageMode.Baseline to "Custom",
+                                AcceptLanguageMode.DeviceList to "Device",
+                            )
+
+                            langOptions.forEachIndexed { index, (mode, label) ->
+                                SegmentedButton(
+                                    selected = tempConfig.acceptLanguageMode == mode,
+                                    onClick = { tempConfig = tempConfig.copy(acceptLanguageMode = mode) },
+                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = langOptions.size),
+                                    colors = SegmentedButtonDefaults.colors(
+                                        activeContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        activeContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                                        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    label = { Text(label) },
+                                )
+                            }
+                        }
 
                         OutlinedTextField(
                             value = tempConfig.acceptLanguages,
                             onValueChange = { tempConfig = tempConfig.copy(acceptLanguages = it) },
                             label = { Text("Accept-Language") },
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            enabled = tempConfig.acceptLanguageMode == AcceptLanguageMode.Baseline
                         )
 
                         OutlinedTextField(
                             value = tempConfig.customUserAgent ?: "",
                             onValueChange = { value ->
-                                tempConfig = tempConfig.copy(
-                                    customUserAgent = value.ifBlank { null }
-                                )
+                                tempConfig = tempConfig.copy(customUserAgent = value.ifBlank { null })
                             },
                             label = { Text("Custom User Agent (optional)") },
                             modifier = Modifier.fillMaxWidth(),
@@ -228,25 +237,15 @@ public fun BrowserSettingsDialog(
                     }
                 }
 
-                
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onClearBrowsingData) {
                         Text(text = stringResource(id = R.string.settings_clear_browsing_data))
                     }
                 }
 
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(
                                 text = stringResource(id = R.string.settings_diagnostics_header),
                                 style = MaterialTheme.typography.titleMedium,
@@ -259,7 +258,6 @@ public fun BrowserSettingsDialog(
                                 )
                             }
                         }
-
                         DiagnosticItem(stringResource(id = R.string.settings_user_agent_label), userAgent)
                         DiagnosticItem(stringResource(id = R.string.settings_accept_language_label), acceptLanguages)
                         DiagnosticItem(stringResource(id = R.string.settings_header_mode_label), headerMode)
@@ -278,18 +276,9 @@ private fun SettingRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.weight(1f)
-        )
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange
-        )
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(text = label, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -299,15 +288,7 @@ private fun DiagnosticItem(
     value: String,
 ) {
     Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(text = label, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+        Text(text = value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

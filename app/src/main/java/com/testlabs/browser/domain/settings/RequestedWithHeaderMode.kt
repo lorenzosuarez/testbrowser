@@ -3,9 +3,10 @@
  * Date: 06/09/2025
  */
 
-package com.testlabs.browser.ui.browser
+package com.testlabs.browser.domain.settings
 
 import android.annotation.SuppressLint
+import android.webkit.WebView
 import androidx.webkit.WebSettingsCompat
 import kotlin.runCatching
 
@@ -25,7 +26,7 @@ public enum class RequestedWithHeaderMode {
 }
 
 @SuppressLint("WebViewFeature", "RequiresFeature")
-public fun requestedWithHeaderModeOf(webView: android.webkit.WebView): RequestedWithHeaderMode =
+public fun requestedWithHeaderModeOf(webView: WebView): RequestedWithHeaderMode =
     runCatching {
         val allow = WebSettingsCompat.getRequestedWithHeaderOriginAllowList(webView.settings)
         if (allow.isEmpty()) RequestedWithHeaderMode.ELIMINATED else RequestedWithHeaderMode.ALLOW_LIST

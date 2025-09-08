@@ -1,8 +1,3 @@
-/**
- * Author: Lorenzo Suarez
- * Date: 06/09/2025
- */
-
 package com.testlabs.browser.webview
 
 import android.graphics.Bitmap
@@ -16,21 +11,6 @@ import com.testlabs.browser.ui.browser.UAProvider
 import java.io.ByteArrayInputStream
 import java.util.Locale
 
-/**
- * WebViewClient that proxies both main-frame and subresource requests when enabled.
- *
- * Design goals:
- * - Ensure main-frame navigation is intercepted to match Chrome TLS/HTTP2 and header normalization.
- * - Keep subresource interception with a small blocklist.
- * - Inject compatibility JS at document start when available, otherwise as early as possible.
- * - Require only this file change by using sane defaults and no call-site changes.
- *
- * Behavior:
- * - Intercepts all http/https requests when `proxyMainFrameEnabled` or `proxyInterceptEnabled` apply.
- * - For main-frame, interception is on by default via `proxyMainFrameEnabled=true`.
- * - For subresources, interception follows `proxyInterceptEnabled`.
- * - Blocklisted hosts are suppressed only for subresources.
- */
 public open class BrowserWebViewClient(
     private val proxy: NetworkProxy,
     private val jsBridge: JsBridge,
@@ -46,14 +26,9 @@ public open class BrowserWebViewClient(
         "fp-cdn.online-metrix.net",
         "h.online-metrix.net"
     )
-
     private val proxySchemes: Set<String> = setOf("http", "https")
+    private var startScriptInstalled = false
 
-    private var startScriptInstalled: Boolean = false
-
-    /**
-     * Injects the compatibility bridge right when navigation starts to minimize FP surface.
-     */
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         if (!startScriptInstalled && url != null) {
@@ -62,15 +37,6 @@ public open class BrowserWebViewClient(
         }
     }
 
-    /**
-     * Intercepts main-frame and subresource requests.
-     *
-     * Rules:
-     * - Skip non http/https.
-     * - Main-frame: honor `proxyMainFrameEnabled` (default true).
-     * - Subresource: honor `proxyInterceptEnabled` and blocklist.
-     * - Delegates to NetworkProxy with normalized UA and Accept-Language.
-     */
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest): WebResourceResponse? {
         val scheme = request.url.scheme?.lowercase(Locale.US) ?: return null
         if (scheme !in proxySchemes) return null
@@ -83,22 +49,19 @@ public open class BrowserWebViewClient(
             val host = request.url.host?.lowercase(Locale.US)
             if (host != null && host in blockedHosts) {
                 return WebResourceResponse(
-                    "text/plain",
-                    "UTF-8",
-                    204,
-                    "No Content",
-                    emptyMap(),
-                    ByteArrayInputStream(ByteArray(0))
+                    "text/plain", "UTF-8", 204, "No Content",
+                    emptyMap(), ByteArrayInputStream(ByteArray(0))
                 )
             }
         }
 
         val ua = uaProvider.userAgent(desktop = desktopMode)
+
         return proxy.interceptRequest(
             request = request,
             userAgent = ua,
             acceptLanguage = acceptLanguage,
-            proxyEnabled = true
+            proxyEnabled = allow
         )
     }
 }

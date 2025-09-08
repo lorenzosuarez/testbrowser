@@ -9,79 +9,77 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.testlabs.browser.core.ValidatedUrl
 import com.testlabs.browser.domain.settings.BrowserSettingsRepository
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * ViewModel that orchestrates browser state management using MVI pattern.
- * Handles user intents, produces immutable states, and emits side effects.
- */
-
-/**
- * ViewModel orchestrating state and persistent configuration.
+ * MVI ViewModel that reduces [BrowserIntent] into [BrowserState] and emits one-off [BrowserEffect].
+ *
+ * Design:
+ * - State: hot [StateFlow] with immediate replay for Compose.
+ * - Effects: hot [SharedFlow] with bounded buffer to avoid backpressure on UI.
+ * - Persistence: saves settings on Apply intents on an IO dispatcher.
  */
 public class BrowserViewModel(
     private val settingsRepository: BrowserSettingsRepository,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(BrowserState())
 
-    /**
-     * Current browser state as immutable StateFlow.
-     */
+    private val _state: MutableStateFlow<BrowserState> = MutableStateFlow(BrowserState())
+
+    /** Public immutable state for UI. */
     public val state: StateFlow<BrowserState> = _state.asStateFlow()
 
-    private val _effects = Channel<BrowserEffect>(Channel.UNLIMITED)
+    private val _effects: MutableSharedFlow<BrowserEffect> = MutableSharedFlow(extraBufferCapacity = 64)
+
+    /** One-off effects stream for navigation, toasts, and WebView commands. */
+    public val effects: SharedFlow<BrowserEffect> = _effects
 
     /**
-     * Side effects flow for handling WebView operations and UI events.
-     */
-    public val effects: Flow<BrowserEffect> = _effects.receiveAsFlow()
-
-    /**
-     * Processes user intents and updates state accordingly.
+     * Processes a [BrowserIntent], reduces it with the current state, persists configuration
+     * when required, and emits any resulting [BrowserEffect].
      */
     public fun handleIntent(intent: BrowserIntent) {
         viewModelScope.launch {
-            val currentState = _state.value
-            val (newState, effect) = BrowserReducer.reduce(currentState, intent)
-
+            val (newState, effect) = BrowserReducer.reduce(_state.value, intent)
             _state.value = newState
 
             if (intent is BrowserIntent.ApplySettings || intent is BrowserIntent.ApplySettingsAndRestartWebView) {
-                settingsRepository.save(newState.settingsCurrent)
+                withContext(Dispatchers.IO) { settingsRepository.save(newState.settingsCurrent) }
             }
 
-            effect?.let { _effects.send(it) }
+            effect?.let { _effects.tryEmit(it) }
         }
     }
 
     /**
-     * Handles URL submission from the address bar.
+     * Validates and dispatches a navigation intent for a raw user-entered URL.
      */
     public fun submitUrl(inputUrl: String) {
-        val validatedUrl = ValidatedUrl.fromInput(inputUrl)
-        handleIntent(BrowserIntent.NavigateToUrl(validatedUrl))
+        val validated = ValidatedUrl.fromInput(inputUrl)
+        handleIntent(BrowserIntent.NavigateToUrl(validated))
     }
 
     init {
-        viewModelScope.launch {
-            settingsRepository.config.collect { config ->
-                _state.value =
-                    _state.value.copy(
-                        settingsCurrent = config,
-                        settingsDraft = config,
+        settingsRepository.config
+            .distinctUntilChanged()
+            .onEach { cfg ->
+                _state.update { s ->
+                    s.copy(
+                        settingsCurrent = cfg,
+                        settingsDraft = cfg
                     )
+                }
             }
-        }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        _effects.close()
+            .launchIn(viewModelScope)
     }
 }

@@ -5,6 +5,6 @@
 
 package com.testlabs.browser.ui.browser
 
-public interface JsCompatScriptProvider {
+public fun interface JsCompatScriptProvider {
     public fun getCompatibilityScript(): String
 }

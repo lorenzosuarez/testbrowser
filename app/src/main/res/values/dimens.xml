@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <dimen name="browser_topbar_height">85dp</dimen>
+  <dimen name="browser_topbar_height">90dp</dimen>
   <dimen name="browser_pill_radius">10dp</dimen>
   <dimen name="browser_topbar_vertical_padding">8dp</dimen>
   <dimen name="browser_topbar_horizontal_padding">5dp</dimen>
@@ -15,6 +15,13 @@
   <dimen name="icon_size_large">32dp</dimen>
   <dimen name="minimum_touch_target">48dp</dimen>
   <dimen name="toolbar_height">56dp</dimen>
+
+  <!-- Shape radius standards -->
+  <dimen name="shape_radius_none">0dp</dimen>
+  <dimen name="shape_radius_xs">4dp</dimen>
+  <dimen name="shape_radius_s">8dp</dimen>
+  <dimen name="shape_radius_m">12dp</dimen>
+  <dimen name="shape_radius_l">16dp</dimen>
 
   <!-- StartPage specific dimensions -->
   <dimen name="start_page_content_max_width">640dp</dimen>

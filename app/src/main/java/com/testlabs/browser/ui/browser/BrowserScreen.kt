@@ -1,8 +1,3 @@
-/**
- * Author: Lorenzo Suarez
- * Date: 06/09/2025
- */
-
 package com.testlabs.browser.ui.browser
 
 import android.content.ClipData
@@ -34,6 +29,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.testlabs.browser.R
 import com.testlabs.browser.core.ValidatedUrl
+import com.testlabs.browser.domain.settings.RequestedWithHeaderMode
 import com.testlabs.browser.presentation.browser.BrowserEffect
 import com.testlabs.browser.presentation.browser.BrowserIntent
 import com.testlabs.browser.presentation.browser.BrowserMode
@@ -43,7 +39,6 @@ import com.testlabs.browser.ui.browser.components.BrowserProgressIndicator
 import com.testlabs.browser.ui.browser.components.BrowserSettingsDialog
 import com.testlabs.browser.ui.browser.components.BrowserTopBar
 import com.testlabs.browser.ui.browser.components.StartPage
-import com.testlabs.browser.ui.browser.RequestedWithHeaderMode
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -53,8 +48,8 @@ import org.koin.compose.koinInject
 public fun BrowserScreen(
     filePickerLauncher: ActivityResultLauncher<Intent>,
     uaProvider: UAProvider,
-    jsCompat: JsCompatScriptProvider = koinInject(),
     viewModel: BrowserViewModel = koinViewModel(),
+    jsCompat: JsCompatScriptProvider = koinInject(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }

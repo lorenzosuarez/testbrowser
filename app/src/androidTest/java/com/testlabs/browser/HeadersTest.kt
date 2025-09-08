@@ -11,8 +11,8 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.WebViewConfig
-import com.testlabs.browser.ui.browser.RequestedWithHeaderMode
-import com.testlabs.browser.ui.browser.requestedWithHeaderModeOf
+import com.testlabs.browser.domain.settings.RequestedWithHeaderMode
+import com.testlabs.browser.domain.settings.requestedWithHeaderModeOf
 import org.json.JSONObject
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

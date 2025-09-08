@@ -12,6 +12,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import com.testlabs.browser.domain.settings.EngineMode
 import com.testlabs.browser.domain.settings.WebViewConfig
+import com.testlabs.browser.network.ChromeHeaderSanitizer
 import com.testlabs.browser.network.CronetHolder
 import com.testlabs.browser.network.CronetHttpStack
 import com.testlabs.browser.network.OkHttpStack
@@ -37,7 +38,7 @@ public interface NetworkProxy {
 
 public class DefaultNetworkProxy(
     context: Context,
-    config: WebViewConfig,
+    private val config: WebViewConfig,
     uaProvider: UAProvider,
     private val chManager: UserAgentClientHintsManager,
     private val cookieManager: CookieManager = CookieManager.getInstance()
@@ -64,14 +65,31 @@ public class DefaultNetworkProxy(
         acceptLanguage: String,
         proxyEnabled: Boolean
     ): WebResourceResponse? {
-        val url = request.url.toString()
-        val isMain = request.isForMainFrame
-        val method = request.method
         if (!proxyEnabled) {
-            Log.d(TAG, "MISS (proxy disabled)  main=$isMain  $method $url")
+            Log.d(TAG, "MISS (proxy disabled)  main=${request.isForMainFrame}  ${request.method} ${request.url}")
             return null
         }
 
+        val executor = {
+            executeProxyRequest(request, userAgent, acceptLanguage)
+        }
+
+        return if (config.smartProxy) {
+            NetworkProxySmartBypass.intercept(request, executor)
+        } else {
+            executor()
+        }
+    }
+
+    /** Executes the HTTP stack for this request with Chrome-like header normalization. */
+    private fun executeProxyRequest(
+        request: WebResourceRequest,
+        userAgent: String,
+        acceptLanguage: String
+    ): WebResourceResponse? {
+        val url = request.url.toString()
+        val isMain = request.isForMainFrame
+        val method = request.method
         val t0 = System.nanoTime()
         Log.d(TAG, "→ INTERCEPT  main=$isMain  stack=$stackName  $method $url")
 
@@ -81,8 +99,9 @@ public class DefaultNetworkProxy(
         try {
             val cookie = cookieManager.getCookie(url)
             if (!cookie.isNullOrBlank()) headers["Cookie"] = cookie
-        } catch (_: Throwable) {
-        }
+        } catch (_: Throwable) {}
+
+        ChromeHeaderSanitizer.sanitizeOutgoing(headers)
 
         val proxyReq = ProxyRequest(url = url, method = method, headers = headers)
 
@@ -97,14 +116,11 @@ public class DefaultNetworkProxy(
         try {
             resp.headers["Set-Cookie"]?.forEach { value ->
                 val lines = value.split("\r\n", "\n").filter { it.isNotBlank() }
-                if (lines.isEmpty()) cookieManager.setCookie(
-                    url,
-                    value
-                ) else lines.forEach { cookieManager.setCookie(url, it) }
+                if (lines.isEmpty()) cookieManager.setCookie(url, value)
+                else lines.forEach { cookieManager.setCookie(url, it) }
             }
             runCatching { cookieManager.flush() }
-        } catch (_: Throwable) {
-        }
+        } catch (_: Throwable) {}
 
         val rawCt = firstHeader(resp.headers, "Content-Type")
         val guessedCt = rawCt ?: pickContentTypeByUrl(url)
@@ -115,11 +131,7 @@ public class DefaultNetworkProxy(
         val bodyBytes: ByteArray?
         val decoded: ByteArray?
         if (textual) {
-            bodyBytes = try {
-                resp.body.readBytes()
-            } catch (_: Throwable) {
-                null
-            }
+            bodyBytes = try { resp.body.readBytes() } catch (_: Throwable) { null }
             decoded = maybeDecode(bodyBytes, encoding)
         } else {
             bodyBytes = null
@@ -139,15 +151,10 @@ public class DefaultNetworkProxy(
                 bodyBytes != null -> bodyBytes.size
                 else -> resp.body.available()
             }
-        } catch (_: Throwable) {
-            -1
-        }
+        } catch (_: Throwable) { -1 }
 
         val dt = (System.nanoTime() - t0) / 1e6
-        Log.d(
-            TAG,
-            "← RESPONSE  code=${resp.statusCode} reason='${reason}' mime=$mime charset=$charset size~$sizeHint  (${dt}ms)  $method $url"
-        )
+        Log.d(TAG, "← RESPONSE  code=${resp.statusCode} reason='${reason}' mime=$mime charset=$charset size~$sizeHint  (${dt}ms)  $method $url")
 
         val dataStream: InputStream = when {
             decoded != null -> ByteArrayInputStream(decoded)

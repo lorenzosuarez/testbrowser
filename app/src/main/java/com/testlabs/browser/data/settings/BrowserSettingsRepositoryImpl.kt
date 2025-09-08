@@ -14,8 +14,8 @@ import com.testlabs.browser.domain.settings.AcceptLanguageMode
 import com.testlabs.browser.domain.settings.BrowserSettingsRepository
 import com.testlabs.browser.domain.settings.WebViewConfig
 import com.testlabs.browser.domain.settings.EngineMode
-import com.testlabs.browser.ui.browser.RequestedWithHeaderMode
-import com.testlabs.browser.ui.browser.parseRequestedWithHeaderAllowList
+import com.testlabs.browser.domain.settings.RequestedWithHeaderMode
+import com.testlabs.browser.domain.settings.parseRequestedWithHeaderAllowList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -39,6 +39,7 @@ public class BrowserSettingsRepositoryImpl(
         val ACCEPT_LANGUAGE_MODE = stringPreferencesKey("accept_language_mode")
         val JS_COMPATIBILITY_MODE = booleanPreferencesKey("js_compatibility_mode")
         val FORCE_DARK_MODE = booleanPreferencesKey("force_dark_mode")
+        val SMART_PROXY = booleanPreferencesKey("smart_proxy")
         val PROXY_ENABLED = booleanPreferencesKey("proxy_enabled")
         val PROXY_INTERCEPT_ENABLED = booleanPreferencesKey("proxy_intercept_enabled")
         val REQUESTED_WITH_HEADER_MODE = stringPreferencesKey("requested_with_header_mode")
@@ -47,6 +48,11 @@ public class BrowserSettingsRepositoryImpl(
     }
 
     override val config: Flow<WebViewConfig> = dataStore.data.map { preferences ->
+        // Unificamos a un único estado; migración: si no hay SMART_PROXY, usamos PROXY_ENABLED o true.
+        val smart = preferences[PreferenceKeys.SMART_PROXY]
+            ?: preferences[PreferenceKeys.PROXY_ENABLED]
+            ?: true
+
         WebViewConfig(
             javascriptEnabled = preferences[PreferenceKeys.JAVASCRIPT_ENABLED] ?: true,
             domStorageEnabled = preferences[PreferenceKeys.DOM_STORAGE_ENABLED] ?: true,
@@ -62,11 +68,19 @@ public class BrowserSettingsRepositoryImpl(
             } ?: AcceptLanguageMode.Baseline,
             jsCompatibilityMode = preferences[PreferenceKeys.JS_COMPATIBILITY_MODE] ?: true,
             forceDarkMode = preferences[PreferenceKeys.FORCE_DARK_MODE] ?: false,
-            proxyEnabled = preferences[PreferenceKeys.PROXY_ENABLED] ?: true,
-            proxyInterceptEnabled = preferences[PreferenceKeys.PROXY_INTERCEPT_ENABLED] ?: true,
-            requestedWithHeaderMode = preferences[PreferenceKeys.REQUESTED_WITH_HEADER_MODE]?.let { RequestedWithHeaderMode.valueOf(it) } ?: RequestedWithHeaderMode.ELIMINATED,
-            requestedWithHeaderAllowList = preferences[PreferenceKeys.REQUESTED_WITH_HEADER_ALLOW_LIST]?.let { parseRequestedWithHeaderAllowList(it) } ?: emptySet(),
-            engineMode = preferences[PreferenceKeys.ENGINE_MODE]?.let { EngineMode.valueOf(it) } ?: EngineMode.Cronet,
+
+            // 🔒 Sin 3 estados: ambos quedan derivados del smartProxy
+            proxyEnabled = smart,
+            proxyInterceptEnabled = smart,
+            smartProxy = smart,
+
+            requestedWithHeaderMode = preferences[PreferenceKeys.REQUESTED_WITH_HEADER_MODE]
+                ?.let { RequestedWithHeaderMode.valueOf(it) }
+                ?: RequestedWithHeaderMode.ELIMINATED,
+            requestedWithHeaderAllowList = preferences[PreferenceKeys.REQUESTED_WITH_HEADER_ALLOW_LIST]
+                ?.let { parseRequestedWithHeaderAllowList(it) } ?: emptySet(),
+            engineMode = preferences[PreferenceKeys.ENGINE_MODE]
+                ?.let { EngineMode.valueOf(it) } ?: EngineMode.Cronet,
         )
     }
 
@@ -84,10 +98,12 @@ public class BrowserSettingsRepositoryImpl(
             preferences[PreferenceKeys.ACCEPT_LANGUAGE_MODE] = config.acceptLanguageMode.name
             preferences[PreferenceKeys.JS_COMPATIBILITY_MODE] = config.jsCompatibilityMode
             preferences[PreferenceKeys.FORCE_DARK_MODE] = config.forceDarkMode
-            preferences[PreferenceKeys.PROXY_ENABLED] = config.proxyEnabled
-            preferences[PreferenceKeys.PROXY_INTERCEPT_ENABLED] = config.proxyInterceptEnabled
+            preferences[PreferenceKeys.SMART_PROXY] = config.smartProxy
+            preferences[PreferenceKeys.PROXY_ENABLED] = config.smartProxy
+            preferences[PreferenceKeys.PROXY_INTERCEPT_ENABLED] = config.smartProxy
             preferences[PreferenceKeys.REQUESTED_WITH_HEADER_MODE] = config.requestedWithHeaderMode.name
-            preferences[PreferenceKeys.REQUESTED_WITH_HEADER_ALLOW_LIST] = config.requestedWithHeaderAllowList.joinToString(",")
+            preferences[PreferenceKeys.REQUESTED_WITH_HEADER_ALLOW_LIST] =
+                config.requestedWithHeaderAllowList.joinToString(",")
             preferences[PreferenceKeys.ENGINE_MODE] = config.engineMode.name
         }
     }
