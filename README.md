@@ -58,8 +58,8 @@ A modern Android WebView browser focused on **Chrome fingerprint parity** with f
 ## Architecture
 
 <p align="center">
-  <a href="https://github.com/user-attachments/assets/44da216e-9cde-4912-b4e0-26e4cbcc6440">
-    <img src="https://github.com/user-attachments/assets/44da216e-9cde-4912-b4e0-26e4cbcc6440" alt="App architecture diagram" width="1100">
+  <a href="https://github.com/user-attachments/assets/475a4a66-7393-4684-bd7d-0fb717195dae">
+    <img src="https://github.com/user-attachments/assets/475a4a66-7393-4684-bd7d-0fb717195dae" alt="App architecture diagram" width="1100">
   </a>
 </p>
 
