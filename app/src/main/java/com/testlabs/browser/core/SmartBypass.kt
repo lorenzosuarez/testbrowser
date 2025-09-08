@@ -47,6 +47,7 @@ public object SmartBypass {
         val acceptsText = accept.contains("text/plain")
         val hasQuery = !uri.query.isNullOrEmpty()
         val looksApiPath = API_KEYWORDS.any { path.contains(it) }
+        val origin = originOf(uri)
 
         val fingerprint = if (debugFeatures) buildString {
             append("feat[")
@@ -63,6 +64,10 @@ public object SmartBypass {
             append("]")
         } else null
 
+        if (isActive(origin)) {
+            return Decision(Route.BYPASS, "ttl", fingerprint)
+        }
+
         if (scheme != "http" && scheme != "https") {
             return Decision(Route.BYPASS, "non-http", fingerprint)
         }
@@ -71,20 +76,17 @@ public object SmartBypass {
             return Decision(Route.BYPASS, "non-idempotent", fingerprint)
         }
 
-        val origin = originOf(uri)
-        if (isActive(origin)) {
-            return Decision(Route.BYPASS, "ttl", fingerprint)
+        if (request.isForMainFrame || dest == "document") {
+            return if (proxyMainDocument) {
+                Decision(Route.PROXY, "document", fingerprint)
+            } else {
+                Decision(Route.BYPASS, "document", fingerprint)
+            }
         }
 
         if (dest != null) {
-            return when (dest) {
-                "image", "style", "script", "font" -> Decision(Route.PROXY, "static-get", fingerprint)
-                "document" -> if (proxyMainDocument) {
-                    Decision(Route.PROXY, "document", fingerprint)
-                } else {
-                    Decision(Route.BYPASS, "document", fingerprint)
-                }
-                else -> Decision(Route.BYPASS, "api-like", fingerprint)
+            when (dest) {
+                "image", "style", "script", "font" -> return Decision(Route.PROXY, "static-get", fingerprint)
             }
         }
 
@@ -104,15 +106,7 @@ public object SmartBypass {
             return Decision(Route.BYPASS, "api-like", fingerprint)
         }
 
-        return if (request.isForMainFrame) {
-            if (proxyMainDocument) {
-                Decision(Route.PROXY, "document", fingerprint)
-            } else {
-                Decision(Route.BYPASS, "document", fingerprint)
-            }
-        } else {
-            Decision(Route.BYPASS, "default", fingerprint)
-        }
+        return Decision(Route.BYPASS, "default", fingerprint)
     }
 
     @JvmStatic
