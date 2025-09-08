@@ -1,13 +1,6 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 06/09/2025
- */
-
-/**
- * Singleton holder for an app-wide CronetEngine instance.
- *
- * Provides a shared, properly configured Cronet instance for all network requests.
- * The engine is initialized lazily and can be recreated when configuration changes.
+ * Date: 09/08/2025
  */
 package com.testlabs.browser.network
 

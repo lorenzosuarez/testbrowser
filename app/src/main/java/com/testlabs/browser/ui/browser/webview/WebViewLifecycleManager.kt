@@ -1,6 +1,6 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 09/06/2025
+ * Date: 09/08/2025
  */
 package com.testlabs.browser.ui.browser.webview
 
@@ -23,7 +23,7 @@ public object WebViewLifecycleManager {
             webView.webViewClient = object : WebViewClient() {}
             webView.destroy()
         } catch (_: Throwable) {
-            // Ignore cleanup errors
+            
         }
     }
 
@@ -39,7 +39,7 @@ public object WebViewLifecycleManager {
                 wv.destroy()
             }
         } catch (_: Throwable) {
-            // Ignore cleanup errors
+            
         }
     }
 }

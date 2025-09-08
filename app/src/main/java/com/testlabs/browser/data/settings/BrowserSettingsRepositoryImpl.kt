@@ -1,6 +1,6 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 06/09/2025
+ * Date: 09/08/2025
  */
 
 package com.testlabs.browser.data.settings
@@ -48,7 +48,7 @@ public class BrowserSettingsRepositoryImpl(
     }
 
     override val config: Flow<WebViewConfig> = dataStore.data.map { preferences ->
-        // Unificamos a un único estado; migración: si no hay SMART_PROXY, usamos PROXY_ENABLED o true.
+        
         val smart = preferences[PreferenceKeys.SMART_PROXY]
             ?: preferences[PreferenceKeys.PROXY_ENABLED]
             ?: true

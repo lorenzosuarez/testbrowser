@@ -1,3 +1,8 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/08/2025
+ */
+
 package com.testlabs.browser.core
 
 import android.net.Uri

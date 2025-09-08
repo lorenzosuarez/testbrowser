@@ -1,3 +1,8 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/08/2025
+ */
+
 package com.testlabs.browser.webview
 
 import android.graphics.Bitmap
@@ -89,6 +94,6 @@ public open class BrowserWebViewClient(
 
     override fun onPageFinished(view: WebView, url: String?) {
         super.onPageFinished(view, url)
-        // no-op
+        
     }
 }
