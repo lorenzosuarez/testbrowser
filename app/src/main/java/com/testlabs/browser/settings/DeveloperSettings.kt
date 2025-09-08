@@ -18,9 +18,17 @@ public class DeveloperSettings {
     private val _richAcceptLanguage = MutableStateFlow(true)
     public val richAcceptLanguage: StateFlow<Boolean> = _richAcceptLanguage
 
+    private val _proxyMainDocument = MutableStateFlow(true)
+    public val proxyMainDocument: StateFlow<Boolean> = _proxyMainDocument
+
+    private val _debugFeatureLogging = MutableStateFlow(false)
+    public val debugFeatureLogging: StateFlow<Boolean> = _debugFeatureLogging
+
     public fun setUseCronet(value: Boolean): Unit { _useCronet.value = value }
     public fun setEnableQuic(value: Boolean): Unit { _enableQuic.value = value }
     public fun setRichAcceptLanguage(value: Boolean): Unit { _richAcceptLanguage.value = value }
+    public fun setProxyMainDocument(value: Boolean): Unit { _proxyMainDocument.value = value }
+    public fun setDebugFeatureLogging(value: Boolean): Unit { _debugFeatureLogging.value = value }
 
     public val debugLoggingEnabled: Boolean = false
     public val performanceMonitoringEnabled: Boolean = false

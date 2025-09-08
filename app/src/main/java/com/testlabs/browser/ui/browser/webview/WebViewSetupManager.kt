@@ -27,6 +27,7 @@ import com.testlabs.browser.ui.browser.JsCompatScriptProvider
 import com.testlabs.browser.ui.browser.NetworkProxy
 import com.testlabs.browser.ui.browser.NetworkProxySmartBypass
 import com.testlabs.browser.ui.browser.UAProvider
+import com.testlabs.browser.settings.DeveloperSettings
 import com.testlabs.browser.ui.browser.utils.DeviceLanguageUtils
 import com.testlabs.browser.ui.browser.utils.JsScriptUtils
 import com.testlabs.browser.webview.BrowserWebViewClient
@@ -49,6 +50,7 @@ public object WebViewSetupManager {
         uaProvider: UAProvider,
         jsCompat: JsCompatScriptProvider,
         networkProxy: NetworkProxy,
+        developerSettings: DeveloperSettings,
         onTitle: (String?) -> Unit,
         onProgress: (Int) -> Unit,
         onUrlChange: (String) -> Unit,
@@ -56,7 +58,7 @@ public object WebViewSetupManager {
         onPageFinished: (String) -> Unit,
         onNavState: (Boolean, Boolean) -> Unit,
         onError: (String) -> Unit,
-        filePickerLauncher: ActivityResultLauncher<Intent>?
+        filePickerLauncher: ActivityResultLauncher<Intent>?,
     ) {
         configureSettings(webView, config, uaProvider)
         setupClients(
@@ -65,6 +67,7 @@ public object WebViewSetupManager {
             uaProvider = uaProvider,
             jsCompat = jsCompat,
             networkProxy = networkProxy,
+            developerSettings = developerSettings,
             onTitle = onTitle,
             onProgress = onProgress,
             onUrlChange = onUrlChange,
@@ -74,7 +77,7 @@ public object WebViewSetupManager {
             onError = onError,
             filePickerLauncher = filePickerLauncher
         )
-        setupServiceWorker(webView, config, uaProvider, networkProxy)
+        setupServiceWorker(webView, config, uaProvider, networkProxy, developerSettings)
         configureDarkMode(webView, config)
         configureJavaScriptInjection(webView, config, jsCompat)
     }
@@ -118,6 +121,7 @@ public object WebViewSetupManager {
         uaProvider: UAProvider,
         jsCompat: JsCompatScriptProvider,
         networkProxy: NetworkProxy,
+        developerSettings: DeveloperSettings,
         onTitle: (String?) -> Unit,
         onProgress: (Int) -> Unit,
         onUrlChange: (String) -> Unit,
@@ -143,6 +147,7 @@ public object WebViewSetupManager {
             acceptLanguage = acceptLanguage,
             desktopMode = config.desktopMode,
             proxyEnabled = config.smartProxy,
+            settings = developerSettings,
         ) {
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest): WebResourceResponse? {
                 return RequestInterceptionLogger.logAndIntercept(request) {
@@ -208,13 +213,14 @@ public object WebViewSetupManager {
         webView: WebView,
         config: WebViewConfig,
         uaProvider: UAProvider,
-        networkProxy: NetworkProxy
+        networkProxy: NetworkProxy,
+        developerSettings: DeveloperSettings
     ) {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
             val controller = ServiceWorkerControllerCompat.getInstance()
             controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
-                    return NetworkProxySmartBypass.intercept(networkProxy, request, isServiceWorker = true)
+                    return NetworkProxySmartBypass.intercept(networkProxy, request, developerSettings, isServiceWorker = true)
                 }
             })
         }

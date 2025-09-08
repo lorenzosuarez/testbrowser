@@ -12,7 +12,7 @@ import com.testlabs.browser.core.SmartBypassEvents
 import com.testlabs.browser.ui.browser.NetworkProxy
 import com.testlabs.browser.ui.browser.NetworkProxySmartBypass
 import com.testlabs.browser.ui.browser.UAProvider
-import java.io.ByteArrayInputStream
+import com.testlabs.browser.settings.DeveloperSettings
 import java.util.Locale
 
 public open class BrowserWebViewClient(
@@ -21,15 +21,11 @@ public open class BrowserWebViewClient(
     private val uaProvider: UAProvider,
     private val acceptLanguage: String,
     private val desktopMode: Boolean = false,
-    private val proxyEnabled: Boolean = true
+    private val proxyEnabled: Boolean = true,
+    private val settings: DeveloperSettings,
 ) : WebViewClient() {
 
     private val TAG = "BWVClient"
-    private val blockedHosts: Set<String> = setOf(
-        "aa.online-metrix.net",
-        "fp-cdn.online-metrix.net",
-        "h.online-metrix.net"
-    )
     private var startScriptInstalled = false
     private var lastMainWasProxied: Boolean = false
 
@@ -48,17 +44,7 @@ public open class BrowserWebViewClient(
 
         if (!proxyEnabled) return null
 
-        if (!request.isForMainFrame) {
-            val host = request.url.host?.lowercase(Locale.US)
-            if (host != null && host in blockedHosts) {
-                return WebResourceResponse(
-                    "text/plain", "UTF-8", 204, "No Content",
-                    emptyMap(), ByteArrayInputStream(ByteArray(0))
-                )
-            }
-        }
-
-        val response = NetworkProxySmartBypass.intercept(proxy, request)
+        val response = NetworkProxySmartBypass.intercept(proxy, request, settings)
 
         if (request.isForMainFrame) {
             lastMainWasProxied = response != null
