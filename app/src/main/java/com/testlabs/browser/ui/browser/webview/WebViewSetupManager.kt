@@ -216,6 +216,7 @@ public object WebViewSetupManager {
                 AcceptLanguageMode.DeviceList -> DeviceLanguageUtils.buildDeviceAcceptLanguage()
             }
 
+            val proxyEnabled = config.smartProxy
             controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
                     val isMain = request.isForMainFrame
@@ -229,7 +230,7 @@ public object WebViewSetupManager {
                             request = request,
                             userAgent = uaNow,
                             acceptLanguage = acceptLanguage,
-                            proxyEnabled = config.smartProxy,
+                            proxyEnabled = proxyEnabled,
                         )
                     } catch (_: Throwable) { null }
                     val dt = (System.nanoTime() - t0) / 1e6
