@@ -7,14 +7,14 @@ public object SmartBypassEvents {
     public fun bypass(reason: String, method: String, url: String, feat: String? = null): String =
         withFeat("BYPASS [$reason] $method $url", feat)
 
-    public fun intercept(method: String, url: String, feat: String? = null): String =
-        withFeat("INTERCEPT [proxy] $method $url", feat)
+    public fun intercept(method: String, url: String, feat: String? = null, document: Boolean = false): String =
+        withFeat("INTERCEPT [proxy] $method $url" + if (document) " [document]" else "", feat)
 
     public fun swBypass(reason: String, method: String, url: String, feat: String? = null): String =
         withFeat("SW_BYPASS [$reason] $method $url", feat)
 
-    public fun swIntercept(method: String, url: String, feat: String? = null): String =
-        withFeat("SW_INTERCEPT [proxy] $method $url", feat)
+    public fun swIntercept(method: String, url: String, feat: String? = null, document: Boolean = false): String =
+        withFeat("SW_INTERCEPT [proxy] $method $url" + if (document) " [document]" else "", feat)
 
     public fun markTtl(origin: String): String = "MARK_TTL $origin 5m"
 

@@ -51,14 +51,6 @@ public class OkHttpEngine(
             }
             headers.putIfAbsent("User-Agent", userAgent)
             headers.putIfAbsent("Accept-Language", acceptLanguage)
-            headers["Accept-Encoding"] = "identity"
-
-            val hints = chManager.asMap(isMobile = true)
-            if (hints.isNotEmpty()) {
-                hints["sec-ch-ua"]?.let { headers.putIfAbsent("Sec-CH-UA", it) }
-                hints["sec-ch-ua-mobile"]?.let { headers.putIfAbsent("Sec-CH-UA-Mobile", it) }
-                hints["sec-ch-ua-platform"]?.let { headers.putIfAbsent("Sec-CH-UA-Platform", it) }
-            }
 
             try {
                 val cookies = cookieManager.getCookie(url)
@@ -97,7 +89,7 @@ public class OkHttpEngine(
     private fun isStaticUrl(url: String): Boolean {
         val path = url.substringBefore('#').substringBefore('?').lowercase(Locale.US)
         return path.endsWith(".mjs") || path.endsWith(".js") ||
-                path.endsWith(".css") || path.endsWith(".json") ||
+                path.endsWith(".css") ||
                 path.endsWith(".png") || path.endsWith(".jpg") || path.endsWith(".jpeg") ||
                 path.endsWith(".gif") || path.endsWith(".webp") || path.endsWith(".svg") ||
                 path.endsWith(".ico") || path.endsWith(".xml") ||
@@ -161,7 +153,6 @@ public class OkHttpEngine(
         val mime = when {
             path.endsWith(".mjs") || path.endsWith(".js") -> "text/javascript"
             path.endsWith(".css") -> "text/css"
-            path.endsWith(".json") -> "application/json"
             path.endsWith(".html") || path.endsWith(".htm") -> "text/html"
             path.endsWith(".xml") -> "application/xml"
             path.endsWith(".svg") -> "image/svg+xml"
@@ -176,7 +167,7 @@ public class OkHttpEngine(
             else -> "application/octet-stream"
         }
         val charset: String? = when {
-            mime.startsWith("text/") || mime == "text/javascript" || mime == "application/json" -> "UTF-8"
+            mime.startsWith("text/") || mime == "text/javascript" -> "UTF-8"
             else -> null
         }
         return if (charset != null) "$mime; charset=$charset" else mime

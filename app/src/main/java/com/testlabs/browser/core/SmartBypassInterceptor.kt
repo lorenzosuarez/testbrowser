@@ -17,6 +17,7 @@ public object SmartBypassInterceptor {
         val method = request.method
         val url = request.url.toString()
         val feat = decision.fingerprint
+        val isDocument = decision.reason == "document"
         return when (decision.route) {
             SmartBypass.Route.BYPASS -> {
                 val msg = if (isServiceWorker) {
@@ -29,9 +30,9 @@ public object SmartBypassInterceptor {
             }
             SmartBypass.Route.PROXY -> {
                 val msg = if (isServiceWorker) {
-                    SmartBypassEvents.swIntercept(method, url, feat)
+                    SmartBypassEvents.swIntercept(method, url, feat, isDocument)
                 } else {
-                    SmartBypassEvents.intercept(method, url, feat)
+                    SmartBypassEvents.intercept(method, url, feat, isDocument)
                 }
                 Log.d("SmartBypass", msg)
                 fetcher()

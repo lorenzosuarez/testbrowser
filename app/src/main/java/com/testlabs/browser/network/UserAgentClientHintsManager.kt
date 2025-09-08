@@ -52,17 +52,26 @@ public class UserAgentClientHintsManager(
                 "\"Chromium\";v=\"${chromeFullVersion()}\""
 
     /**
-     * Returns the Android platform version (major) quoted.
-     *
-     * Example: `"14"`
+     * Returns the primary Chrome full version quoted.
      */
-    public fun secChUaPlatformVersion(): String = "\"${versionProvider.androidVersion()}\""
+    public fun secChUaFullVersion(): String = "\"${chromeFullVersion()}\""
+
+    /**
+     * Returns the Android platform version triple quoted.
+     *
+     * Example: `"16.0.0"`
+     */
+    public fun secChUaPlatformVersion(): String {
+        val raw = versionProvider.androidVersion()
+        val triple = if (raw.contains('.')) raw else "$raw.0.0"
+        return "\"$triple\""
+    }
 
     /**
      * Returns a complete UA-CH header map suitable for request injection.
      *
      * Includes: `sec-ch-ua`, `sec-ch-ua-mobile`, `sec-ch-ua-platform`,
-     * `sec-ch-ua-full-version-list`, and `sec-ch-ua-platform-version`.
+     * `sec-ch-ua-full-version`, `sec-ch-ua-full-version-list`, and `sec-ch-ua-platform-version`.
      */
     public fun asMap(isMobile: Boolean = true): Map<String, String> =
         if (!enabled) {
@@ -72,6 +81,7 @@ public class UserAgentClientHintsManager(
                 "sec-ch-ua" to secChUa(),
                 "sec-ch-ua-mobile" to secChUaMobile(isMobile),
                 "sec-ch-ua-platform" to secChUaPlatform(),
+                "sec-ch-ua-full-version" to secChUaFullVersion(),
                 "sec-ch-ua-full-version-list" to secChUaFullVersionList(),
                 "sec-ch-ua-platform-version" to secChUaPlatformVersion()
             )
