@@ -1,3 +1,8 @@
+/**
+ * Author: Lorenzo Suarez
+ * Date: 09/08/2025
+ */
+
 package com.testlabs.browser.ui.browser.components
 
 import androidx.compose.foundation.layout.Arrangement

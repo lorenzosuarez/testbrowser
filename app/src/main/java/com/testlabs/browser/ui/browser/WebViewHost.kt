@@ -1,6 +1,6 @@
 /**
  * Author: Lorenzo Suarez
- * Date: 09/06/2025
+ * Date: 09/08/2025
  */
 package com.testlabs.browser.ui.browser
 
@@ -65,15 +65,15 @@ public fun WebViewHost(
             val wv = WebView(ctx)
             webViewRef = wv
 
-            // Apply basic configuration
+            
             WebViewConfigurer.setupDefaults(wv)
             RequestedWithHeaderManager.applyPolicy(wv, config)
 
-            // Create controller
+            
             val controller = RealWebViewController(wv, networkProxy, config)
             controllerRef = controller
 
-            // Apply full configuration
+            
             WebViewSetupManager.applyFullConfiguration(
                 webView = wv,
                 config = config,
