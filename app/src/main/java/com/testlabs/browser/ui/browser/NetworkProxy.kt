@@ -10,6 +10,7 @@ import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import com.testlabs.browser.domain.settings.AcceptLanguageMode
 import com.testlabs.browser.domain.settings.EngineMode
 import com.testlabs.browser.domain.settings.WebViewConfig
 import com.testlabs.browser.network.ChromeHeaderSanitizer
@@ -18,6 +19,7 @@ import com.testlabs.browser.network.CronetHttpStack
 import com.testlabs.browser.network.OkHttpStack
 import com.testlabs.browser.network.ProxyRequest
 import com.testlabs.browser.network.UserAgentClientHintsManager
+import com.testlabs.browser.ui.browser.utils.DeviceLanguageUtils
 import kotlinx.coroutines.runBlocking
 import org.brotli.dec.BrotliInputStream
 import java.io.ByteArrayInputStream
@@ -28,12 +30,7 @@ import java.util.zip.InflaterInputStream
 
 public interface NetworkProxy {
     public val stackName: String
-    public fun interceptRequest(
-        request: WebResourceRequest,
-        userAgent: String,
-        acceptLanguage: String,
-        proxyEnabled: Boolean
-    ): WebResourceResponse?
+    public fun fetchStaticGet(request: WebResourceRequest): WebResourceResponse?
 }
 
 public class DefaultNetworkProxy(
@@ -57,29 +54,24 @@ public class DefaultNetworkProxy(
         OkHttpStack(uaProvider, chManager)
     }
 
+    private val userAgent: String =
+        config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
+    private val acceptLanguage: String = when (config.acceptLanguageMode) {
+        AcceptLanguageMode.Baseline -> config.acceptLanguages
+        AcceptLanguageMode.DeviceList -> DeviceLanguageUtils.buildDeviceAcceptLanguage()
+    }
+
     override val stackName: String = httpStack.name
 
-    override fun interceptRequest(
-        request: WebResourceRequest,
-        userAgent: String,
-        acceptLanguage: String,
-        proxyEnabled: Boolean
-    ): WebResourceResponse? {
-        if (!proxyEnabled) {
-            Log.d(TAG, "MISS (proxy disabled)  main=${request.isForMainFrame}  ${request.method} ${request.url}")
-            return null
-        }
-
-        val executor = { executeProxyRequest(request, userAgent, acceptLanguage) }
-
-        return NetworkProxySmartBypass.intercept(request, executor)
+    override fun fetchStaticGet(request: WebResourceRequest): WebResourceResponse? {
+        val method = request.method.uppercase(Locale.US)
+        if (method != "GET" && method != "HEAD") return null
+        return executeProxyRequest(request)
     }
 
     /** Executes the HTTP stack for this request with Chrome-like header normalization. */
     private fun executeProxyRequest(
         request: WebResourceRequest,
-        userAgent: String,
-        acceptLanguage: String
     ): WebResourceResponse? {
         val url = request.url.toString()
         val isMain = request.isForMainFrame
@@ -107,8 +99,10 @@ public class DefaultNetworkProxy(
             return null
         }
 
+        val respHeaders = ChromeHeaderSanitizer.sanitizeIncoming(resp.headers)
+
         try {
-            resp.headers["Set-Cookie"]?.forEach { value ->
+            respHeaders["Set-Cookie"]?.forEach { value ->
                 val lines = value.split("\r\n", "\n").filter { it.isNotBlank() }
                 if (lines.isEmpty()) cookieManager.setCookie(url, value)
                 else lines.forEach { cookieManager.setCookie(url, it) }
@@ -116,12 +110,12 @@ public class DefaultNetworkProxy(
             runCatching { cookieManager.flush() }
         } catch (_: Throwable) {}
 
-        val rawCt = firstHeader(resp.headers, "Content-Type")
+        val rawCt = firstHeader(respHeaders, "Content-Type")
         val guessedCt = rawCt ?: pickContentTypeByUrl(url)
         val (mime0, charset0) = splitMimeAndCharset(guessedCt)
         val textual = isTextualMime(mime0)
 
-        val encoding = firstHeader(resp.headers, "Content-Encoding")?.lowercase(Locale.US)
+        val encoding = firstHeader(respHeaders, "Content-Encoding")?.lowercase(Locale.US)
         val bodyBytes: ByteArray?
         val decoded: ByteArray?
         if (textual) {
@@ -133,7 +127,7 @@ public class DefaultNetworkProxy(
         }
 
         val dropEncoding = decoded != null
-        val headerMap = buildWebViewResponseHeaders(resp.headers, dropEncoding)
+        val headerMap = buildWebViewResponseHeaders(respHeaders, dropEncoding)
 
         val mime = mime0.ifBlank { "application/octet-stream" }
         val charset = charset0

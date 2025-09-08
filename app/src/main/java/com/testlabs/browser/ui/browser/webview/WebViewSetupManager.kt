@@ -25,6 +25,7 @@ import com.testlabs.browser.domain.settings.WebViewConfig
 import com.testlabs.browser.js.JsBridge
 import com.testlabs.browser.ui.browser.JsCompatScriptProvider
 import com.testlabs.browser.ui.browser.NetworkProxy
+import com.testlabs.browser.ui.browser.NetworkProxySmartBypass
 import com.testlabs.browser.ui.browser.UAProvider
 import com.testlabs.browser.ui.browser.utils.DeviceLanguageUtils
 import com.testlabs.browser.ui.browser.utils.JsScriptUtils
@@ -211,38 +212,9 @@ public object WebViewSetupManager {
     ) {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
             val controller = ServiceWorkerControllerCompat.getInstance()
-            val acceptLanguage = when (config.acceptLanguageMode) {
-                AcceptLanguageMode.Baseline -> config.acceptLanguages
-                AcceptLanguageMode.DeviceList -> DeviceLanguageUtils.buildDeviceAcceptLanguage()
-            }
-
-            val proxyEnabled = config.smartProxy
             controller.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
-                    val isMain = request.isForMainFrame
-                    val url = request.url.toString()
-                    val method = request.method
-                    val t0 = System.nanoTime()
-                    Log.d(TAG, "SW REQ  main=$isMain  $method $url")
-                    val uaNow = config.customUserAgent ?: uaProvider.userAgent(desktop = config.desktopMode)
-                    val resp = try {
-                        networkProxy.interceptRequest(
-                            request = request,
-                            userAgent = uaNow,
-                            acceptLanguage = acceptLanguage,
-                            proxyEnabled = proxyEnabled,
-                        )
-                    } catch (_: Throwable) { null }
-                    val dt = (System.nanoTime() - t0) / 1e6
-                    if (resp != null) {
-                        val code = try { resp.statusCode } catch (_: Throwable) { -1 }
-                        val mime = try { resp.mimeType } catch (_: Throwable) { null }
-                        val size = try { resp.data?.available() ?: -1 } catch (_: Throwable) { -1 }
-                        Log.d(TAG, "SW HIT  code=$code mime=$mime size~${size}B  (${dt}ms)  $method $url")
-                    } else {
-                        Log.d(TAG, "SW MISS (${dt}ms)  $method $url")
-                    }
-                    return resp
+                    return NetworkProxySmartBypass.intercept(networkProxy, request, isServiceWorker = true)
                 }
             })
         }

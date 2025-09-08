@@ -6,6 +6,7 @@
 package com.testlabs.browser.network
 
 import com.testlabs.browser.ui.browser.UAProvider
+import com.testlabs.browser.network.ChromeHeaderSanitizer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -48,7 +49,7 @@ public class OkHttpStack(
         val response = try { call.execute() } catch (e: IOException) { throw e }
         val status = response.code
         val reason = response.message.ifBlank { defaultReason(status) }
-        val headers = response.headers.toMultimap()
+        val headers = ChromeHeaderSanitizer.sanitizeIncoming(response.headers.toMultimap())
         val src: InputStream = response.body.byteStream()
         val wrapped = object : InputStream() {
             override fun read(): Int = src.read()
