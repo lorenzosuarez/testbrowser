@@ -12,19 +12,6 @@ import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.testlabs.browser.domain.settings.WebViewConfig
 
-/**
- * Política de X-Requested-With para WebView + Service Worker usando SOLO
- * las APIs disponibles en tu versión de AndroidX WebKit:
- *  - REQUESTED_WITH_HEADER_ALLOW_LIST
- *
- * Reglas:
- *  - Si la allow-list está soportada: setearla a vacío (ningún origen autorizado) para
- *    impedir que el WebView envíe X-Requested-With.
- *  - Si NO está soportada: loguear UNSUPPORTED (en ese caso debes sanitizar en el proxy
- *    y/o forzar que el documento principal vaya por proxy).
- *
- * IMPORTANTE: llamar a applyPolicy ANTES de cualquier loadUrl() y antes de registrar SW.
- */
 public object RequestedWithHeaderManager {
 
     private const val TAG = "RequestedWith"
