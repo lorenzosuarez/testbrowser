@@ -70,24 +70,17 @@ public object OkHttpClientProvider {
             .build()
     }
 
-    private fun uaParityInterceptor(uaCh: UserAgentClientHintsManager) = Interceptor { chain ->
+    private fun uaParityInterceptor(@Suppress("UNUSED_PARAMETER") uaCh: UserAgentClientHintsManager) = Interceptor { chain ->
         val original = chain.request()
         val builder = original.newBuilder()
 
-        
         original.headers.names()
             .filter { it.equals("x-requested-with", ignoreCase = true) }
             .forEach { builder.removeHeader(it) }
 
-        
-        listOf("sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform").forEach { h ->
-            original.headers.names()
-                .firstOrNull { it.equals(h, ignoreCase = true) }
-                ?.let { builder.removeHeader(it) }
-        }
-
-        
-        uaCh.asMap(isMobile = true).forEach { (k, v) -> builder.addHeader(k, v) }
+        original.headers.names()
+            .filter { it.startsWith("sec-ch-ua", ignoreCase = true) }
+            .forEach { builder.removeHeader(it) }
 
         chain.proceed(builder.build())
     }

@@ -160,32 +160,26 @@ public class DefaultNetworkProxy(
         val sanitized = incoming.toMutableMap()
         sanitized.keys.filter { it.equals("x-requested-with", true) }.toList()
             .forEach { sanitized.remove(it) }
-        sanitized.keys.filter { it.lowercase(Locale.US).startsWith("sec-ch-ua") }.toList()
+        sanitized.keys.filter { it.lowercase(Locale.US).startsWith("sec-ch-ua") }
+            .toList()
             .forEach { sanitized.remove(it) }
-        sanitized.keys.firstOrNull { it.equals("accept-encoding", true) }
-            ?.let { sanitized.remove(it) }
-        sanitized["Accept-Encoding"] = "identity"
-        sanitized.keys.filter { it.equals("range", true) || it.equals("if-range", true) }.toList()
+        sanitized.keys.filter { it.equals("range", true) || it.equals("if-range", true) }
+            .toList()
             .forEach { sanitized.remove(it) }
 
         val isMobile = ua.contains(" Mobile") && !ua.contains("X11;")
-        if (chManager.enabled) chManager.asMap(isMobile = isMobile)
-            .forEach { (k, v) -> sanitized[k] = v }
+        val ch = if (chManager.enabled) chManager.asMap(isMobile = isMobile).toMutableMap() else mutableMapOf()
 
         val platform = platformFromUA(ua)
-        sanitized["Sec-CH-UA-Platform"] = "\"$platform\""
-
         if (platform != "Android") {
-            listOf("sec-ch-ua-platform-version", "sec-ch-ua-model")
-                .mapNotNull { key -> sanitized.keys.firstOrNull { it.equals(key, true) } }
-                .forEach { sanitized.remove(it) }
-            val mobileKey = sanitized.keys.firstOrNull { it.equals("sec-ch-ua-mobile", true) }
-            if (mobileKey != null) sanitized[mobileKey] = "?0" else sanitized["Sec-CH-UA-Mobile"] =
-                "?0"
-        } else {
-            val mobileKey = sanitized.keys.firstOrNull { it.equals("sec-ch-ua-mobile", true) }
-            if (mobileKey != null) sanitized[mobileKey] = "?1" else sanitized["Sec-CH-UA-Mobile"] =
-                "?1"
+            ch["sec-ch-ua-platform"] = "\"$platform\""
+            ch.remove("sec-ch-ua-platform-version")
+            ch.remove("sec-ch-ua-model")
+        }
+
+        ch.forEach { (k, v) ->
+            sanitized.keys.firstOrNull { it.equals(k, true) }?.let { sanitized.remove(it) }
+            sanitized[k] = v
         }
 
         return sanitized
