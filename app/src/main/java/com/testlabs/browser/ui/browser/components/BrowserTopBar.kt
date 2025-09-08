@@ -191,7 +191,7 @@ private fun BrowserTopBarPreview() {
     TestBrowserTheme {
         val focus = remember { FocusRequester() }
         BrowserTopBar(
-            url = "browserscan.net",
+            url = "example.com",
             onUrlChanged = {},
             onSubmit = {},
             onMenuClick = {},

@@ -25,6 +25,7 @@ import com.testlabs.browser.ui.browser.webview.RequestedWithHeaderManager
 import com.testlabs.browser.ui.browser.webview.WebViewConfigurer
 import com.testlabs.browser.ui.browser.webview.WebViewLifecycleManager
 import com.testlabs.browser.ui.browser.webview.WebViewSetupManager
+import com.testlabs.browser.settings.DeveloperSettings
 import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 import java.util.concurrent.atomic.AtomicReference
@@ -52,6 +53,7 @@ public fun WebViewHost(
     val koin = getKoin()
     val networkProxy: NetworkProxy =
         remember(config) { koin.get(parameters = { parametersOf(config) }) }
+    val developerSettings: DeveloperSettings = koin.get()
 
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var progress by remember { mutableIntStateOf(0) }
@@ -78,6 +80,7 @@ public fun WebViewHost(
                 uaProvider = uaProvider,
                 jsCompat = jsCompat,
                 networkProxy = networkProxy,
+                developerSettings = developerSettings,
                 onTitle = { title -> onTitleChanged(title ?: "") },
                 onProgress = { p ->
                     progress = p
@@ -104,6 +107,7 @@ public fun WebViewHost(
                 uaProvider = uaProvider,
                 jsCompat = jsCompat,
                 networkProxy = networkProxy,
+                developerSettings = developerSettings,
                 onTitle = { title -> onTitleChanged(title ?: "") },
                 onProgress = { p ->
                     progress = p

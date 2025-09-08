@@ -13,44 +13,106 @@ public object SmartBypass {
 
     public enum class Route { BYPASS, PROXY }
 
-    public data class Decision(val route: Route, val reason: String)
+    public data class Decision(val route: Route, val reason: String, val fingerprint: String? = null)
 
-    private val staticExt = setOf(
-        ".js", ".mjs", ".css", ".png", ".jpg", ".webp", ".gif", ".svg",
+    private val STATIC_WHITELIST = setOf(
+        ".js", ".mjs", ".css", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg",
         ".ico", ".woff", ".woff2", ".ttf", ".otf", ".map"
     )
 
+    private val API_KEYWORDS = setOf(
+        "api", "config", "graphql", "token", "auth", "v1", "v2",
+        "ip", "status", "probe", "check", "report", "metrics"
+    )
+
     @JvmStatic
-    public fun decide(request: WebResourceRequest): Decision {
+    public fun decide(
+        request: WebResourceRequest,
+        proxyMainDocument: Boolean,
+        debugFeatures: Boolean,
+    ): Decision {
         val uri = request.url
-        val scheme = uri.scheme?.lowercase(Locale.US)
-        if (scheme != "http" && scheme != "https") {
-            return Decision(Route.BYPASS, "non-http")
-        }
+        val headers = request.requestHeaders
 
         val method = request.method.uppercase(Locale.US)
+        val scheme = uri.scheme?.lowercase(Locale.US) ?: ""
+        val path = uri.path?.lowercase(Locale.US).orEmpty()
+        val lastSegment = path.substringAfterLast('/')
+        val extension = lastSegment.substringAfterLast('.', "").lowercase(Locale.US)
+        val hasExt = extension.isNotEmpty()
+        val hasStaticExt = STATIC_WHITELIST.contains(".$extension")
+        val dest = headers["Sec-Fetch-Dest"]?.lowercase(Locale.US)
+        val accept = headers["Accept"]?.lowercase(Locale.US) ?: ""
+        val acceptsJson = accept.contains("application/json")
+        val acceptsText = accept.contains("text/plain")
+        val hasQuery = !uri.query.isNullOrEmpty()
+        val looksApiPath = API_KEYWORDS.any { path.contains(it) }
+
+        val fingerprint = if (debugFeatures) buildString {
+            append("feat[")
+            append("dest=")
+            append(dest ?: "-")
+            append(";ext=")
+            append(if (extension.isNotEmpty()) extension else "-")
+            append(";accept=json?")
+            append(if (acceptsJson) "1" else "0")
+            append(";apiPath=")
+            append(if (looksApiPath) "1" else "0")
+            append(";query=")
+            append(if (hasQuery) "1" else "0")
+            append("]")
+        } else null
+
+        if (scheme != "http" && scheme != "https") {
+            return Decision(Route.BYPASS, "non-http", fingerprint)
+        }
+
         if (method !in listOf("GET", "HEAD")) {
-            return Decision(Route.BYPASS, "non-idempotent")
+            return Decision(Route.BYPASS, "non-idempotent", fingerprint)
         }
 
         val origin = originOf(uri)
         if (isActive(origin)) {
-            return Decision(Route.BYPASS, "ttl")
+            return Decision(Route.BYPASS, "ttl", fingerprint)
         }
 
-        val host = uri.host?.lowercase(Locale.US).orEmpty()
-        val path = uri.path?.lowercase(Locale.US).orEmpty()
-        val hasExt = staticExt.any { path.endsWith(it) }
-        val headers = request.requestHeaders
-        val accept = headers["Accept"]?.lowercase(Locale.US) ?: ""
-        val apiHost = host.startsWith("api.") || host.contains("api-") || host.contains("ip-scan")
-        val apiPath = path.contains("/api/") || path.contains("/config/") || path.contains("/ip")
-        val apiAccept = accept.contains("application/json")
-        if (apiHost || apiPath || apiAccept || !hasExt) {
-            return Decision(Route.BYPASS, "api-get")
+        if (dest != null) {
+            return when (dest) {
+                "image", "style", "script", "font" -> Decision(Route.PROXY, "static-get", fingerprint)
+                "document" -> if (proxyMainDocument) {
+                    Decision(Route.PROXY, "document", fingerprint)
+                } else {
+                    Decision(Route.BYPASS, "document", fingerprint)
+                }
+                else -> Decision(Route.BYPASS, "api-like", fingerprint)
+            }
         }
 
-        return Decision(Route.PROXY, "static")
+        if (hasStaticExt) {
+            return Decision(Route.PROXY, "static-get", fingerprint)
+        }
+
+        if (acceptsJson || acceptsText) {
+            return Decision(Route.BYPASS, "api-like", fingerprint)
+        }
+
+        if (looksApiPath) {
+            return Decision(Route.BYPASS, "api-like", fingerprint)
+        }
+
+        if (!hasExt && hasQuery) {
+            return Decision(Route.BYPASS, "api-like", fingerprint)
+        }
+
+        return if (request.isForMainFrame) {
+            if (proxyMainDocument) {
+                Decision(Route.PROXY, "document", fingerprint)
+            } else {
+                Decision(Route.BYPASS, "document", fingerprint)
+            }
+        } else {
+            Decision(Route.BYPASS, "default", fingerprint)
+        }
     }
 
     @JvmStatic
