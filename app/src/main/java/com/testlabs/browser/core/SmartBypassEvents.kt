@@ -12,7 +12,6 @@ package com.testlabs.browser.core
 import android.net.Uri
 
 public object SmartBypassEvents {
-    private val httpTriggerCodes = setOf(400, 403, 405, 415, 421, 425, 429, 451, 497, 598, 599)
     private const val DEFAULT_TTL = 10 * 60_000L
 
     /**
@@ -30,7 +29,8 @@ public object SmartBypassEvents {
      */
     @JvmStatic
     public fun onMainFrameHttpError(url: Uri, statusCode: Int): Boolean {
-        if (statusCode !in httpTriggerCodes) return false
+        val should = statusCode >= 500 || statusCode == 429 || statusCode == 403
+        if (!should) return false
         val origin = SmartBypass.canonicalOrigin(url)
         SmartBypass.markBypass(origin, DEFAULT_TTL, "http$statusCode")
         return true

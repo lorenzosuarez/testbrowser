@@ -9,6 +9,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.testlabs.browser.js.JsBridge
 import com.testlabs.browser.core.SmartBypass
+import com.testlabs.browser.core.SmartBypassEvents
 import com.testlabs.browser.ui.browser.NetworkProxy
 import com.testlabs.browser.ui.browser.UAProvider
 import java.io.ByteArrayInputStream
@@ -23,12 +24,12 @@ public open class BrowserWebViewClient(
     private val proxyEnabled: Boolean = true
 ) : WebViewClient() {
 
+    private val TAG = "BWVClient"
     private val blockedHosts: Set<String> = setOf(
         "aa.online-metrix.net",
         "fp-cdn.online-metrix.net",
         "h.online-metrix.net"
     )
-    private val proxySchemes: Set<String> = setOf("http", "https")
     private var startScriptInstalled = false
     private var lastMainOrigin: String? = null
     private var lastMainWasProxied: Boolean = false
@@ -43,15 +44,12 @@ public open class BrowserWebViewClient(
     }
 
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest): WebResourceResponse? {
-        val scheme = request.url.scheme?.lowercase(Locale.US) ?: return null
-
         if (request.isForMainFrame) {
             lastMainOrigin = SmartBypass.canonicalOrigin(request.url)
             lastMainWasProxied = false
             retriedWithoutProxy = false
         }
 
-        if (scheme !in proxySchemes) return null
         if (!proxyEnabled) return null
 
         if (!request.isForMainFrame) {
@@ -86,11 +84,17 @@ public open class BrowserWebViewClient(
     ) {
         super.onReceivedError(view, request, error)
         if (!request.isForMainFrame) return
-        if (lastMainWasProxied && !retriedWithoutProxy) {
-            val origin = lastMainOrigin ?: SmartBypass.canonicalOrigin(request.url)
-            SmartBypass.markBypass(origin, 10 * 60_000L, "net")
+        if (!lastMainWasProxied) return
+
+        val shouldReload = SmartBypassEvents.onMainFrameNetworkError(request.url)
+        val origin = lastMainOrigin ?: SmartBypass.canonicalOrigin(request.url)
+        android.util.Log.d(TAG, "MARK_TTL origin=$origin cause=net")
+        if (shouldReload && !retriedWithoutProxy) {
             retriedWithoutProxy = true
+            android.util.Log.d(TAG, "RELOAD_ONCE no-proxy url=${request.url}")
             view.post { view.reload() }
+        } else if (shouldReload) {
+            android.util.Log.d(TAG, "SKIP_RELOAD already-done url=${request.url}")
         }
     }
 
@@ -102,11 +106,17 @@ public open class BrowserWebViewClient(
         super.onReceivedHttpError(view, request, errorResponse)
         if (!request.isForMainFrame) return
         val code = errorResponse.statusCode
-        if (lastMainWasProxied && !retriedWithoutProxy && (code >= 500 || code == 429 || code == 403)) {
-            val origin = lastMainOrigin ?: SmartBypass.canonicalOrigin(request.url)
-            SmartBypass.markBypass(origin, 10 * 60_000L, "http$code")
+        if (!lastMainWasProxied) return
+        val shouldReload = SmartBypassEvents.onMainFrameHttpError(request.url, code)
+        if (!shouldReload) return
+        val origin = lastMainOrigin ?: SmartBypass.canonicalOrigin(request.url)
+        android.util.Log.d(TAG, "MARK_TTL origin=$origin cause=http$code")
+        if (!retriedWithoutProxy) {
             retriedWithoutProxy = true
+            android.util.Log.d(TAG, "RELOAD_ONCE no-proxy url=${request.url}")
             view.post { view.reload() }
+        } else {
+            android.util.Log.d(TAG, "SKIP_RELOAD already-done url=${request.url}")
         }
     }
 

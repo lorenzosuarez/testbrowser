@@ -22,33 +22,34 @@ public object SmartBypass {
     private val expirations = ConcurrentHashMap<String, Long>()
 
     /**
-     * Returns true when the request should bypass the proxy.
-     * Cheap heuristics only; no network I/O.
+     * Returns a reason string when the request should bypass the proxy, or null when proxying is
+     * recommended. Cheap heuristics only; no network I/O.
      */
     @JvmStatic
-    public fun shouldBypass(request: WebResourceRequest): Boolean {
+    public fun bypassReason(request: WebResourceRequest): String? {
         val url = request.url
         val scheme = url.scheme?.lowercase(Locale.US)
-        if (scheme != "http" && scheme != "https") return true
+        if (scheme != "http" && scheme != "https") return "non-http"
 
-        if (request.isForMainFrame && !request.method.equals("GET", true)) return true
+        val method = request.method.uppercase(Locale.US)
+        if (method != "GET" && method != "HEAD") return "method-$method"
 
         val origin = canonicalOrigin(url)
         expirations[origin]?.let { exp ->
             val now = SystemClock.elapsedRealtime()
-            if (exp > now) return true else expirations.remove(origin)
+            return if (exp > now) "ttl-active" else { expirations.remove(origin); null }
         }
 
         val headers = request.requestHeaders
         headers.keys.firstOrNull { it.equals("Range", true) || it.equals("If-Range", true) }?.let {
-            return true
+            return "range"
         }
-        headers["Upgrade"]?.let { return true }
-        headers["Connection"]?.let { if (it.lowercase(Locale.US).contains("upgrade")) return true }
+        headers["Upgrade"]?.let { return "upgrade" }
+        headers["Connection"]?.let { if (it.lowercase(Locale.US).contains("upgrade")) return "upgrade" }
         headers.entries.firstOrNull { it.key.equals("Content-Length", true) }
-            ?.value?.toLongOrNull()?.let { if (it > MAX_UPLOAD_BYTES) return true }
+            ?.value?.toLongOrNull()?.let { if (it > MAX_UPLOAD_BYTES) return "large-upload" }
 
-        return false
+        return null
     }
 
     /**

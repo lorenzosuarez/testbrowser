@@ -8,8 +8,11 @@
  */
 package com.testlabs.browser.core
 
+import android.util.Log
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+
+private const val TAG = "SmartBypass"
 
 public object SmartBypassInterceptor {
     /**
@@ -21,7 +24,12 @@ public object SmartBypassInterceptor {
         request: WebResourceRequest,
         proceed: () -> WebResourceResponse?,
     ): WebResourceResponse? {
-        if (SmartBypass.shouldBypass(request)) return null
+        val reason = SmartBypass.bypassReason(request)
+        if (reason != null) {
+            Log.d(TAG, "BYPASS [$reason] main=${request.isForMainFrame} method=${request.method} ${request.url}")
+            return null
+        }
+        Log.d(TAG, "PROXY main=${request.isForMainFrame} method=${request.method} ${request.url}")
         val response = proceed() ?: return null
         val sanitized = response.responseHeaders
             ?.filterKeys { !it.equals("X-Proxy-Engine", ignoreCase = true) }
