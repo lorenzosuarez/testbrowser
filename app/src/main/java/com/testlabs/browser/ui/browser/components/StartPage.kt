@@ -107,25 +107,25 @@ internal fun StartPage(
                     RecommendedTarget(
                         title = stringResource(id = R.string.start_page_scan_title),
                         description = stringResource(id = R.string.start_page_scan_desc),
-                        url = "https://example.com/scan",
+                        url = "https://www.browserscan.net",
                         icon = Icons.Outlined.Search,
                     ),
                     RecommendedTarget(
                         title = stringResource(id = R.string.start_page_fingerprint_title),
                         description = stringResource(id = R.string.start_page_fingerprint_desc),
-                        url = "https://example.com/fingerprint",
+                        url = "https://fingerprintjs.github.io/fingerprintjs/",
                         icon = Icons.Outlined.Settings,
                     ),
                     RecommendedTarget(
                         title = stringResource(id = R.string.start_page_tls_title),
                         description = stringResource(id = R.string.start_page_tls_desc),
-                        url = "https://example.com/tls",
+                        url = "https://tls.peet.ws/api/all",
                         icon = Icons.Outlined.Lock,
                     ),
                     RecommendedTarget(
                         title = stringResource(id = R.string.start_page_headers_title),
                         description = stringResource(id = R.string.start_page_headers_desc),
-                        url = "https://example.com/headers",
+                        url = "https://httpbin.org/headers",
                         icon = Icons.Outlined.CheckCircle,
                     ),
                 )
