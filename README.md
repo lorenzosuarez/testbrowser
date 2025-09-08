@@ -77,7 +77,7 @@ A modern Android WebView browser focused on **Chrome fingerprint parity** with f
   <tr>
     <td><img src="https://github.com/user-attachments/assets/47111eb4-6ac7-45ab-b8af-18bab93744c6" width="270" alt="Start Page (light)"></td>
     <td><img src="https://github.com/user-attachments/assets/ed20f2ac-b84e-4b16-98ed-25facbff05db" width="270" alt="BrowserScan (light)"></td>
-    <td><img src="https://github.com/user-attachments/assets/03d9f351-e347-4045-8a20-7c3b56c6d6b3" width="270" alt="Advanced Settings (light)"></td>
+    <td><img src="https://github.com/user-attachments/assets/a17c7bc6-fa75-4faa-ad27-6826998fa15d" width="270" alt="Advanced Settings (light)"></td>
   </tr>
 </table>
 
@@ -91,7 +91,7 @@ A modern Android WebView browser focused on **Chrome fingerprint parity** with f
   <tr>
     <td><img src="https://github.com/user-attachments/assets/b57fa9b1-c900-4cb8-a42d-ab782be0fedc" width="270" alt="Start Page (dark)"></td>
     <td><img src="https://github.com/user-attachments/assets/cefb7552-be74-4bd8-86b4-2b74faa62515" width="270" alt="BrowserScan (dark)"></td>
-    <td><img src="https://github.com/user-attachments/assets/fac3462e-f8e9-46e4-a36d-a5bd14152095" width="270" alt="Advanced Settings (dark)"></td>
+    <td><img src="https://github.com/user-attachments/assets/30999cd7-8239-4030-bb17-3c1efa246fc2" width="270" alt="Advanced Settings (dark)"></td>
   </tr>
 </table>
 
