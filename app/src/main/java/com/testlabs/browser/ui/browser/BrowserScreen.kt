@@ -197,7 +197,7 @@ public fun BrowserScreen(
                 onCopyDiagnostics = {
                     val runtime = webController?.dumpSettings() ?: "{}"
                     val diagnostics =
-                        """{"userAgent":"$currentUserAgent","acceptLanguage":"${state.settingsDraft.acceptLanguages}","proxyStack":"$proxyStack","xRequestedWith":"$headerModeString","jsCompat":${state.settingsDraft.jsCompatibilityMode},"desktopMode":${state.settingsDraft.desktopMode},"thirdPartyCookies":${state.settingsDraft.enableThirdPartyCookies},"proxyEnabled":${state.settingsDraft.proxyEnabled},"proxyInterceptEnabled":${state.settingsDraft.proxyInterceptEnabled},"runtime":$runtime}"""
+                        """{"userAgent":"$currentUserAgent","acceptLanguage":"${state.settingsDraft.acceptLanguages}","proxyStack":"$proxyStack","xRequestedWith":"$headerModeString","jsCompat":${state.settingsDraft.jsCompatibilityMode},"desktopMode":${state.settingsDraft.desktopMode},"thirdPartyCookies":${state.settingsDraft.enableThirdPartyCookies},"smartProxy":${state.settingsDraft.smartProxy}, "runtime":$runtime}"""
                     scope.launch {
                         val clipData = ClipData.newPlainText("Diagnostics", diagnostics)
                         clipboard.setClipEntry(ClipEntry(clipData))

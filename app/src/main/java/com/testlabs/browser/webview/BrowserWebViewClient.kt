@@ -17,8 +17,7 @@ public open class BrowserWebViewClient(
     private val uaProvider: UAProvider,
     private val acceptLanguage: String,
     private val desktopMode: Boolean = false,
-    private val proxyInterceptEnabled: Boolean = false,
-    private val proxyMainFrameEnabled: Boolean = true
+    private val proxyEnabled: Boolean = true
 ) : WebViewClient() {
 
     private val blockedHosts: Set<String> = setOf(
@@ -40,12 +39,9 @@ public open class BrowserWebViewClient(
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest): WebResourceResponse? {
         val scheme = request.url.scheme?.lowercase(Locale.US) ?: return null
         if (scheme !in proxySchemes) return null
+        if (!proxyEnabled) return null
 
-        val isMain = request.isForMainFrame
-        val allow = if (isMain) proxyMainFrameEnabled else proxyInterceptEnabled
-        if (!allow) return null
-
-        if (!isMain) {
+        if (!request.isForMainFrame) {
             val host = request.url.host?.lowercase(Locale.US)
             if (host != null && host in blockedHosts) {
                 return WebResourceResponse(
@@ -56,12 +52,11 @@ public open class BrowserWebViewClient(
         }
 
         val ua = uaProvider.userAgent(desktop = desktopMode)
-
         return proxy.interceptRequest(
             request = request,
             userAgent = ua,
             acceptLanguage = acceptLanguage,
-            proxyEnabled = allow
+            proxyEnabled = proxyEnabled
         )
     }
 }

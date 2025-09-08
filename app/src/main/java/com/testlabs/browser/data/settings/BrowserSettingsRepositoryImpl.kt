@@ -68,12 +68,7 @@ public class BrowserSettingsRepositoryImpl(
             } ?: AcceptLanguageMode.Baseline,
             jsCompatibilityMode = preferences[PreferenceKeys.JS_COMPATIBILITY_MODE] ?: true,
             forceDarkMode = preferences[PreferenceKeys.FORCE_DARK_MODE] ?: false,
-
-            // 🔒 Sin 3 estados: ambos quedan derivados del smartProxy
-            proxyEnabled = smart,
-            proxyInterceptEnabled = smart,
             smartProxy = smart,
-
             requestedWithHeaderMode = preferences[PreferenceKeys.REQUESTED_WITH_HEADER_MODE]
                 ?.let { RequestedWithHeaderMode.valueOf(it) }
                 ?: RequestedWithHeaderMode.ELIMINATED,

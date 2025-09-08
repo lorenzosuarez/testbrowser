@@ -131,21 +131,9 @@ public fun BrowserSettingsDialog(
                         Text(text = "Network Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                         SettingRow(
-                            label = stringResource(id = R.string.settings_proxy_toggle),
-                            checked = tempConfig.proxyEnabled,
-                            onCheckedChange = { tempConfig = tempConfig.copy(proxyEnabled = it) }
-                        )
-
-                        SettingRow(
                             label = "Smart Proxy (dynamic bypass)",
                             checked = tempConfig.smartProxy,
                             onCheckedChange = { tempConfig = tempConfig.copy(smartProxy = it) }
-                        )
-
-                        SettingRow(
-                            label = "Intercept Subresource Requests",
-                            checked = tempConfig.proxyInterceptEnabled,
-                            onCheckedChange = { tempConfig = tempConfig.copy(proxyInterceptEnabled = it) }
                         )
 
                         Text(text = "Engine", style = MaterialTheme.typography.labelLarge)
