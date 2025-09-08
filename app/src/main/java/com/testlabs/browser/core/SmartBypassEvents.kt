@@ -12,25 +12,27 @@ package com.testlabs.browser.core
 import android.net.Uri
 
 public object SmartBypassEvents {
-    private val httpTriggerCodes = setOf(400, 403, 405, 415, 421, 425, 429, 451, 497, 598, 599)
+    private const val DEFAULT_TTL = 10 * 60_000L
 
     /**
-     * Records a transport-layer failure for the main frame and returns true if this is the first
-     * activation within TTL, which is suitable to trigger a single reload without proxy.
+     * Records a transport-layer failure for the main frame and schedules a bypass.
      */
     @JvmStatic
     public fun onMainFrameNetworkError(url: Uri): Boolean {
-        return SmartBypass.activate(url)
+        val origin = SmartBypass.canonicalOrigin(url)
+        SmartBypass.markBypass(origin, DEFAULT_TTL, "network")
+        return true
     }
 
     /**
      * Records an HTTP-layer failure for the main frame when the status code indicates proxy friction.
-     * Returns true if this is the first activation within TTL, which is suitable to trigger a single
-     * reload without proxy.
      */
     @JvmStatic
     public fun onMainFrameHttpError(url: Uri, statusCode: Int): Boolean {
-        if (statusCode !in httpTriggerCodes) return false
-        return SmartBypass.activate(url)
+        val should = statusCode >= 500 || statusCode == 429 || statusCode == 403
+        if (!should) return false
+        val origin = SmartBypass.canonicalOrigin(url)
+        SmartBypass.markBypass(origin, DEFAULT_TTL, "http$statusCode")
+        return true
     }
 }

@@ -70,15 +70,9 @@ public class DefaultNetworkProxy(
             return null
         }
 
-        val executor = {
-            executeProxyRequest(request, userAgent, acceptLanguage)
-        }
+        val executor = { executeProxyRequest(request, userAgent, acceptLanguage) }
 
-        return if (config.smartProxy) {
-            NetworkProxySmartBypass.intercept(request, executor)
-        } else {
-            executor()
-        }
+        return NetworkProxySmartBypass.intercept(request, executor)
     }
 
     /** Executes the HTTP stack for this request with Chrome-like header normalization. */
